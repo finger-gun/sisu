@@ -1,19 +1,28 @@
-import 'dotenv/config'
 import { Message } from './types/messages';
+import { getApiKey, getBaseUrl, getTimeoutMs, getChatPath } from './env';
+import type { ChatCompletion } from './types/chat';
+import { createHttpRequester } from './core/requester';
 
-export async function request(messages: Message[] = [], model = "openai/gpt-4o-mini"): Promise<object> {
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.API_KEY}`,
-      "HTTP-Referer": "https://github.com/finger-gun/sisu",
-      "X-Title": "sisu",
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      "model": model,
-      "messages": messages
-    })
+const requester = createHttpRequester({
+  baseUrl: getBaseUrl(),
+  timeoutMs: getTimeoutMs(),
+  defaultHeaders: () => ({
+    Authorization: `Bearer ${getApiKey()}`,
+    'HTTP-Referer': 'https://github.com/finger-gun/sisu',
+    'X-Title': 'sisu',
+  }),
+});
+
+export async function httpChat(
+  messages: Message[] = [],
+  model = 'openai/gpt-4o-mini'
+): Promise<ChatCompletion> {
+  return requester(getChatPath(), {
+    method: 'POST',
+    body: { model, messages },
   });
-  return await response.json();
 }
+
+// Back-compat: keep the original name that other modules/tests import
+export const request = httpChat;
+export { requester };

@@ -38,15 +38,28 @@ npm i @finger-gun/sisu
 ### Quick Start
 
 ```ts
-// Soon
+import { sisu } from '@finger-gun/sisu';
+
+const client = sisu({ model: 'openai/gpt-4o-mini', system: 'You are concise.' });
+const res = await client.request('Say hi');
+// res is the provider JSON by default; extract text as needed.
 ```
 
 ### Optional CLI
 
-If the package exposes a CLI:
+CLI:
 
 ```bash
-npx @finger-gun/sisu hello
+npx @finger-gun/sisu --chat="What is sisu?"
+
+# read prompt from stdin
+echo "Explain sisu in one line" | npx @finger-gun/sisu --stdin
+
+# print raw JSON response
+npx @finger-gun/sisu --chat="Hi" --json
+
+# pass a system prompt and disable auto-injection
+npx @finger-gun/sisu --chat="Hi" --system="Be terse" --no-inject-system
 ```
 
 > Need help? Open a GitHub Discussion or Issue with your scenario.
@@ -69,6 +82,24 @@ npm run lint && npm test
 npm run build
 # 5) Create a changeset for versioning
 npm run changeset
+```
+
+### Environment
+
+Provider-agnostic env vars (with sensible defaults):
+
+```bash
+# API key for your selected provider/gateway
+echo "AI_API_KEY=..." >> .env
+
+# Optional: override base URL (defaults to an OpenAI-compatible gateway)
+# echo "AI_BASE_URL=https://api.openai.com/v1" >> .env
+
+# Optional: request timeout in ms (default 30000)
+# echo "AI_TIMEOUT_MS=30000" >> .env
+
+# Optional: chat endpoint path (default '/chat/completions')
+# echo "AI_CHAT_PATH=/chat/completions" >> .env
 ```
 
 
