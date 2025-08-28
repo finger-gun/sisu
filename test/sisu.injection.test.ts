@@ -17,8 +17,9 @@ describe('system injection behavior', () => {
     const { wrapped, calls } = captureMessages(async () => ({ ok: true } as any));
     const client = sisu(config, wrapped);
     await client.request('Hello');
-    expect(calls[0][0].role).toBe('system');
-    expect(calls[0][0]).toMatchObject({ role: 'system', content: 'You are helpful.' });
+    const firstCall = calls[0]!;
+    expect(firstCall[0]!.role).toBe('system');
+    expect(firstCall[0]!).toMatchObject({ role: 'system', content: 'You are helpful.' });
   });
 
   it('does not inject system when opts.injectSystem=false', async () => {
@@ -26,7 +27,8 @@ describe('system injection behavior', () => {
     const { wrapped, calls } = captureMessages(async () => ({ ok: true } as any));
     const client = sisu(config, wrapped);
     await client.request('Hello', { injectSystem: false });
-    expect(calls[0][0].role).toBe('user');
+    const firstCall = calls[0]!;
+    expect(firstCall[0]!.role).toBe('user');
   });
 
   it('does not duplicate when first message is already system', async () => {
@@ -34,8 +36,8 @@ describe('system injection behavior', () => {
     const { wrapped, calls } = captureMessages(async () => ({ ok: true } as any));
     const client = sisu(config, wrapped);
     await client.request([{ role: 'system', content: 'Custom system' }, { role: 'user', content: 'Hi' }]);
-    expect(calls[0][0]).toMatchObject({ role: 'system', content: 'Custom system' });
-    expect(calls[0].filter(m => m.role === 'system').length).toBe(1);
+    const firstCall = calls[0]!;
+    expect(firstCall[0]!).toMatchObject({ role: 'system', content: 'Custom system' });
+    expect(firstCall.filter(m => m.role === 'system').length).toBe(1);
   });
 });
-
