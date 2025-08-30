@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/adapter-openai",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,6 +23,6 @@
     "build": "tsc -b"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "0.2.0"
+    "@sisu-ai/core": "0.2.1"
   }
 }
