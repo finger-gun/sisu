@@ -1,15 +1,7 @@
-```
-      _           
-  ___(_)___ _   _ 
- / __| / __| | | |
- \__ \ \__ \ |_| |
- |___/_|___/\__,_|         
-```
+![sisu](sisu-logo.png)
 > Grit‑powered agents. Quiet, determined, relentlessly useful.
 
-# Sisu — Agents That Mean It
-
-Sisu is a lightweight TypeScript framework for turning intent into action. Inspired by the Finnish idea of sisu—calm resolve under pressure—Sisu favors explicit tools, predictable plans, and built‑in guardrails. No ceremony, no mystery: compose, decide, do.
+**Sisu** is a lightweight TypeScript framework for turning intent into action. Inspired by the Finnish idea of sisu—calm resolve under pressure—Sisu favors explicit tools, predictable plans, and built‑in guardrails. No ceremony, no mystery: compose, decide, do.
 
 ## Why Sisu?
 - Everything is middleware: compose planning, tools, routing, safety like you compose Express/Koa apps.
