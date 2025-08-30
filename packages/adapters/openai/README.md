@@ -27,6 +27,34 @@ const model = openAIAdapter({ model: 'gpt-4o-mini' });
 const model = openAIAdapter({ model: 'gpt-4o-mini', baseUrl: 'https://openrouter.ai/api/' });
 ```
 
+## Images (Vision)
+- Supports OpenAI multi-part content arrays with `type: 'text' | 'image_url'`.
+- You can pass OpenAI-style `content` parts directly, or use convenience fields like `images`/`image_url`.
+
+OpenAI-style content parts:
+```ts
+const messages: any[] = [
+  { role: 'system', content: 'You are concise.' },
+  {
+    role: 'user',
+    content: [
+      { type: 'text', text: 'What is in this image?' },
+      { type: 'image_url', image_url: { url: 'https://example.com/pic.jpg' } },
+    ],
+  },
+];
+const res = await model.generate(messages, { toolChoice: 'none' });
+```
+
+Convenience shape (adapter builds parts under the hood):
+```ts
+const messages: any[] = [
+  { role: 'system', content: 'You are concise.' },
+  { role: 'user', content: 'Describe the image.', images: ['https://example.com/pic.jpg'] },
+];
+const res = await model.generate(messages, { toolChoice: 'none' });
+```
+
  
 
 ## Debugging

@@ -134,6 +134,10 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
   const model = openAIAdapter({ model: 'gpt-4o-mini' });
   // ctx.model = model
   ```
+ - Images
+   - Send multi-part content arrays with `type: 'text' | 'image_url'`
+   - Example user message: `[{ type: 'text', text: 'What is in this image?' }, { type: 'image_url', image_url: { url: 'https://…jpg' } }]`
+   - See `examples/openai-vision`
 
 ### Ollama (local)
 - Env
@@ -215,6 +219,10 @@ npm run dev -w examples/openai-hello -- "Say hello in one sentence." --trace --t
 # Weather tool (tools + control flow)
 cp examples/openai-weather/.env.example examples/openai-weather/.env
 npm run dev -w examples/openai-weather -- "Weather in Stockholm and plan a fika." --trace --trace-style=dark
+
+# Vision (image input)
+cp examples/openai-vision/.env.example examples/openai-vision/.env
+npm run dev -w examples/openai-vision -- --trace --trace-style=modern
 ```
 
 ## Publishing
