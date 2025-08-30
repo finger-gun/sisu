@@ -7,115 +7,90 @@
 ```
 > Grit-powered agents. Quiet, determined, and relentlessly useful.
 
-[![npm](https://img.shields.io/npm/v/@finger-gun/sisu.svg)](https://www.npmjs.com/package/@finger-gun/sisu)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+# Sisu
 
-Sisu is a lightweight TypeScript framework for turning **intent into action**. Inspired by the Finnish idea of *sisu*—calm resolve under pressure—Sisu favors **explicit tools**, **predictable plans**, and **built-in guardrails**. No ceremony, no mystery: compose, decide, do.
+Sisu is a lightweight TypeScript framework for turning intent into action. Inspired by the Finnish idea of sisu—calm resolve under pressure—Sisu favors explicit tools, predictable plans, and built‑in guardrails. No ceremony, no mystery: compose, decide, do.
 
----
+Everything is middleware. A tiny, composable TypeScript framework for LLM + tools agents.
 
 ## Features
+- Minimal core, maximal clarity — small surface, strong primitives
+- Typed tools — explicit contracts for inputs/outputs (safe by default)
+- Planner‑agnostic — swap ReAct, tree/graph search, rules, or your own
+- Deterministic modes — reproducible runs (timeouts, retries, budgets)
+- Observability — structured traces you can stream to your stack
 
-* **Minimal core, maximal clarity** — small surface, strong primitives
-* **Typed tools** — explicit contracts for inputs/outputs (safe by default)
-* **Planner-agnostic** — swap ReAct, tree/graph search, rules, or your own
-* **Deterministic modes** — reproducible runs (timeouts, retries, budgets)
-* **Observability** — structured traces you can stream to your stack
+## Monorepo Layout
+- `packages/core` — minimal contracts (`Ctx`, `Middleware`, `compose`, `Agent`, tools, memory, stream, logger)
+- `packages/adapters/openai` — OpenAI‑compatible Chat adapter (tools support, DEBUG_LLM)
+- `packages/adapters/ollama` — Ollama (local/offline) Chat adapter
+- `packages/middleware/*` — optional middlewares:
+  - `@sisu/mw-conversation-buffer` — input→message + windowed truncation
+  - `@sisu/mw-control-flow` — `sequence`, `branch`, `switchCase`, `loopWhile/loopUntil`, `parallel`, `graph`
+  - `@sisu/mw-error-boundary` — try/catch with fallback
+  - `@sisu/mw-react-parser` — ReAct fallback loop
+  - `@sisu/mw-register-tools` — bulk tool registration
+  - `@sisu/mw-tool-calling` — tools API loop with id‑anchored replies
+  - `@sisu/mw-usage-tracker` — token usage + cost estimation
+  - `@sisu/mw-trace-viewer` — JSON + HTML trace export (themes, templating)
+  - `@sisu/mw-invariants` — protocol checks (tool_calls ↔ tool replies)
+- `examples/hello-agent` — base‑minimum hello example
+- `examples/weather-tool` — tool‑calling demo with branching + loop
 
-
----
-
-## For the Public — Install & Get Started
-
-### Install (Node 18+)
-
+## Quick Start
 ```bash
-npm i @finger-gun/sisu
-# or: pnpm add @finger-gun/sisu
-# or: yarn add @finger-gun/sisu
+npm i
+npm run build -ws
+
+# Hello (minimal)
+cp examples/hello-agent/.env.example examples/hello-agent/.env
+# put your OPENAI_API_KEY into .env
+npm run dev -w examples/hello-agent -- "Say hello in one sentence." --trace --trace-style=modern
+
+# Weather tool (tools + control flow)
+cp examples/weather-tool/.env.example examples/weather-tool/.env
+npm run dev -w examples/weather-tool -- "Weather in Stockholm and plan a fika." --trace --trace-style=dark
 ```
 
-### Quick Start
+## Adapter — OpenAI (tools ready)
+- Env: `OPENAI_API_KEY` required; optional `DEBUG_LLM=1` to log redacted request/response summaries.
+- Tools: sends `tools` + `tool_choice` and parses `message.tool_calls`.
+- Subtleties handled:
+  - Assistant tool_calls messages use `content: null` when no text.
+  - Follow‑up call after tools disables further tools by default.
 
-```ts
-import { sisu } from '@finger-gun/sisu';
+## Middleware Highlights
+- `@sisu/mw-tool-calling`
+  - First turn: `toolChoice: 'auto'` with your registered tools.
+  - Executes each unique `(name,args)` once but responds to every `tool_call_id` (required by providers).
+  - Second turn: forces a pure completion (`toolChoice: 'none'`).
+- `@sisu/mw-usage-tracker`
+  - `.use(usageTracker({ 'openai:gpt-4o-mini': { inputPer1K: 0.15, outputPer1K: 0.6 }, '*': { inputPer1K: 0.15, outputPer1K: 0.6 } }, { logPerCall: true }))`
+  - Aggregates `promptTokens`, `completionTokens`, `totalTokens`; estimates `costUSD` if a price table is provided.
+- `@sisu/mw-trace-viewer`
+  - `.use(traceViewer({ style: 'dark' }))` or pass a custom `template(doc, style)` to render HTML your way.
+  - CLI/env: `--trace`, `--trace=run.json|run.html`, `--trace-style=light|dark|modern`, `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=dark`.
+- `@sisu/mw-invariants`
+  - `.use(toolCallInvariant({ strict: false }))` logs any missing tool responses; with `strict:true` throws to fail fast.
 
-const client = sisu({ model: 'openai/gpt-4o-mini', system: 'You are concise.' });
-const res = await client.request('Say hi');
-// res is the provider JSON by default; extract text as needed.
-```
+## Debugging Tips
+- Set `LOG_LEVEL=debug` to see control‑flow, tool loop, and invariant logs.
+- Set `DEBUG_LLM=1` to log redacted HTTP payloads from the OpenAI adapter when a call fails (status + body snippet).
+- The trace viewer writes `run.json` and `run.html` for quick scanning of messages and events.
 
-### Optional CLI
+## Control‑Flow Combinators
+- `@sisu/mw-control-flow`: `sequence`, `branch`, `switchCase`, `loopWhile/loopUntil`, `parallel`, `graph`
 
-CLI:
-
-```bash
-npx @finger-gun/sisu --chat="What is sisu?"
-
-# read prompt from stdin
-echo "Explain sisu in one line" | npx @finger-gun/sisu --stdin
-
-# print raw JSON response
-npx @finger-gun/sisu --chat="Hi" --json
-
-# pass a system prompt and disable auto-injection
-npx @finger-gun/sisu --chat="Hi" --system="Be terse" --no-inject-system
-```
-
-> Need help? Open a GitHub Discussion or Issue with your scenario.
-
----
-
-## For Developers — Contribute & Join
-
-We’re building Sisu in the open. If “calm, typed, predictable agent runtime” resonates, come help.
-
-### Quick Dev Setup
-
-```bash
-# 1) Fork + clone
-# 2) Install deps
-npm ci
-# 3) Run checks
-npm run lint && npm test
-# 4) Build
-npm run build
-# 5) Create a changeset for versioning
-npm run changeset
-```
-
-### Environment
-
-Provider-agnostic env vars (with sensible defaults):
-
-```bash
-# API key for your selected provider/gateway
-echo "AI_API_KEY=..." >> .env
-
-# Optional: override base URL (defaults to an OpenAI-compatible gateway)
-# echo "AI_BASE_URL=https://api.openai.com/v1" >> .env
-
-# Optional: request timeout in ms (default 30000)
-# echo "AI_TIMEOUT_MS=30000" >> .env
-
-# Optional: chat endpoint path (default '/chat/completions')
-# echo "AI_CHAT_PATH=/chat/completions" >> .env
-```
-
-
-### How to Join the Project
-
-* **Say hi:** open an issue titled `Join: <your-name>` with what you want to work on
-* **Org access:** request membership in the **finger-gun** org (we’ll invite if there’s a fit)
-
----
-
-## License
-
-[MIT](LICENSE)
-
----
-
-### A note on the name
-
-*Sisu* is about quiet resolve: start, persist, finish. The framework follows suit—small, sturdy pieces that do what they say on the tin.
+## Design Notes
+- Core stays small and stable; everything else is opt‑in middleware.
+- Protocol correctness is enforced by the tool‑calling loop and `@sisu/mw-invariants`.
+- The logging stack supports levels, redaction, and tracing without external services.
+## Adapter — Ollama (local)
+- Works with a local Ollama server (default `http://localhost:11434`).
+- No tools/function calling (capabilities.functionCall=false) — use for plain chat or custom pipelines.
+- Usage:
+  ```ts
+  import { ollamaAdapter } from '@sisu/adapter-ollama';
+  const model = ollamaAdapter({ model: 'llama3.1' });
+  // then set ctx.model = model in your app
+  ```

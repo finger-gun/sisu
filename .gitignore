@@ -1,6 +1,56 @@
-node_modules
-dist
-coverage
-.vscode
-.DS_Store
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Build outputs
+dist/
+build/
+out/
+packages/**/dist/
+examples/**/dist/
+
+# TypeScript
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Coverage / reports
+coverage/
+.nyc_output/
+
+# Env files
 .env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Caches
+.cache/
+.parcel-cache/
+.turbo/
+.npm/
+.pnpm-store/
+tmp/
+temp/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+Thumbs.db
+
+# Traces / artifacts
+trace*.json
+trace*.html
+**/trace.json
+**/trace.html
+traces/
+
+# Misc
+*.local
