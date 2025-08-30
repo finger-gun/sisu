@@ -8,11 +8,10 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sisu/core": "0.1.0",
-    "@sisu/adapter-ollama": "0.1.0",
-    "@sisu/mw-usage-tracker": "0.1.0",
-    "@sisu/mw-trace-viewer": "0.1.0",
+    "@sisu/core": "0.1.1",
+    "@sisu/adapter-ollama": "0.1.1",
+    "@sisu/mw-usage-tracker": "0.1.1",
+    "@sisu/mw-trace-viewer": "0.1.1",
     "dotenv": "^16.4.5"
   }
 }
-

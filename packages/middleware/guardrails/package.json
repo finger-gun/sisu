@@ -1,6 +1,6 @@
 {
   "name": "@sisu/mw-guardrails",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,6 +14,6 @@
     "build": "tsc -b"
   },
   "peerDependencies": {
-    "@sisu/core": "0.1.0"
+    "@sisu/core": "0.1.1"
   }
 }
