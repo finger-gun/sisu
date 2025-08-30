@@ -2,6 +2,14 @@
 
 Policy guardrails to short-circuit unsafe input.
 
+## Setup
+```bash
+npm i @sisu-ai/mw-guardrails
+```
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
+
 ## API
 - `withGuardrails(policy)` — calls `await policy(ctx.input)`; if it returns a string, responds with that assistant message and stops.
 

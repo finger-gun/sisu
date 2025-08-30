@@ -2,6 +2,14 @@
 
 Track token usage across your pipeline and estimate cost.
 
+## Setup
+```bash
+npm i @sisu-ai/mw-usage-tracker
+```
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
+
 ## Usage
 ```ts
 import { usageTracker } from '@sisu-ai/mw-usage-tracker';

@@ -3,8 +3,15 @@
 Ollama Chat adapter with native tools support.
 
 ## Setup
+```bash
+npm i @sisu-ai/adapter-ollama
+```
+
 - Start Ollama locally: `ollama serve`
 - Pull a tools-capable model: `ollama pull llama3.1:latest`
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
 
 ## Usage
 ```ts

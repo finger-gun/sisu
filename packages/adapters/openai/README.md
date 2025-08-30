@@ -3,8 +3,15 @@
 OpenAI‑compatible Chat adapter with tools support.
 
 ## Setup
+```bash
+npm i @sisu-ai/adapter-openai
+```
+
 - Env: `OPENAI_API_KEY` required.
 - Optional: `DEBUG_LLM=1` to log redacted request/response summaries on errors.
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
 
 ## Tools
 - Sends `tools` and `tool_choice` (or `function_call` compatibility when needed).
@@ -19,6 +26,8 @@ const model = openAIAdapter({ model: 'gpt-4o-mini' });
 // or with a gateway
 const model = openAIAdapter({ model: 'gpt-4o-mini', baseUrl: 'https://openrouter.ai/api/' });
 ```
+
+ 
 
 ## Debugging
 - `DEBUG_LLM=1` prints sanitized payloads and error bodies.

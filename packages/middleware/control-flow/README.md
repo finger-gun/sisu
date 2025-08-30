@@ -2,6 +2,14 @@
 
 Combinators for composing agent pipelines like functions.
 
+## Setup
+```bash
+npm i @sisu-ai/mw-control-flow
+```
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
+
 ## API
 - `sequence([a,b,c])` — run middlewares in order, then continue.
 - `branch(pred, onTrue, onFalse?)` — if/else routing.

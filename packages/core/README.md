@@ -2,6 +2,14 @@
 
 Core contracts and tiny utilities that everything else builds on.
 
+## Setup
+```bash
+npm i @sisu-ai/core
+```
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
+
 ## What it provides
 - Types and contracts
   - `Ctx` — the single context object that flows through your pipeline

@@ -2,6 +2,14 @@
 
 Lightweight ReAct-style tool loop.
 
+## Setup
+```bash
+npm i @sisu-ai/mw-react-parser
+```
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
+
 ## Behavior
 - Asks the model for a reply with tools disabled.
 - Parses `Action: <tool>` and `Action Input: <json or text>` from the assistant message.

@@ -2,6 +2,14 @@
 
 Safety checks for common protocol invariants.
 
+## Setup
+```bash
+npm i @sisu-ai/mw-invariants
+```
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
+
 ## toolCallInvariant
 ```ts
 import { toolCallInvariant } from '@sisu-ai/mw-invariants';

@@ -15,5 +15,14 @@
   },
   "peerDependencies": {
     "@sisu-ai/core": "0.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/middleware/register-tools"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
   }
 }

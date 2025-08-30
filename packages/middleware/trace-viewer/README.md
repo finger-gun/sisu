@@ -2,6 +2,14 @@
 
 Export run traces as JSON + HTML with one middleware.
 
+## Setup
+```bash
+npm i @sisu-ai/mw-trace-viewer
+```
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
+
 ## Usage
 ```ts
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
@@ -28,3 +36,4 @@ const app = new Agent()
 - `input`, `final` message text
 - Full `messages` array
 - `events` from the tracing logger (wraps `ctx.log` under the hood)
+ 

@@ -2,6 +2,14 @@
 
 Register a set of tools at the start of the pipeline.
 
+## Setup
+```bash
+npm i @sisu-ai/mw-register-tools
+```
+
+## Documentation
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
+
 ## API
 - `registerTools(tools: Tool[])` — calls `ctx.tools.register(tool)` for each item.
 
