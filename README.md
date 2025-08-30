@@ -21,19 +21,20 @@ Everything is middleware. A tiny, composable TypeScript framework for LLM + tool
 - Observability — structured traces you can stream to your stack
 
 ## Monorepo Layout
-- `packages/core` — minimal contracts (`Ctx`, `Middleware`, `compose`, `Agent`, tools, memory, stream, logger)
-- `packages/adapters/openai` — OpenAI‑compatible Chat adapter (tools support, DEBUG_LLM)
-- `packages/adapters/ollama` — Ollama (local/offline) Chat adapter
-- `packages/middleware/*` — optional middlewares:
-  - `@sisu/mw-conversation-buffer` — input→message + windowed truncation
-  - `@sisu/mw-control-flow` — `sequence`, `branch`, `switchCase`, `loopWhile/loopUntil`, `parallel`, `graph`
-  - `@sisu/mw-error-boundary` — try/catch with fallback
-  - `@sisu/mw-react-parser` — ReAct fallback loop
-  - `@sisu/mw-register-tools` — bulk tool registration
-  - `@sisu/mw-tool-calling` — tools API loop with id‑anchored replies
-  - `@sisu/mw-usage-tracker` — token usage + cost estimation
-  - `@sisu/mw-trace-viewer` — JSON + HTML trace export (themes, templating)
-  - `@sisu/mw-invariants` — protocol checks (tool_calls ↔ tool replies)
+- [packages/core](packages/core/README.md) — minimal contracts (`Ctx`, `Middleware`, `compose`, `Agent`, tools, memory, stream, logger)
+- [packages/adapters/openai](packages/adapters/openai/README.md) — OpenAI‑compatible Chat adapter (tools support, DEBUG_LLM)
+- [packages/adapters/ollama](packages/adapters/ollama/README.md) — Ollama (local/offline) Chat adapter
+- packages/middleware/* — optional middlewares:
+  - [@sisu/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md) — input→message + windowed truncation
+  - [@sisu/mw-control-flow](packages/middleware/control-flow/README.md) — `sequence`, `branch`, `switchCase`, `loopWhile/loopUntil`, `parallel`, `graph`
+  - [@sisu/mw-error-boundary](packages/middleware/error-boundary/README.md) — try/catch with fallback
+  - [@sisu/mw-react-parser](packages/middleware/react-parser/README.md) — ReAct fallback loop
+  - [@sisu/mw-register-tools](packages/middleware/register-tools/README.md) — bulk tool registration
+  - [@sisu/mw-tool-calling](packages/middleware/tool-calling/README.md) — tools API loop with id‑anchored replies
+  - [@sisu/mw-usage-tracker](packages/middleware/usage-tracker/README.md) — token usage + cost estimation
+  - [@sisu/mw-trace-viewer](packages/middleware/trace-viewer/README.md) — JSON + HTML trace export (themes, templating)
+  - [@sisu/mw-invariants](packages/middleware/invariants/README.md) — protocol checks (tool_calls ↔ tool replies)
+  - [@sisu/mw-guardrails](packages/middleware/guardrails/README.md) — policy guard
 - `examples/openai-hello` — base‑minimum hello example (OpenAI)
 - `examples/openai-weather` — tool‑calling demo with branching + loop (OpenAI)
 - `examples/openai-react` — ReAct-style tool use with OpenAI
@@ -93,9 +94,9 @@ npm run dev -w examples/openai-weather -- "Weather in Stockholm and plan a fika.
 - Core stays small and stable; everything else is opt‑in middleware.
 - Protocol correctness is enforced by the tool‑calling loop and `@sisu/mw-invariants`.
 - The logging stack supports levels, redaction, and tracing without external services.
-## Adapter — Ollama (local)
+-## Adapter — Ollama (local)
 - Works with a local Ollama server (default `http://localhost:11434`).
-- No tools/function calling (capabilities.functionCall=false) — use for plain chat or custom pipelines.
+- Native tools support — pass `GenerateOptions.tools` via the tool-calling middleware.
 - Usage:
   ```ts
   import { ollamaAdapter } from '@sisu/adapter-ollama';
