@@ -9,7 +9,8 @@ type OpenAIChatMessage = {
 export interface OpenAIAdapterOptions { model: string; apiKey?: string; baseUrl?: string; }
 export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
   const apiKey = opts.apiKey ?? process.env.OPENAI_API_KEY ?? '';
-  const baseUrl = (opts.baseUrl ?? 'https://api.openai.com').replace(/\/$/, '');
+  const envBase = process.env.OPENAI_BASE_URL || process.env.BASE_URL;
+  const baseUrl = (opts.baseUrl ?? envBase ?? 'https://api.openai.com').replace(/\/$/, '');
   if (!apiKey) throw new Error('[openAIAdapter] Missing OPENAI_API_KEY — set it in your environment or pass { apiKey }');
   const DEBUG = String(process.env.DEBUG_LLM || '').toLowerCase() === 'true' || process.env.DEBUG_LLM === '1';
   return {

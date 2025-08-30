@@ -34,8 +34,16 @@ Everything is middleware. A tiny, composable TypeScript framework for LLM + tool
   - `@sisu/mw-usage-tracker` — token usage + cost estimation
   - `@sisu/mw-trace-viewer` — JSON + HTML trace export (themes, templating)
   - `@sisu/mw-invariants` — protocol checks (tool_calls ↔ tool replies)
-- `examples/hello-agent` — base‑minimum hello example
-- `examples/weather-tool` — tool‑calling demo with branching + loop
+- `examples/openai-hello` — base‑minimum hello example (OpenAI)
+- `examples/openai-weather` — tool‑calling demo with branching + loop (OpenAI)
+- `examples/openai-react` — ReAct-style tool use with OpenAI
+- `examples/openai-guardrails` — guardrails + single turn
+- `examples/openai-control-flow` — intent router between chat and tooling
+- `examples/openai-branch` — route between playful vs practical response
+- `examples/openai-parallel` — fork two sub-tasks then merge
+- `examples/openai-graph` — small DAG: classify → (draft|chat) → polish
+- `examples/ollama-hello` — hello using Ollama locally
+- `examples/ollama-weather` — tool-calling with Ollama
 
 ## Quick Start
 ```bash
@@ -43,13 +51,13 @@ npm i
 npm run build -ws
 
 # Hello (minimal)
-cp examples/hello-agent/.env.example examples/hello-agent/.env
+cp examples/openai-hello/.env.example examples/openai-hello/.env
 # put your OPENAI_API_KEY into .env
-npm run dev -w examples/hello-agent -- "Say hello in one sentence." --trace --trace-style=modern
+npm run dev -w examples/openai-hello -- "Say hello in one sentence." --trace --trace-style=modern
 
 # Weather tool (tools + control flow)
-cp examples/weather-tool/.env.example examples/weather-tool/.env
-npm run dev -w examples/weather-tool -- "Weather in Stockholm and plan a fika." --trace --trace-style=dark
+cp examples/openai-weather/.env.example examples/openai-weather/.env
+npm run dev -w examples/openai-weather -- "Weather in Stockholm and plan a fika." --trace --trace-style=dark
 ```
 
 ## Adapter — OpenAI (tools ready)

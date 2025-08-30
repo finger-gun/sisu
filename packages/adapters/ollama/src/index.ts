@@ -9,7 +9,8 @@ export interface OllamaAdapterOptions {
 type OllamaChatMessage = { role: 'system'|'user'|'assistant'|'tool'; content?: string|null; name?: string; tool_call_id?: string; tool_calls?: any[] };
 
 export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
-  const baseUrl = (opts.baseUrl ?? 'http://localhost:11434').replace(/\/$/, '');
+  const envBase = process.env.OLLAMA_BASE_URL || process.env.BASE_URL;
+  const baseUrl = (opts.baseUrl ?? envBase ?? 'http://localhost:11434').replace(/\/$/, '');
   const modelName = `ollama:${opts.model}`;
 
   return {

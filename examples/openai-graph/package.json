@@ -1,0 +1,21 @@
+{
+  "name": "openai-graph",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sisu/core": "0.1.0",
+    "@sisu/adapter-openai": "0.1.0",
+    "@sisu/mw-control-flow": "0.1.0",
+    "@sisu/mw-conversation-buffer": "0.1.0",
+    "@sisu/mw-error-boundary": "0.1.0",
+    "@sisu/mw-trace-viewer": "0.1.0",
+    "@sisu/mw-usage-tracker": "0.1.0",
+    "dotenv": "^16.4.5"
+  }
+}
+

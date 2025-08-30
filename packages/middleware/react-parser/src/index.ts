@@ -16,7 +16,9 @@ export const reactToolLoop = (): Middleware => {
       try { args = JSON.parse(args); } catch {}
       ctx.log.debug?.('[react] invoking tool', { toolName, args });
       const result = await tool.handler(args, ctx);
-      ctx.messages.push({ role: 'tool', name: toolName, content: JSON.stringify(result) } as Message);
+      // ReAct pattern: feed tool output back as a user message (not provider-specific tool role)
+      const rendered = typeof result === 'string' ? result : JSON.stringify(result);
+      ctx.messages.push({ role: 'user', content: `Observation (${toolName}): ${rendered}` } as Message);
       const res2 = await ctx.model.generate(ctx.messages, { toolChoice: 'none', signal: ctx.signal }) as any;
       ctx.log.debug?.('[react] got assistant follow-up');
       ctx.messages.push(res2.message);

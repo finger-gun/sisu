@@ -1,5 +1,5 @@
 {
-  "name": "weather-tool",
+  "name": "openai-weather",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -9,17 +9,17 @@
   },
   "dependencies": {
     "@sisu/core": "0.1.0",
-    "@sisu/mw-invariants": "0.1.0",
-    "@sisu/mw-trace-viewer": "0.1.0",
+    "@sisu/adapter-openai": "0.1.0",
     "@sisu/mw-register-tools": "0.1.0",
     "@sisu/mw-conversation-buffer": "0.1.0",
     "@sisu/mw-error-boundary": "0.1.0",
-    "@sisu/mw-react-parser": "0.1.0",
     "@sisu/mw-tool-calling": "0.1.0",
-    "@sisu/mw-guardrails": "0.1.0",
     "@sisu/mw-control-flow": "0.1.0",
-    "@sisu/adapter-openai": "0.1.0",
+    "@sisu/mw-trace-viewer": "0.1.0",
+    "@sisu/mw-usage-tracker": "0.1.0",
+    "@sisu/mw-invariants": "0.1.0",
     "zod": "^3.23.8",
     "dotenv": "^16.4.5"
   }
 }
+

@@ -1,0 +1,56 @@
+import 'dotenv/config';
+import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu/core';
+import { openAIAdapter } from '@sisu/adapter-openai';
+import { registerTools } from '@sisu/mw-register-tools';
+import { inputToMessage, conversationBuffer } from '@sisu/mw-conversation-buffer';
+import { errorBoundary } from '@sisu/mw-error-boundary';
+import { toolCalling } from '@sisu/mw-tool-calling';
+import { switchCase, sequence, loopUntil } from '@sisu/mw-control-flow';
+import { traceViewer } from '@sisu/mw-trace-viewer';
+import { usageTracker } from '@sisu/mw-usage-tracker';
+import { toolCallInvariant } from '@sisu/mw-invariants';
+import { z } from 'zod';
+
+const weather = {
+  name: 'getWeather',
+  description: 'Get weather for a city (demo stub)',
+  schema: z.object({ city: z.string() }),
+  handler: async ({ city }: { city: string }) => ({ city, tempC: 20, summary: 'Partly cloudy (stub)' })
+};
+
+const model = openAIAdapter({ model: 'gpt-4o-mini' });
+
+const ctx: Ctx = {
+  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Weather in Stockholm and suggest a fika plan.',
+  messages: [{ role: 'system', content: 'Be helpful. Use tools when needed.' }],
+  model,
+  tools: new SimpleTools(),
+  memory: new InMemoryKV(),
+  stream: new NullStream(),
+  state: {},
+  signal: new AbortController().signal,
+  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
+};
+
+const intentClassifier = async (c: Ctx, next: () => Promise<void>) => { const q = (c.input ?? '').toLowerCase(); c.state.intent = /weather|forecast/.test(q) ? 'tooling' : 'chat'; await next(); };
+const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => { const wasTool = c.messages.at(-1)?.role === 'tool'; const turns = Number(c.state.turns ?? 0); c.state.moreTools = Boolean(wasTool && turns < 1); c.state.turns = turns + 1; await next(); };
+
+const toolingBody = sequence([ toolCalling, decideIfMoreTools ]);
+const toolingLoop = loopUntil((c) => !c.state.moreTools, toolingBody, { max: 6 });
+const chatPipeline = sequence([ async (c) => { const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal }); if (res?.message) c.messages.push(res.message); } ]);
+
+const app = new Agent()
+  .use(errorBoundary(async (err, ctx) => { ctx.log.error(err); ctx.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
+  .use(traceViewer({ style: 'light' }))
+  .use(usageTracker({ '*': { inputPer1K: 0.15, outputPer1K: 0.6 } }))
+  .use(registerTools([weather as any]))
+  .use(inputToMessage)
+  .use(conversationBuffer({ window: 12 }))
+  .use(intentClassifier)
+  .use(toolCallInvariant())
+  .use(switchCase((c) => String(c.state.intent), { tooling: toolingLoop, chat: chatPipeline }, chatPipeline));
+
+await app.handler()(ctx, async () => {});
+const final = ctx.messages.filter(m => m.role === 'assistant').pop();
+console.log('\nAssistant:\n', final?.content);
+
