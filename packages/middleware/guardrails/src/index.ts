@@ -1,4 +1,4 @@
-import type { Middleware } from '@sisu/core';
+import type { Middleware } from '@sisu-ai/core';
 export const withGuardrails = (policy: (msg: string) => Promise<string | null>): Middleware =>
   async (ctx, next) => {
     const violation = await policy(ctx.input ?? '');

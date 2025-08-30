@@ -1,4 +1,4 @@
-# @sisu/mw-control-flow
+# @sisu-ai/mw-control-flow
 
 Combinators for composing agent pipelines like functions.
 
@@ -13,7 +13,7 @@ Combinators for composing agent pipelines like functions.
 
 ## Usage
 ```ts
-import { sequence, branch, switchCase, loopUntil } from '@sisu/mw-control-flow';
+import { sequence, branch, switchCase, loopUntil } from '@sisu-ai/mw-control-flow';
 
 const decide = async (c, next) => { c.state.intent = c.input?.match(/tools/i) ? 'tool' : 'chat'; await next(); };
 const toolFlow = sequence([/* tool loop */]);

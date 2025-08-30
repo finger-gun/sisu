@@ -1,10 +1,10 @@
-# @sisu/mw-trace-viewer
+# @sisu-ai/mw-trace-viewer
 
 Export run traces as JSON + HTML with one middleware.
 
 ## Usage
 ```ts
-import { traceViewer } from '@sisu/mw-trace-viewer';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 
 const app = new Agent()
   .use(traceViewer({ style: 'dark' }))
@@ -28,4 +28,3 @@ const app = new Agent()
 - `input`, `final` message text
 - Full `messages` array
 - `events` from the tracing logger (wraps `ctx.log` under the hood)
-

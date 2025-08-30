@@ -1,4 +1,4 @@
-# @sisu/mw-conversation-buffer
+# @sisu-ai/mw-conversation-buffer
 
 Helpers for shaping basic conversation state.
 
@@ -8,7 +8,7 @@ Helpers for shaping basic conversation state.
 
 ## Usage
 ```ts
-import { inputToMessage, conversationBuffer } from '@sisu/mw-conversation-buffer';
+import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
 
 const app = new Agent()
   .use(inputToMessage)

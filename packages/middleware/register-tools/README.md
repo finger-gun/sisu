@@ -1,4 +1,4 @@
-# @sisu/mw-register-tools
+# @sisu-ai/mw-register-tools
 
 Register a set of tools at the start of the pipeline.
 
@@ -7,7 +7,7 @@ Register a set of tools at the start of the pipeline.
 
 ## Usage
 ```ts
-import { registerTools } from '@sisu/mw-register-tools';
+import { registerTools } from '@sisu-ai/mw-register-tools';
 
 const app = new Agent()
   .use(registerTools([myTool]));

@@ -1,12 +1,12 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu/core';
-import { openAIAdapter } from '@sisu/adapter-openai';
-import { registerTools } from '@sisu/mw-register-tools';
-import { reactToolLoop } from '@sisu/mw-react-parser';
-import { inputToMessage, conversationBuffer } from '@sisu/mw-conversation-buffer';
-import { errorBoundary } from '@sisu/mw-error-boundary';
-import { traceViewer } from '@sisu/mw-trace-viewer';
-import { usageTracker } from '@sisu/mw-usage-tracker';
+import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { registerTools } from '@sisu-ai/mw-register-tools';
+import { reactToolLoop } from '@sisu-ai/mw-react-parser';
+import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 import { z } from 'zod';
 
 // ReAct-style tooling: the model emits `Action:` and `Action Input:` which we parse.
@@ -43,4 +43,3 @@ const app = new Agent()
 await app.handler()(ctx);
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);
-

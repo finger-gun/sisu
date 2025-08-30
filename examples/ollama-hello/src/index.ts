@@ -1,8 +1,8 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu/core';
-import { usageTracker } from '@sisu/mw-usage-tracker';
-import { traceViewer } from '@sisu/mw-trace-viewer';
-import { ollamaAdapter } from '@sisu/adapter-ollama';
+import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { usageTracker } from '@sisu-ai/mw-usage-tracker';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
 
 // Minimal example with Ollama (local). Ensure ollama is running, and the model is pulled.
 // Example: ollama serve; ollama pull llama3.1:latest
@@ -34,4 +34,3 @@ const app = new Agent()
 await app.handler()(ctx);
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);
-

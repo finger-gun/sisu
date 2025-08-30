@@ -1,4 +1,4 @@
-# @sisu/mw-react-parser
+# @sisu-ai/mw-react-parser
 
 Lightweight ReAct-style tool loop.
 
@@ -10,7 +10,7 @@ Lightweight ReAct-style tool loop.
 
 ## Usage
 ```ts
-import { reactToolLoop } from '@sisu/mw-react-parser';
+import { reactToolLoop } from '@sisu-ai/mw-react-parser';
 
 const app = new Agent()
   .use(reactToolLoop());

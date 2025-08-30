@@ -1,5 +1,5 @@
 {
-  "name": "@sisu/mw-invariants",
+  "name": "@sisu-ai/mw-invariants",
   "version": "0.1.1",
   "type": "module",
   "main": "dist/index.js",
@@ -14,6 +14,6 @@
     "build": "tsc -b"
   },
   "peerDependencies": {
-    "@sisu/core": "0.1.1"
+    "@sisu-ai/core": "0.1.1"
   }
 }

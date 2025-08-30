@@ -1,11 +1,11 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu/core';
-import { openAIAdapter } from '@sisu/adapter-openai';
-import { withGuardrails } from '@sisu/mw-guardrails';
-import { inputToMessage } from '@sisu/mw-conversation-buffer';
-import { errorBoundary } from '@sisu/mw-error-boundary';
-import { traceViewer } from '@sisu/mw-trace-viewer';
-import { usageTracker } from '@sisu/mw-usage-tracker';
+import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { withGuardrails } from '@sisu-ai/mw-guardrails';
+import { inputToMessage } from '@sisu-ai/mw-conversation-buffer';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 
 const model = openAIAdapter({ model: 'gpt-4o-mini' });
 
@@ -36,4 +36,3 @@ const app = new Agent()
 await app.handler()(ctx);
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);
-

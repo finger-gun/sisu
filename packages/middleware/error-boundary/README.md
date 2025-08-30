@@ -1,4 +1,4 @@
-# @sisu/mw-error-boundary
+# @sisu-ai/mw-error-boundary
 
 Catch exceptions and render a fallback.
 
@@ -7,7 +7,7 @@ Catch exceptions and render a fallback.
 
 ## Usage
 ```ts
-import { errorBoundary } from '@sisu/mw-error-boundary';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 
 const app = new Agent()
   .use(errorBoundary(async (err, ctx) => {

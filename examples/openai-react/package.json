@@ -8,14 +8,14 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sisu/core": "0.1.1",
-    "@sisu/adapter-openai": "0.1.1",
-    "@sisu/mw-register-tools": "0.1.1",
-    "@sisu/mw-react-parser": "0.1.1",
-    "@sisu/mw-conversation-buffer": "0.1.1",
-    "@sisu/mw-error-boundary": "0.1.1",
-    "@sisu/mw-trace-viewer": "0.1.1",
-    "@sisu/mw-usage-tracker": "0.1.1",
+    "@sisu-ai/core": "0.1.1",
+    "@sisu-ai/adapter-openai": "0.1.1",
+    "@sisu-ai/mw-register-tools": "0.1.1",
+    "@sisu-ai/mw-react-parser": "0.1.1",
+    "@sisu-ai/mw-conversation-buffer": "0.1.1",
+    "@sisu-ai/mw-error-boundary": "0.1.1",
+    "@sisu-ai/mw-trace-viewer": "0.1.1",
+    "@sisu-ai/mw-usage-tracker": "0.1.1",
     "zod": "^3.23.8",
     "dotenv": "^16.4.5"
   }

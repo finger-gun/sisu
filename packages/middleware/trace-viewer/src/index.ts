@@ -1,5 +1,5 @@
-import type { Ctx, Middleware } from '@sisu/core';
-import { createTracingLogger } from '@sisu/core';
+import type { Ctx, Middleware } from '@sisu-ai/core';
+import { createTracingLogger } from '@sisu-ai/core';
 
 export type TraceStyle = 'light' | 'dark' | 'modern';
 

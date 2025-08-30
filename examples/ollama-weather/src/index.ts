@@ -1,15 +1,15 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, createRedactingLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu/core';
-import { usageTracker } from '@sisu/mw-usage-tracker';
-import { registerTools } from '@sisu/mw-register-tools';
-import { inputToMessage, conversationBuffer } from '@sisu/mw-conversation-buffer';
-import { errorBoundary } from '@sisu/mw-error-boundary';
-import { reactToolLoop } from '@sisu/mw-react-parser';
-import { toolCalling } from '@sisu/mw-tool-calling';
-import { switchCase, sequence, loopUntil } from '@sisu/mw-control-flow';
-import { traceViewer } from '@sisu/mw-trace-viewer';
-import { toolCallInvariant } from '@sisu/mw-invariants';
-import { ollamaAdapter } from '@sisu/adapter-ollama';
+import { Agent, createConsoleLogger, createRedactingLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { usageTracker } from '@sisu-ai/mw-usage-tracker';
+import { registerTools } from '@sisu-ai/mw-register-tools';
+import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
+import { reactToolLoop } from '@sisu-ai/mw-react-parser';
+import { toolCalling } from '@sisu-ai/mw-tool-calling';
+import { switchCase, sequence, loopUntil } from '@sisu-ai/mw-control-flow';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+import { toolCallInvariant } from '@sisu-ai/mw-invariants';
+import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
 import { z } from 'zod';
 
 const weather = {
@@ -65,4 +65,3 @@ const app = new Agent()
 await app.handler()(ctx, async () => {});
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);
-

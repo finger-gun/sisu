@@ -1,4 +1,4 @@
-# @sisu/adapter-openai
+# @sisu-ai/adapter-openai
 
 OpenAI‑compatible Chat adapter with tools support.
 
@@ -13,7 +13,7 @@ OpenAI‑compatible Chat adapter with tools support.
 
 ## Usage
 ```ts
-import { openAIAdapter } from '@sisu/adapter-openai';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
 const model = openAIAdapter({ model: 'gpt-4o-mini' });
 // or with a gateway
@@ -23,4 +23,3 @@ const model = openAIAdapter({ model: 'gpt-4o-mini', baseUrl: 'https://openrouter
 ## Debugging
 - `DEBUG_LLM=1` prints sanitized payloads and error bodies.
 - Combine with `LOG_LEVEL=debug` to see middleware events.
-

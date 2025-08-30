@@ -1,10 +1,10 @@
-# @sisu/mw-invariants
+# @sisu-ai/mw-invariants
 
 Safety checks for common protocol invariants.
 
 ## toolCallInvariant
 ```ts
-import { toolCallInvariant } from '@sisu/mw-invariants';
+import { toolCallInvariant } from '@sisu-ai/mw-invariants';
 
 const app = new Agent()
   .use(toolCallInvariant({ strict: false }))
@@ -14,4 +14,3 @@ Ensures that for every assistant message with `tool_calls`, there is a subsequen
 
 - Logs a warning listing missing `tool_call_id`s and message indexes.
 - With `{ strict: true }`, throws an Error to fail fast.
-

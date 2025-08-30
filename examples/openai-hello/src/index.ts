@@ -1,8 +1,8 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu/core';
-import { usageTracker } from '@sisu/mw-usage-tracker';
-import { openAIAdapter } from '@sisu/adapter-openai';
-import { traceViewer } from '@sisu/mw-trace-viewer';
+import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { usageTracker } from '@sisu-ai/mw-usage-tracker';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 
 const model = openAIAdapter({ model: 'gpt-4o-mini' });
 
@@ -31,4 +31,3 @@ const app = new Agent()
 await app.handler()(ctx);
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);
-

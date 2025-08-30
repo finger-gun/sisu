@@ -1,4 +1,4 @@
-import type { Middleware, Message } from '@sisu/core';
+import type { Middleware, Message } from '@sisu-ai/core';
 export const inputToMessage: Middleware = async (ctx, next) => {
   if (ctx.input) ctx.messages.push({ role: 'user', content: ctx.input });
   await next();

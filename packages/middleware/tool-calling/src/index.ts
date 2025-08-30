@@ -1,4 +1,4 @@
-import type { Middleware, Message } from '@sisu/core';
+import type { Middleware, Message } from '@sisu-ai/core';
 export const toolCalling: Middleware = async (ctx, next) => {
   await next();
   for (let i = 0; i < 6; i++) {

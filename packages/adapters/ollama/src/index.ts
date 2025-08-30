@@ -1,4 +1,4 @@
-import type { LLM, Message, ModelResponse, GenerateOptions, Tool } from '@sisu/core';
+import type { LLM, Message, ModelResponse, GenerateOptions, Tool } from '@sisu-ai/core';
 
 export interface OllamaAdapterOptions {
   model: string;

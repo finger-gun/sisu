@@ -1,4 +1,4 @@
-import type { Ctx, Middleware, ModelResponse } from '@sisu/core';
+import type { Ctx, Middleware, ModelResponse } from '@sisu-ai/core';
 
 export type PriceTable = Record<string, { inputPer1K: number; outputPer1K: number }>;
 

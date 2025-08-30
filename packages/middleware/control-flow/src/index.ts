@@ -1,4 +1,4 @@
-import { compose, type Ctx, type Middleware } from '@sisu/core';
+import { compose, type Ctx, type Middleware } from '@sisu-ai/core';
 
 type Pred<C extends Ctx = Ctx> = (ctx: C) => boolean | Promise<boolean>;
 

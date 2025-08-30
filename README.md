@@ -24,10 +24,10 @@ Turn intent into action with a clear, inspectable pipeline.
 **Install the packages used below:**
 ```bash
 npm i \
-  @sisu/core @sisu/adapter-openai \
-  @sisu/mw-register-tools @sisu/mw-conversation-buffer \
-  @sisu/mw-tool-calling @sisu/mw-control-flow \
-  @sisu/mw-trace-viewer @sisu/mw-error-boundary \
+  @sisu-ai/core @sisu-ai/adapter-openai \
+  @sisu-ai/mw-register-tools @sisu-ai/mw-conversation-buffer \
+  @sisu-ai/mw-tool-calling @sisu-ai/mw-control-flow \
+  @sisu-ai/mw-trace-viewer @sisu-ai/mw-error-boundary \
   zod dotenv
 ```
 
@@ -35,14 +35,14 @@ npm i \
 
 ```ts
 import 'dotenv/config';
-import { Agent, type Ctx, createConsoleLogger, InMemoryKV, NullStream, SimpleTools } from '@sisu/core';
-import { openAIAdapter } from '@sisu/adapter-openai';
-import { registerTools } from '@sisu/mw-register-tools';
-import { inputToMessage, conversationBuffer } from '@sisu/mw-conversation-buffer';
-import { toolCalling } from '@sisu/mw-tool-calling';
-import { switchCase, sequence, loopUntil } from '@sisu/mw-control-flow';
-import { traceViewer } from '@sisu/mw-trace-viewer';
-import { errorBoundary } from '@sisu/mw-error-boundary';
+import { Agent, type Ctx, createConsoleLogger, InMemoryKV, NullStream, SimpleTools } from '@sisu-ai/core';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { registerTools } from '@sisu-ai/mw-register-tools';
+import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
+import { toolCalling } from '@sisu-ai/mw-tool-calling';
+import { switchCase, sequence, loopUntil } from '@sisu-ai/mw-control-flow';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { z } from 'zod';
 
 const weather = {
@@ -114,16 +114,16 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 - [packages/core](packages/core/README.md)
 - Adapters: [OpenAI](packages/adapters/openai/README.md), [Ollama](packages/adapters/ollama/README.md)
 - Middlewares:
-  - [@sisu/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md)
-  - [@sisu/mw-control-flow](packages/middleware/control-flow/README.md)
-  - [@sisu/mw-error-boundary](packages/middleware/error-boundary/README.md)
-  - [@sisu/mw-react-parser](packages/middleware/react-parser/README.md)
-  - [@sisu/mw-register-tools](packages/middleware/register-tools/README.md)
-  - [@sisu/mw-tool-calling](packages/middleware/tool-calling/README.md)
-  - [@sisu/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
-  - [@sisu/mw-trace-viewer](packages/middleware/trace-viewer/README.md)
-  - [@sisu/mw-invariants](packages/middleware/invariants/README.md)
-  - [@sisu/mw-guardrails](packages/middleware/guardrails/README.md)
+  - [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md)
+  - [@sisu-ai/mw-control-flow](packages/middleware/control-flow/README.md)
+  - [@sisu-ai/mw-error-boundary](packages/middleware/error-boundary/README.md)
+  - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md)
+  - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md)
+  - [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md)
+  - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
+  - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md)
+  - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md)
+  - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md)
 
 ## Adapters
 
@@ -138,7 +138,7 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
   - Follow‑up completion disables tools by default
 - Usage
   ```ts
-  import { openAIAdapter } from '@sisu/adapter-openai';
+  import { openAIAdapter } from '@sisu-ai/adapter-openai';
   const model = openAIAdapter({ model: 'gpt-4o-mini' });
   // ctx.model = model
   ```
@@ -151,7 +151,7 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
   - Returns `message.tool_calls`; adapter preserves tool interactions in history
 - Usage
   ```ts
-  import { ollamaAdapter } from '@sisu/adapter-ollama';
+  import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
   const model = ollamaAdapter({ model: 'llama3.1' });
   // ctx.model = model
   ```
@@ -178,7 +178,7 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 
 ## Design Notes
 - Core stays small and stable; everything else is opt‑in middleware.
-- Protocol correctness is enforced by the tool‑calling loop and `@sisu/mw-invariants`.
+- Protocol correctness is enforced by the tool‑calling loop and `@sisu-ai/mw-invariants`.
 - The logging stack supports levels, redaction, and tracing without external services.
 
 
@@ -189,16 +189,16 @@ You are free to help out. Built an awesome middleware? Found a bug? Lets go!
 - [packages/adapters/openai](packages/adapters/openai/README.md) — OpenAI‑compatible Chat adapter (tools support, DEBUG_LLM)
 - [packages/adapters/ollama](packages/adapters/ollama/README.md) — Ollama (local/offline) Chat adapter
 - packages/middleware/* — optional middlewares:
-  - [@sisu/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md) — input→message + windowed truncation
-  - [@sisu/mw-control-flow](packages/middleware/control-flow/README.md) — `sequence`, `branch`, `switchCase`, `loopWhile/loopUntil`, `parallel`, `graph`
-  - [@sisu/mw-error-boundary](packages/middleware/error-boundary/README.md) — try/catch with fallback
-  - [@sisu/mw-react-parser](packages/middleware/react-parser/README.md) — ReAct fallback loop
-  - [@sisu/mw-register-tools](packages/middleware/register-tools/README.md) — bulk tool registration
-  - [@sisu/mw-tool-calling](packages/middleware/tool-calling/README.md) — tools API loop with id‑anchored replies
-  - [@sisu/mw-usage-tracker](packages/middleware/usage-tracker/README.md) — token usage + cost estimation
-  - [@sisu/mw-trace-viewer](packages/middleware/trace-viewer/README.md) — JSON + HTML trace export (themes, templating)
-  - [@sisu/mw-invariants](packages/middleware/invariants/README.md) — protocol checks (tool_calls ↔ tool replies)
-  - [@sisu/mw-guardrails](packages/middleware/guardrails/README.md) — policy guard
+  - [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md) — input→message + windowed truncation
+  - [@sisu-ai/mw-control-flow](packages/middleware/control-flow/README.md) — `sequence`, `branch`, `switchCase`, `loopWhile/loopUntil`, `parallel`, `graph`
+  - [@sisu-ai/mw-error-boundary](packages/middleware/error-boundary/README.md) — try/catch with fallback
+  - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md) — ReAct fallback loop
+  - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md) — bulk tool registration
+  - [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md) — tools API loop with id‑anchored replies
+  - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md) — token usage + cost estimation
+  - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md) — JSON + HTML trace export (themes, templating)
+  - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md) — protocol checks (tool_calls ↔ tool replies)
+  - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md) — policy guard
 - `examples/openai-hello` — base‑minimum hello example (OpenAI)
 - `examples/openai-weather` — tool‑calling demo with branching + loop (OpenAI)
 - `examples/openai-react` — ReAct-style tool use with OpenAI
@@ -230,7 +230,7 @@ We use Changesets to manage versioning and releases for each package.
 
 Prereqs
 - Ensure you are logged in to npm: `npm whoami` (or `npm login`)
-- Have publish rights for the `@sisu/*` scopes and 2FA if required
+- Have publish rights for the `@sisu-ai/*` scopes and 2FA if required
 
 Flow
 1) Create a changeset for your changes
@@ -255,4 +255,3 @@ Notes
 - Packages are configured with `publishConfig.access = public` and ship `dist/` only.
 - `.changeset/config.json` ignores `examples/*` when computing releases.
 - CI can run `npm run release` on the `main` branch if desired; Changesets supports automated publishing.
-

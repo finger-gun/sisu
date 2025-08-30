@@ -1,4 +1,4 @@
-# @sisu/core
+# @sisu-ai/core
 
 Core contracts and tiny utilities that everything else builds on.
 
@@ -23,8 +23,8 @@ Core contracts and tiny utilities that everything else builds on.
 ## Minimal example
 ```ts
 import 'dotenv/config';
-import { Agent, type Ctx, createConsoleLogger, InMemoryKV, NullStream, SimpleTools } from '@sisu/core';
-import { openAIAdapter } from '@sisu/adapter-openai';
+import { Agent, type Ctx, createConsoleLogger, InMemoryKV, NullStream, SimpleTools } from '@sisu-ai/core';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
 const model = openAIAdapter({ model: 'gpt-4o-mini' });
 
@@ -49,7 +49,7 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 ```
 
 ## LLM adapters
-Use any provider by implementing `LLM.generate(messages, opts)`, or use a ready adapter like `@sisu/adapter-openai` or `@sisu/adapter-ollama`. Adapters can return:
+Use any provider by implementing `LLM.generate(messages, opts)`, or use a ready adapter like `@sisu-ai/adapter-openai` or `@sisu-ai/adapter-ollama`. Adapters can return:
 - `Promise<ModelResponse>` for simple, non-streaming calls
 - `AsyncIterable<ModelEvent>` for token streaming (wire to `ctx.stream`)
 

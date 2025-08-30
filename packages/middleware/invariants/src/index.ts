@@ -1,4 +1,4 @@
-import type { Ctx, Middleware } from '@sisu/core';
+import type { Ctx, Middleware } from '@sisu-ai/core';
 
 export interface ToolCallInvariantOptions {
   strict?: boolean; // throw instead of warn
@@ -44,4 +44,3 @@ export function toolCallInvariant(opts: ToolCallInvariantOptions = {}): Middlewa
     }
   };
 }
-

@@ -1,4 +1,4 @@
-import type { Middleware, Message } from '@sisu/core';
+import type { Middleware, Message } from '@sisu-ai/core';
 export const reactToolLoop = (): Middleware => {
   return async (ctx, next) => {
     await next(); // upstream prep

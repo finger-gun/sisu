@@ -1,4 +1,4 @@
-# @sisu/adapter-ollama
+# @sisu-ai/adapter-ollama
 
 Ollama Chat adapter with native tools support.
 
@@ -8,12 +8,12 @@ Ollama Chat adapter with native tools support.
 
 ## Usage
 ```ts
-import { ollamaAdapter } from '@sisu/adapter-ollama';
+import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
 
 const model = ollamaAdapter({ model: 'llama3.1' });
 // or with custom base URL: { baseUrl: 'http://localhost:11435' }
 
-// Works with @sisu/mw-tool-calling — tools are passed via GenerateOptions.tools
+// Works with @sisu-ai/mw-tool-calling — tools are passed via GenerateOptions.tools
 ```
 
 ## Tools
@@ -24,4 +24,3 @@ const model = ollamaAdapter({ model: 'llama3.1' });
 ## Notes
 - Tool choice forcing is model-dependent; current loop asks for tools on first turn and plain completion on second.
 - Streaming can be added via Ollama's streaming API if desired.
-

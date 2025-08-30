@@ -1,14 +1,14 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu/core';
-import { openAIAdapter } from '@sisu/adapter-openai';
-import { registerTools } from '@sisu/mw-register-tools';
-import { inputToMessage, conversationBuffer } from '@sisu/mw-conversation-buffer';
-import { errorBoundary } from '@sisu/mw-error-boundary';
-import { toolCalling } from '@sisu/mw-tool-calling';
-import { switchCase, sequence, loopUntil } from '@sisu/mw-control-flow';
-import { traceViewer } from '@sisu/mw-trace-viewer';
-import { usageTracker } from '@sisu/mw-usage-tracker';
-import { toolCallInvariant } from '@sisu/mw-invariants';
+import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { registerTools } from '@sisu-ai/mw-register-tools';
+import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
+import { toolCalling } from '@sisu-ai/mw-tool-calling';
+import { switchCase, sequence, loopUntil } from '@sisu-ai/mw-control-flow';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+import { usageTracker } from '@sisu-ai/mw-usage-tracker';
+import { toolCallInvariant } from '@sisu-ai/mw-invariants';
 import { z } from 'zod';
 
 const weather = {
@@ -53,4 +53,3 @@ const app = new Agent()
 await app.handler()(ctx, async () => {});
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);
-

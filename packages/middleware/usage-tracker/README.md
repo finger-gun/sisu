@@ -1,10 +1,10 @@
-# @sisu/mw-usage-tracker
+# @sisu-ai/mw-usage-tracker
 
 Track token usage across your pipeline and estimate cost.
 
 ## Usage
 ```ts
-import { usageTracker } from '@sisu/mw-usage-tracker';
+import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 
 const app = new Agent()
   .use(usageTracker({
@@ -22,4 +22,3 @@ const app = new Agent()
 ## Notes
 - Each adapter should map its native usage fields to `ModelResponse.usage`.
 - If a provider doesn’t return usage, you’ll get counts of calls only (no cost).
-

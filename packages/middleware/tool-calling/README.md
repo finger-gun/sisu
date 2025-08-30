@@ -1,4 +1,4 @@
-# @sisu/mw-tool-calling
+# @sisu-ai/mw-tool-calling
 
 Native tools API loop for providers that support tool calls.
 
@@ -11,7 +11,7 @@ Native tools API loop for providers that support tool calls.
 
 ## Usage
 ```ts
-import { toolCalling } from '@sisu/mw-tool-calling';
+import { toolCalling } from '@sisu-ai/mw-tool-calling';
 
 const app = new Agent()
   .use(toolCalling);

@@ -1,4 +1,4 @@
-# @sisu/mw-guardrails
+# @sisu-ai/mw-guardrails
 
 Policy guardrails to short-circuit unsafe input.
 
@@ -7,7 +7,7 @@ Policy guardrails to short-circuit unsafe input.
 
 ## Usage
 ```ts
-import { withGuardrails } from '@sisu/mw-guardrails';
+import { withGuardrails } from '@sisu-ai/mw-guardrails';
 
 const policy = async (text: string) => text.match(/password|apikey/i) ? 'I can\'t help with that.' : null;
 
