@@ -7,6 +7,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -b"
   },
@@ -14,4 +17,3 @@
     "@sisu/core": "0.1.0"
   }
 }
-

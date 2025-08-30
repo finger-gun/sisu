@@ -182,7 +182,9 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 - The logging stack supports levels, redaction, and tracing without external services.
 
 
-## Developer Guide (Monorepo)
+# Developers
+You are free to help out. Built an awesome middleware? Found a bug? Lets go!
+
 - [packages/core](packages/core/README.md) — minimal contracts (`Ctx`, `Middleware`, `compose`, `Agent`, tools, memory, stream, logger)
 - [packages/adapters/openai](packages/adapters/openai/README.md) — OpenAI‑compatible Chat adapter (tools support, DEBUG_LLM)
 - [packages/adapters/ollama](packages/adapters/ollama/README.md) — Ollama (local/offline) Chat adapter
@@ -222,3 +224,35 @@ npm run dev -w examples/openai-hello -- "Say hello in one sentence." --trace --t
 cp examples/openai-weather/.env.example examples/openai-weather/.env
 npm run dev -w examples/openai-weather -- "Weather in Stockholm and plan a fika." --trace --trace-style=dark
 ```
+
+## Publishing
+We use Changesets to manage versioning and releases for each package.
+
+Prereqs
+- Ensure you are logged in to npm: `npm whoami` (or `npm login`)
+- Have publish rights for the `@sisu/*` scopes and 2FA if required
+
+Flow
+1) Create a changeset for your changes
+```bash
+npm run changeset
+# pick packages, write a summary
+git add . && git commit -m "chore: changeset"
+```
+2) Version the packages (applies the changesets)
+```bash
+npm run version-packages
+git add . && git commit -m "chore: version packages"
+git push
+```
+3) Publish to npm
+```bash
+npm run release
+# If 2FA enabled, enter OTP when prompted
+```
+
+Notes
+- Packages are configured with `publishConfig.access = public` and ship `dist/` only.
+- `.changeset/config.json` ignores `examples/*` when computing releases.
+- CI can run `npm run release` on the `main` branch if desired; Changesets supports automated publishing.
+
