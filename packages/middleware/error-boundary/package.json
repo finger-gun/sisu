@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/mw-error-boundary",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,6 +14,6 @@
     "build": "tsc -b"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "0.1.1"
+    "@sisu-ai/core": "0.2.0"
   }
 }
