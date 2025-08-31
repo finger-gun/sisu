@@ -1,4 +1,5 @@
 import type { LLM, Message, ModelResponse, GenerateOptions, Tool } from '@sisu-ai/core';
+import { firstConfigValue } from '@sisu-ai/core';
 type OpenAIContentPart =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string } | string };
@@ -10,16 +11,18 @@ type OpenAIChatMessage = {
   tool_calls?: Array<{ id?: string; type: 'function'; function: { name: string; arguments: string } }>;
   tool_call_id?: string;
 };
-export interface OpenAIAdapterOptions { model: string; apiKey?: string; baseUrl?: string; }
+export interface OpenAIAdapterOptions { model: string; apiKey?: string; baseUrl?: string; responseModel?: string; }
 export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
-  const apiKey = opts.apiKey ?? process.env.OPENAI_API_KEY ?? '';
-  const envBase = process.env.OPENAI_BASE_URL || process.env.BASE_URL;
+  const apiKey = opts.apiKey ?? firstConfigValue(['OPENAI_API_KEY','API_KEY']) ?? '';
+  const envBase = firstConfigValue(['OPENAI_BASE_URL','BASE_URL']);
   const baseUrl = (opts.baseUrl ?? envBase ?? 'https://api.openai.com').replace(/\/$/, '');
-  if (!apiKey) throw new Error('[openAIAdapter] Missing OPENAI_API_KEY — set it in your environment or pass { apiKey }');
+  if (!apiKey) throw new Error('[openAIAdapter] Missing OPENAI_API_KEY or API_KEY — set it in your environment or pass { apiKey }');
   const DEBUG = String(process.env.DEBUG_LLM || '').toLowerCase() === 'true' || process.env.DEBUG_LLM === '1';
   return {
     name: 'openai:' + opts.model,
     capabilities: { functionCall: true, streaming: false },
+    // Non-standard metadata for tools that may target other OpenAI surfaces (e.g., Responses API)
+    ...(opts.responseModel ? { meta: { responseModel: opts.responseModel } } : {}),
     async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse> {
       const toolsParam = (genOpts?.tools ?? []).map(t => toOpenAiTool(t));
       const tool_choice = normalizeToolChoice(genOpts?.toolChoice);

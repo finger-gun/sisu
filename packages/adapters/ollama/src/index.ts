@@ -1,4 +1,5 @@
 import type { LLM, Message, ModelResponse, GenerateOptions, Tool } from '@sisu-ai/core';
+import { firstConfigValue } from '@sisu-ai/core';
 
 export interface OllamaAdapterOptions {
   model: string;
@@ -9,7 +10,7 @@ export interface OllamaAdapterOptions {
 type OllamaChatMessage = { role: 'system'|'user'|'assistant'|'tool'; content?: string|null; name?: string; tool_call_id?: string; tool_calls?: any[] };
 
 export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
-  const envBase = process.env.OLLAMA_BASE_URL || process.env.BASE_URL;
+  const envBase = firstConfigValue(['OLLAMA_BASE_URL','BASE_URL']);
   const baseUrl = (opts.baseUrl ?? envBase ?? 'http://localhost:11434').replace(/\/$/, '');
   const modelName = `ollama:${opts.model}`;
 

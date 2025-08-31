@@ -31,3 +31,4 @@ const model = ollamaAdapter({ model: 'llama3.1' });
 ## Notes
 - Tool choice forcing is model-dependent; current loop asks for tools on first turn and plain completion on second.
 - Streaming can be added via Ollama's streaming API if desired.
+ - Env: `OLLAMA_BASE_URL` or `BASE_URL` can override the base URL (or pass `baseUrl` in code). Examples may also support a CLI flag `--base-url` to override env.
