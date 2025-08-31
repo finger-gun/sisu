@@ -2,6 +2,7 @@
   "name": "sisu-agent-mw-monorepo",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "workspaces": [
     "packages/*",
     "packages/*/*",
@@ -16,7 +17,9 @@
     "@types/node": "^20.11.0",
     "zod": "^3.23.8",
     "dotenv": "^16.4.5",
-    "@changesets/cli": "^2.27.8"
+    "@changesets/cli": "^2.27.8",
+    "vitest": "^2.0.0",
+    "@vitest/coverage-v8": "^2.0.0"
   },
   "scripts": {
     "build": "npm run -ws build",
@@ -33,6 +36,9 @@
     "ex:openai:parallel": "TRACE_HTML=1 npm run dev -w examples/openai-parallel -- --trace --trace-style=modern -- \"Explain sisu in two sentences and provide 5 concise hashtags.\"",
     "ex:openai:graph": "TRACE_HTML=1 npm run dev -w examples/openai-graph -- --trace --trace-style=light -- \"Give me a short travel tip for Helsinki.\"",
     "ex:ollama:hello": "TRACE_HTML=1 npm run dev -w examples/ollama-hello -- --trace --trace-style=modern -- \"Say hello in one sentence.\"",
-    "ex:ollama:weather": "TRACE_HTML=1 npm run dev -w examples/ollama-weather -- --trace --trace-style=dark -- \"Weather in Stockholm and plan a fika.\""
+    "ex:ollama:weather": "TRACE_HTML=1 npm run dev -w examples/ollama-weather -- --trace --trace-style=dark -- \"Weather in Stockholm and plan a fika.\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   }
 }
