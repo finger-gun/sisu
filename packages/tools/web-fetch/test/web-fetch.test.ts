@@ -45,3 +45,21 @@ test('webFetch caps size and returns status/text on non-ok', async () => {
   expect(res.text).toMatch(/Not Found/);
 });
 
+test('htmlToText strips scripts/styles with sloppy closing tags and comments', async () => {
+  const html = `<!doctype html><html><head>
+  <script type="text/javascript">alert(1)</script foo="bar">
+  <style>.x{color:red}</style  >
+  <!-- comment -->Text<!-- another --!> after
+  <title>X</title></head><body><h1>Hello</h1></body></html>`;
+  vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    headers: { get: () => 'text/html' },
+    body: undefined,
+    text: async () => html,
+    url: 'https://example.com/x'
+  } as any);
+  const res: any = await webFetch.handler({ url: 'https://example.com/x' } as any, {} as any);
+  expect(res.text).not.toMatch(/alert\(1\)/);
+  expect(res.text).toContain('Hello');
+});

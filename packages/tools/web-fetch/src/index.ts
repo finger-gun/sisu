@@ -109,8 +109,12 @@ function extractTitle(html: string): string | undefined {
 }
 
 function htmlToText(html: string): string {
-  // Remove script/style
-  let s = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  // Remove script/style robustly: allow attributes and sloppy closing tags like </script foo="bar"> or </script >
+  let s = html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, ' ');
+  // Remove HTML comments, including non-standard end '--!>' browsers tolerate
+  s = s.replace(/<!--[\s\S]*?--!?>(\n)?/g, ' ');
   // Replace <br> and block tags with newlines
   s = s.replace(/<(br|BR)\s*\/?>(\n)?/g, '\n');
   s = s.replace(/<\/(p|div|section|article|h[1-6]|li|ul|ol|header|footer|main)>/gi, '\n');
