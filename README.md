@@ -9,6 +9,21 @@
 - Typed tools, explicit loops: tool calls and control flow are first‑class and deterministic.
 - Provider‑agnostic, adapter‑friendly: OpenAI, Ollama (local), or your own HTTP client.
 - Built‑in observability: structured logs, redaction, and an HTML trace viewer per run.
+<div align="center">
+
+<img src="html-trace-log.png" alt="Get feedback from your runs in HTML View" width="80%" style="margin-bottom: 0.5em;">
+
+**Visual Trace Viewer**  
+Get instant feedback on every run with a beautiful, interactive HTML trace. Inspect every message, tool call, and decision in detail.
+
+---
+
+<img src="cli-trace-logs.png" alt="Get feedback from your runs in your terminal" width="80%" style="margin-top: 1em;">
+
+**CLI Trace Logs**  
+Stay in flow with structured, color-coded logs right in your terminal. Perfect for rapid iteration and debugging.
+
+</div>
 
 ## 90‑Second Example
 Turn intent into action with a clear, inspectable pipeline.
