@@ -45,7 +45,7 @@ const merge = async (c: Ctx, forks: Ctx[]) => {
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
   .use(traceViewer({ style: 'modern' }))
-  .use(usageTracker({ '*': { inputPer1K: 0.15, outputPer1K: 0.6 } }))
+  .use(usageTracker({ '*': { inputPer1M: 0.15, outputPer1M: 0.60 } }))
   .use(inputToMessage)
   .use(parallel<Ctx>([summary, hashtags], merge));
 

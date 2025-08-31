@@ -55,6 +55,12 @@ const messages: any[] = [
 const res = await model.generate(messages, { toolChoice: 'none' });
 ```
 
+**Cost estimation:** With `@sisu-ai/mw-usage-tracker`, configure pricing per 1M tokens.   
+
+**Examples:**
+- gpt-4o-mini: inputPer1M ≈ 0.15, outputPer1M ≈ 0.60
+- Images: Prefer `imagePer1K` (e.g., ≈0.217 per 1K images). Alternatively, use `imageInputPer1K` + `imageTokenPerImage`.
+
  
 
 ## Debugging

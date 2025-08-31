@@ -42,7 +42,7 @@ const chatPipeline = sequence([ async (c) => { const res: any = await c.model.ge
 const app = new Agent()
   .use(errorBoundary(async (err, ctx) => { ctx.log.error(err); ctx.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
   .use(traceViewer({ style: 'light' }))
-  .use(usageTracker({ '*': { inputPer1K: 0.15, outputPer1K: 0.6 } }))
+  .use(usageTracker({ '*': { inputPer1M: 0.15, outputPer1M: 0.60 } }))
   .use(registerTools([weather as any]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 12 }))

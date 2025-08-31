@@ -223,6 +223,7 @@ npm run dev -w examples/openai-weather -- "Weather in Stockholm and plan a fika.
 # Vision (image input)
 cp examples/openai-vision/.env.example examples/openai-vision/.env
 npm run dev -w examples/openai-vision -- --trace --trace-style=modern
+# Tip: configure @sisu-ai/mw-usage-tracker with image pricing (e.g. imageInputPer1K)
 ```
 
 ## Publishing
