@@ -22,6 +22,7 @@ export default defineConfig({
         '**/dist/**',
         '**/examples/**',
         '**/*.d.ts',
+        'vitest.config.ts'
       ],
     },
   },

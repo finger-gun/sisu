@@ -120,13 +120,12 @@ function countImageInputs(msgs?: any[]): number {
   let count = 0;
   for (const m of msgs) {
     const c = (m as any)?.content;
-    if (!c) continue;
     if (Array.isArray(c)) {
       for (const part of c) {
         if (part && typeof part === 'object' && (part.type === 'image_url' || part.type === 'image')) count += 1;
       }
     }
-    // Convenience shapes supported by OpenAI adapter
+    // Convenience shapes supported by adapters (count regardless of content presence)
     if (Array.isArray((m as any)?.images)) count += (m as any).images.length;
     if (typeof (m as any)?.image_url === 'string') count += 1;
     if (typeof (m as any)?.image === 'string') count += 1;
