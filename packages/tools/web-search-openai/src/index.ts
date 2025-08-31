@@ -1,5 +1,4 @@
 import type { Tool } from '@sisu-ai/core';
-import { firstConfigValue } from '@sisu-ai/core';
 import { z } from 'zod';
 
 export interface OpenAIWebSearchArgs { query: string; }
@@ -13,12 +12,12 @@ export const openAIWebSearch: Tool<OpenAIWebSearchArgs> = {
     const st: any = (ctx?.state ?? {});
     const stOpenAI = (st.openai ?? {}) as any;
     const cliApiKey = stOpenAI.apiKey ?? st.apiKey;
-    const apiKey = cliApiKey || firstConfigValue(['OPENAI_API_KEY','API_KEY']);
+    const apiKey = cliApiKey || (process.env.OPENAI_API_KEY || process.env.API_KEY);
     if (!apiKey) throw new Error('Missing OPENAI_API_KEY or API_KEY');
 
     const cliRespBase = stOpenAI.responsesBaseUrl ?? st.responsesBaseUrl;
     const cliBase = stOpenAI.baseUrl ?? st.baseUrl;
-    const envBase = firstConfigValue(['OPENAI_RESPONSES_BASE_URL','OPENAI_BASE_URL','BASE_URL']);
+    const envBase = process.env.OPENAI_RESPONSES_BASE_URL || process.env.OPENAI_BASE_URL || process.env.BASE_URL;
     const baseUrl = ((cliRespBase || cliBase || envBase) ?? 'https://api.openai.com').replace(/\/$/, '');
     const fromMeta = (ctx?.model as any)?.meta?.responseModel || (ctx?.model as any)?.responseModel;
     const fromAdapterName = typeof ctx?.model?.name === 'string' && ctx.model.name.startsWith('openai:')
@@ -26,7 +25,7 @@ export const openAIWebSearch: Tool<OpenAIWebSearchArgs> = {
       : undefined;
     const cliRespModel = stOpenAI.responsesModel ?? st.responsesModel;
     const cliModel = stOpenAI.model ?? st.model;
-    let model = cliRespModel || cliModel || firstConfigValue(['OPENAI_RESPONSES_MODEL','OPENAI_MODEL']) || fromMeta || fromAdapterName || 'gpt-4.1-mini';
+    let model = cliRespModel || cliModel || process.env.OPENAI_RESPONSES_MODEL || process.env.OPENAI_MODEL || fromMeta || fromAdapterName || 'gpt-4.1-mini';
 
     const url = `${baseUrl}/v1/responses`;
     const body = {

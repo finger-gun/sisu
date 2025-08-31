@@ -20,7 +20,7 @@ CLI flags (example app)
 - `--openai-responses-model`, `--openai-model`
 
 Precedence
-1) CLI flags (when provided by your app in `ctx.state.openai`)
+1) CLI flags (when provided by your app in `ctx.state.openai`, or read by core helpers)
 2) Env vars
 3) Adapter hints/metadata (e.g., `openAIAdapter({ responseModel })` or adapter model name)
 4) Defaults
@@ -37,8 +37,6 @@ const model = openAIAdapter({ model: 'gpt-4o-mini' });
 const app = new Agent()
   .use(registerTools([openAIWebSearch]))
   .use(toolCalling);
-
-// The tool returns an array of results or the raw Responses payload
 ```
 
 Notes

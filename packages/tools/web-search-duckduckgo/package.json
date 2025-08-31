@@ -15,7 +15,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/finger-gun/sisu",
-    "directory": "packages/tool-web-search-duckduckgo"
+    "directory": "packages/tools/web-search-duckduckgo"
   },
   "homepage": "https://github.com/finger-gun/sisu#readme",
   "bugs": { "url": "https://github.com/finger-gun/sisu/issues" }
