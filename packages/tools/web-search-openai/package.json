@@ -1,16 +1,20 @@
 {
   "name": "@sisu-ai/tool-web-search-openai",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
-  "scripts": { "build": "tsc -b" },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
   "dependencies": {
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "0.2.1"
+    "@sisu-ai/core": "0.3.0"
   },
   "repository": {
     "type": "git",
@@ -18,5 +22,7 @@
     "directory": "packages/tools/web-search-openai"
   },
   "homepage": "https://github.com/finger-gun/sisu#readme",
-  "bugs": { "url": "https://github.com/finger-gun/sisu/issues" }
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  }
 }

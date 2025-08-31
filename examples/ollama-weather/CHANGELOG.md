@@ -1,5 +1,23 @@
 # ollama-weather
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [c598ef8]
+  - @sisu-ai/adapter-ollama@2.0.0
+  - @sisu-ai/core@0.3.0
+  - @sisu-ai/mw-control-flow@2.0.0
+  - @sisu-ai/mw-conversation-buffer@2.0.0
+  - @sisu-ai/mw-error-boundary@2.0.0
+  - @sisu-ai/mw-guardrails@2.0.0
+  - @sisu-ai/mw-invariants@2.0.0
+  - @sisu-ai/mw-react-parser@2.0.0
+  - @sisu-ai/mw-register-tools@2.0.0
+  - @sisu-ai/mw-tool-calling@2.0.0
+  - @sisu-ai/mw-trace-viewer@2.0.0
+  - @sisu-ai/mw-usage-tracker@2.0.0
+
 ## 0.1.2
 
 ### Patch Changes
