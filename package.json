@@ -41,6 +41,7 @@
     "ex:ollama:hello": "TRACE_HTML=1 npm run dev -w examples/ollama-hello -- --trace --trace-style=modern -- \"Say hello in one sentence.\"",
     "ex:ollama:weather": "TRACE_HTML=1 npm run dev -w examples/ollama-weather -- --trace --trace-style=dark -- \"Weather in Stockholm and plan a fika.\"",
     "ex:openai:web-search": "TRACE_HTML=1 npm run dev -w examples/openai-web-search -- --trace --trace-style=modern -- \"Latest news about NASA missions?\"",
-    "ex:ollama:web-search": "TRACE_HTML=1 npm run dev -w examples/ollama-web-search -- --trace --trace-style=modern -- \"Tallest mountain in Europe?\""
+    "ex:ollama:web-search": "TRACE_HTML=1 npm run dev -w examples/ollama-web-search -- --trace --trace-style=modern -- \"Tallest mountain in Europe?\"",
+    "ex:openai:wikipedia": "TRACE_HTML=1 npm run dev -w examples/openai-wikipedia -- --trace --trace-style=modern -- \"Tell me about the Hubble Space Telescope using Wikipedia.\""
   }
 }
