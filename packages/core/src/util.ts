@@ -123,3 +123,51 @@ export class SimpleTools implements ToolRegistry {
   get(name: string) { return this.tools.get(name); }
   register(tool: Tool) { this.tools.set(tool.name, tool); }
 }
+
+// --- CLI helpers ---
+export type FlagMap = Record<string, string | boolean>;
+
+export function parseFlags(argv: string[] = process.argv): FlagMap {
+  const out: Record<string, string | boolean> = {};
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i];
+    if (!a || !a.startsWith('--')) continue;
+    const k = a.slice(2);
+    const eq = k.indexOf('=');
+    if (eq >= 0) {
+      const key = k.slice(0, eq);
+      const val = k.slice(eq + 1);
+      out[key] = val;
+      continue;
+    }
+    const next = argv[i + 1];
+    if (next && !next.startsWith('--')) { out[k] = next; i++; }
+    else { out[k] = true; }
+  }
+  return out;
+}
+
+function kebabForEnv(envName: string): string { return envName.toLowerCase().replace(/_/g, '-'); }
+
+// Given a list of env var names (e.g., ['OPENAI_API_KEY','API_KEY']), returns values with precedence: CLI flag > env
+export function configFromFlagsAndEnv(envVars: string[], flags: FlagMap = parseFlags(), env: NodeJS.ProcessEnv = process.env): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const name of envVars) {
+    const flag = kebabForEnv(name);
+    const cliVal = (flags[flag] as string | undefined) ?? undefined;
+    out[name] = cliVal ?? env[name];
+  }
+  return out;
+}
+
+// Helper to pick the first defined value out of a set of env names, respecting CLI-over-env precedence
+export function firstConfigValue(names: string[], flags: FlagMap = parseFlags(), env: NodeJS.ProcessEnv = process.env): string | undefined {
+  for (const n of names) {
+    const flag = kebabForEnv(n);
+    const cliVal = (flags[flag] as string | undefined) ?? undefined;
+    if (cliVal !== undefined) return cliVal;
+    const envVal = env[n];
+    if (envVal !== undefined) return envVal;
+  }
+  return undefined;
+}

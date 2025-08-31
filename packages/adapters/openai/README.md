@@ -7,8 +7,10 @@ OpenAI‑compatible Chat adapter with tools support.
 npm i @sisu-ai/adapter-openai
 ```
 
-- Env: `OPENAI_API_KEY` required.
+- Env: `OPENAI_API_KEY` (preferred) or `API_KEY` required.
 - Optional: `DEBUG_LLM=1` to log redacted request/response summaries on errors.
+ - Base URL: `OPENAI_BASE_URL` or `BASE_URL` can override the base URL (or pass `baseUrl` in code).
+ - Examples may support CLI flags to override env at runtime, e.g. `--openai-api-key`, `--openai-base-url`, `--openai-model`.
 
 ## Documentation
 Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu

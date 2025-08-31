@@ -8,7 +8,7 @@ npm i @sisu-ai/core
 ```
 
 ## Documentation
-Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
 
 ## What it provides
 - Types and contracts

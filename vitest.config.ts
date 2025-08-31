@@ -26,6 +26,10 @@ export default defineConfig({
         '**/dist/**',
         '**/examples/**',
         '**/*.d.ts',
+        '**/test/**',
+        '**/*.test.*',
+        'packages/core/src/index.ts',
+        'packages/core/src/types.ts',
         'vitest.config.ts'
       ],
     },

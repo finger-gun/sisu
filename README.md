@@ -92,7 +92,7 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 - Deterministic modes: timeouts, bounded loops, retries are explicit—in your hands.
 - Observability by default: leveled logs, redaction, and a trace viewer that writes `traces/run-*.html`.
 
-## Run your first Mile
+## Run your first mile
 - OpenAI hello:
   - `cp examples/openai-hello/.env.example examples/openai-hello/.env`
   - `npm run ex:openai:hello`
@@ -121,7 +121,7 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 
 ### OpenAI
 - Env
-  - `OPENAI_API_KEY`: API key (required)
+  - `OPENAI_API_KEY` (preferred) or `API_KEY`: API key (required)
   - `OPENAI_BASE_URL` or `BASE_URL`: override base URL (or pass `baseUrl` in code)
   - Optional: `DEBUG_LLM=1` to log redacted request/response summaries on errors
 - Tools
@@ -154,9 +154,12 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 
 ## Configuration (Env & Flags)
 - Env vars (adapters)
-  - `OPENAI_API_KEY`: API key for OpenAI/gateway
+  - `OPENAI_API_KEY` or `API_KEY`: API key for OpenAI/gateway
   - `OPENAI_BASE_URL` or `BASE_URL`: override base URL for OpenAI adapter
   - `OLLAMA_BASE_URL` or `BASE_URL`: override base URL for Ollama adapter
+- Env vars (OpenAI Responses tool)
+  - `OPENAI_RESPONSES_BASE_URL`: specific base URL for the Responses API (defaults to `https://api.openai.com`)
+  - `OPENAI_RESPONSES_MODEL`: model for Responses (defaults to `gpt-4.1-mini`)
 - Env vars (runtime)
   - `LOG_LEVEL`: `debug|info|warn|error` (default `info`)
   - `DEBUG_LLM`: `1|true` to log adapter request/response summaries on errors
@@ -164,8 +167,14 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
   - CLI: `--trace` (optional `--trace=run.json|run.html`), `--trace-style=light|dark|modern`
   - Env: `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=light|dark|modern`
 - Notes
+  - Precedence in examples: CLI flags > env vars. At library level, adapter options in code override env.
   - Adapters accept `baseUrl` in code; env overrides are convenient for examples and scripts.
   - Examples accept a trailing prompt string; use quotes to preserve spaces.
+
+### CLI helpers (core)
+- `parseFlags(argv)`: Parses `--k=v`, `--k v`, and boolean flags into a map.
+- `firstConfigValue([ENV1, ENV2], flags, env)`: Returns the first defined value by checking CLI flags (kebab-case of env var names) before environment variables.
+- Convention: Any env var `FOO_BAR` can be provided as CLI flag `--foo-bar`.
 
 ## Debugging Tips
 - Set `LOG_LEVEL=debug` to see control‑flow, tool loop, and invariant logs.
