@@ -11,8 +11,6 @@ Environment / Flags
 - `WEB_FETCH_USER_AGENT` or `HTTP_USER_AGENT` (flag: `--web-fetch-user-agent`)
 - `WEB_FETCH_MAX_BYTES` (flag: `--web-fetch-max-bytes`) — default 500kB
 - `WEB_FETCH_RESPECT_ROBOTS` (flag: `--web-fetch-respect-robots`) — `1`/`true` (default) to honor robots.txt; set `0`/`false` to disable
-- `WEB_FETCH_USER_AGENT` or `HTTP_USER_AGENT` (flag: `--web-fetch-user-agent`)
-- `WEB_FETCH_MAX_BYTES` (flag: `--web-fetch-max-bytes`) — default 500kB
 
 Tool
 - Name: `webFetch`
