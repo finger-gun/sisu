@@ -26,11 +26,11 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
 
+      - name: Delete package-lock.json (temporary rollup fix)
+        run: rm -f package-lock.json
+
       - name: Install dependencies
         run: npm install
-
-      - name: List directory
-        run: ls -la
 
       - name: Build workspace
         run: npm run -s build
