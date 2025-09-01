@@ -1,5 +1,4 @@
-import { test } from 'vitest';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import type { Ctx } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
 import { withGuardrails } from '../src/index.js';
@@ -25,10 +24,10 @@ test('withGuardrails intercepts when policy returns violation', async () => {
   const tail = async () => { reached = true; };
   const ctx = makeCtx('bad words');
   await compose([withGuardrails(policy), tail as any])(ctx);
-  assert.strictEqual(reached, false);
+  expect(reached).toBe(false);
   const last = ctx.messages[ctx.messages.length - 1];
-  assert.strictEqual(last.role, 'assistant');
-  assert.strictEqual(last.content, 'violation');
+  expect(last.role).toBe('assistant');
+  expect(last.content).toBe('violation');
 });
 
 test('withGuardrails passes through when no violation and calls next', async () => {
@@ -38,7 +37,7 @@ test('withGuardrails passes through when no violation and calls next', async () 
   await compose([withGuardrails(policy), tail as any])(ctx);
   // next() executed, and no guardrails message inserted
   const last = ctx.messages[ctx.messages.length - 1] as any;
-  assert.strictEqual(last.content, 'ok');
+  expect(last.content).toBe('ok');
 });
 
 test('withGuardrails passes empty string to policy when input is undefined', async () => {
@@ -47,5 +46,5 @@ test('withGuardrails passes empty string to policy when input is undefined', asy
   const ctx = makeCtx('');
   delete (ctx as any).input; // simulate missing input
   await compose([withGuardrails(policy)])(ctx);
-  assert.strictEqual(seen, '');
+  expect(seen).toBe('');
 });

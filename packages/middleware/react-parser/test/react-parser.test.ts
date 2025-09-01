@@ -1,5 +1,4 @@
-import { test } from 'vitest';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import type { Ctx, Tool } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
 import { reactToolLoop } from '../src/index.js';
@@ -44,9 +43,9 @@ test('reactToolLoop parses tool action, invokes tool, and appends follow-up', as
   const ctx = makeCtx({ tools, model } as any);
   await compose([reactToolLoop()])(ctx);
   const last = ctx.messages[ctx.messages.length - 1];
-  assert.strictEqual(last.role, 'assistant');
-  assert.strictEqual(last.content, 'final');
-  assert.ok(ctx.messages.some((m: any) => m.role === 'user' && /Observation \(echo\):/.test(m.content)));
+  expect(last.role).toBe('assistant');
+  expect(last.content).toBe('final');
+  expect(ctx.messages.some((m: any) => m.role === 'user' && /Observation \(echo\):/.test(m.content))).toBe(true);
 });
 
 test('reactToolLoop appends assistant when no tool action parsed', async () => {
@@ -54,6 +53,6 @@ test('reactToolLoop appends assistant when no tool action parsed', async () => {
   const ctx = makeCtx({ model });
   await compose([reactToolLoop()])(ctx);
   const last = ctx.messages.at(-1) as any;
-  assert.strictEqual(last?.content, 'no tools here');
+  expect(last?.content).toBe('no tools here');
 });
 

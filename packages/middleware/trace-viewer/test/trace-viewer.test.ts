@@ -1,5 +1,4 @@
-import { test } from 'vitest';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -29,8 +28,8 @@ test('traceViewer writes json and html to path', async () => {
     const writer = traceViewer({ enable: true, path: jsonPath, style: 'light' });
     const runner = async (ctx: Ctx) => { ctx.messages.push({ role: 'assistant', content: 'ok' } as any); };
     await compose([writer, runner as any])(makeCtx());
-    assert.ok(fs.existsSync(jsonPath));
-    assert.ok(fs.existsSync(jsonPath.replace(/\.json$/, '.html')));
+    expect(fs.existsSync(jsonPath)).toBe(true);
+    expect(fs.existsSync(jsonPath.replace(/\.json$/, '.html'))).toBe(true);
   } finally {
     try { fs.rmSync(outDir, { recursive: true, force: true }); } catch {}
   }
@@ -46,7 +45,7 @@ test('traceViewer is enabled via --trace CLI and writes to custom traces dir', a
     const entries = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
     const hasJson = entries.some(f => /run-.*\.json$/.test(f));
     const hasHtml = entries.some(f => /run-.*\.html$/.test(f));
-    assert.ok(hasJson && hasHtml);
+    expect(hasJson && hasHtml).toBe(true);
   } finally {
     process.argv = origArgv;
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
@@ -59,14 +58,14 @@ test('traceViewer supports html-only and json-only outputs', async () => {
     // HTML only
     const htmlPath = path.join(dir, 'only.html');
     await compose([traceViewer({ enable: true, path: htmlPath, html: true, json: false })])(makeCtx());
-    assert.ok(fs.existsSync(htmlPath));
-    assert.ok(!fs.existsSync(htmlPath.replace(/\.html$/, '.json')));
+    expect(fs.existsSync(htmlPath)).toBe(true);
+    expect(fs.existsSync(htmlPath.replace(/\.html$/, '.json'))).toBe(false);
 
     // JSON only
     const jsonPath = path.join(dir, 'only.json');
     await compose([traceViewer({ enable: true, path: jsonPath, html: false, json: true })])(makeCtx());
-    assert.ok(fs.existsSync(jsonPath));
-    assert.ok(fs.existsSync(jsonPath.replace(/\.json$/, '.html'))); // pairs HTML by default when json path provided
+    expect(fs.existsSync(jsonPath)).toBe(true);
+    expect(fs.existsSync(jsonPath.replace(/\.json$/, '.html'))).toBe(true); // pairs HTML by default when json path provided
   } finally {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
   }

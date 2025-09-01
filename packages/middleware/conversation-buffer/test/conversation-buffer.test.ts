@@ -1,5 +1,4 @@
-import { test } from 'vitest';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import type { Ctx, Message } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
 import { inputToMessage, conversationBuffer } from '../src/index.js';
@@ -23,10 +22,10 @@ function makeCtx(partial: Partial<Ctx> = {}): Ctx {
 test('inputToMessage pushes input as user message', async () => {
   const ctx = makeCtx({ input: 'Hello' });
   await compose([inputToMessage])(ctx);
-  assert.strictEqual(ctx.messages.length, 1);
+  expect(ctx.messages.length).toBe(1);
   const m = ctx.messages[0] as Message;
-  assert.strictEqual(m.role, 'user');
-  assert.strictEqual(m.content, 'Hello');
+  expect(m.role).toBe('user');
+  expect(m.content).toBe('Hello');
 });
 
 test('conversationBuffer keeps head and last N messages', async () => {
@@ -35,8 +34,8 @@ test('conversationBuffer keeps head and last N messages', async () => {
   const ctx = makeCtx({ messages: msgs.slice() });
   await compose([conversationBuffer({ window: 3 })])(ctx);
   // Expect head + last 3
-  assert.strictEqual(ctx.messages.length, 4);
-  assert.strictEqual((ctx.messages[0] as any).role, 'system');
+  expect(ctx.messages.length).toBe(4);
+  expect((ctx.messages[0] as any).role).toBe('system');
   const tails = ctx.messages.slice(1).map(m => (m as any).content);
-  assert.deepStrictEqual(tails, ['2','3','4']);
+  expect(tails).toEqual(['2','3','4']);
 });

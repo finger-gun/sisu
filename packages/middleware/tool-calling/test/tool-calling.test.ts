@@ -1,5 +1,4 @@
-import { test } from 'vitest';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import type { Ctx, Tool } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
 import { toolCalling, iterativeToolCalling } from '../src/index.js';
@@ -47,11 +46,11 @@ test('tool-calling executes tools then appends final assistant message', async (
 
   await compose([toolCalling])(ctx);
   const last = ctx.messages[ctx.messages.length - 1];
-  assert.strictEqual(last.role, 'assistant');
-  assert.strictEqual(last.content, 'done');
+  expect(last.role).toBe('assistant');
+  expect(last.content).toBe('done');
   // Expect sequence: assistant(tool_calls), tool result, assistant(final)
-  assert.ok(ctx.messages.some((m: any) => m.role === 'tool' && /echoed/.test(String(m.content))));
-  assert.ok(callCount >= 2);
+  expect(ctx.messages.some((m: any) => m.role === 'tool' && /echoed/.test(String(m.content)))).toBe(true);
+  expect(callCount >= 2).toBe(true);
 });
 
 test('tool-calling caches duplicate calls for identical name+args', async () => {
@@ -77,10 +76,10 @@ test('tool-calling caches duplicate calls for identical name+args', async () => 
 
   await compose([toolCalling])(ctx);
   // Handler called once due to caching identical (name,args)
-  assert.strictEqual(handlerCalls, 1);
+  expect(handlerCalls).toBe(1);
   // But two tool messages appended (one per tool_call id)
   const toolMsgs = ctx.messages.filter((m: any) => m.role === 'tool');
-  assert.strictEqual(toolMsgs.length, 2);
+  expect(toolMsgs.length).toBe(2);
 });
 
 test('tool-calling appends assistant when no tool_calls present', async () => {
@@ -92,7 +91,7 @@ test('tool-calling appends assistant when no tool_calls present', async () => {
   } as any });
   await compose([toolCalling])(ctx);
   const last = ctx.messages.at(-1) as any;
-  assert.strictEqual(last?.content, 'plain');
+  expect(last?.content).toBe('plain');
 });
 
 test('iterativeToolCalling supports multiple tool rounds', async () => {
@@ -110,7 +109,7 @@ test('iterativeToolCalling supports multiple tool rounds', async () => {
   } as any });
   await compose([iterativeToolCalling])(ctx);
   const last = ctx.messages.at(-1) as any;
-  assert.strictEqual(last?.content, 'done-2');
+  expect(last?.content).toBe('done-2');
   const toolMsgs = ctx.messages.filter((m: any) => m.role === 'tool');
-  assert.strictEqual(toolMsgs.length, 2);
+  expect(toolMsgs.length).toBe(2);
 });
