@@ -1,0 +1,28 @@
+{
+  "name": "@sisu-ai/tool-github-projects",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@sisu-ai/core": "0.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/tools/github-projects"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  }
+}

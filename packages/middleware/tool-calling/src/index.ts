@@ -59,6 +59,59 @@ export const toolCalling: Middleware = async (ctx, next) => {
   }
 };
 
+export const iterativeToolCalling: Middleware = async (ctx, next) => {
+  await next();
+  const maxIters = 12;
+  for (let i = 0; i < maxIters; i++) {
+    ctx.log.debug?.('[iterative-tool-calling] iteration start', { i, messages: ctx.messages.length });
+    const toolList = ctx.tools.list();
+    const genOpts: any = { toolChoice: 'auto', tools: toolList, parallelToolCalls: false, signal: ctx.signal };
+    const out = await ctx.model.generate(ctx.messages, genOpts) as any;
+    const msg = out.message as Message;
+    const toolCalls = (msg as any).tool_calls as Array<{ id?: string, name: string, arguments: any }> | undefined;
+    if (toolCalls && toolCalls.length > 0) {
+      // include the assistant message that requested tools
+      ctx.messages.push(msg);
+      ctx.log.info?.('[iterative-tool-calling] model requested tools', toolCalls.map(tc => ({ id: tc.id, name: tc.name, hasArgs: typeof tc.arguments !== 'undefined' })));
+
+      const cache = new Map<string, any>();
+      const keyOf = (tc: { name: string; arguments: any }) => `${tc.name}:${safeStableStringify(tc.arguments)}`;
+      const lastArgsByName = new Map<string, any>();
+
+      const resolvedCalls = toolCalls.map((tc) => {
+        if (typeof tc.arguments === 'undefined' && lastArgsByName.has(tc.name)) {
+          return { ...tc, arguments: lastArgsByName.get(tc.name) };
+        }
+        return tc;
+      });
+
+      for (const call of resolvedCalls) {
+        const tool = ctx.tools.get(call.name);
+        if (!tool) throw new Error('Unknown tool: ' + call.name);
+        const key = keyOf(call);
+        let result = cache.get(key);
+        if (result === undefined) {
+          const args = tool.schema?.parse ? tool.schema.parse(call.arguments) : call.arguments;
+          ctx.log.debug?.('[iterative-tool-calling] invoking tool', { name: call.name, id: call.id, args });
+          result = await tool.handler(args, ctx);
+          cache.set(key, result);
+          lastArgsByName.set(call.name, args);
+        } else {
+          ctx.log.debug?.('[iterative-tool-calling] reusing cached result', { name: call.name, id: call.id });
+        }
+        const toolMsg: any = { role: 'tool', content: JSON.stringify(result) };
+        if (call.id) toolMsg.tool_call_id = call.id; else toolMsg.name = call.name;
+        ctx.messages.push(toolMsg as Message);
+      }
+      continue; // next round may call more tools
+    } else {
+      ctx.log.info?.('[iterative-tool-calling] no tool calls; appending assistant message');
+      ctx.messages.push(msg);
+      break;
+    }
+  }
+};
+
 function safeStableStringify(v: any): string {
   try {
     if (v && typeof v === 'object' && !Array.isArray(v)) {
