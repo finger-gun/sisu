@@ -2,7 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert';
 import type { Ctx, Tool } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
-import { toolCalling } from '../src/index.js';
+import { toolCalling, iterativeToolCalling } from '../src/index.js';
 
 function makeCtx(partial: Partial<Ctx> = {}): Ctx {
   const ac = new AbortController();
@@ -93,4 +93,24 @@ test('tool-calling appends assistant when no tool_calls present', async () => {
   await compose([toolCalling])(ctx);
   const last = ctx.messages.at(-1) as any;
   assert.strictEqual(last?.content, 'plain');
+});
+
+test('iterativeToolCalling supports multiple tool rounds', async () => {
+  let phase = 0;
+  const echo: Tool<{ text: string }> = { name: 'echo', schema: { parse: (x: any) => x }, async handler({ text }) { return { echoed: text }; } } as any;
+  const tools = new SimpleTools();
+  tools.register(echo);
+  const ctx = makeCtx({ tools, model: {
+    name: 'dummy', capabilities: { functionCall: true },
+    async generate(_messages: any[], _opts: any) {
+      if (phase === 0) { phase++; return { message: { role: 'assistant', content: '', tool_calls: [{ id: '1', name: 'echo', arguments: { text: 'a' } }] } } as any; }
+      if (phase === 1) { phase++; return { message: { role: 'assistant', content: '', tool_calls: [{ id: '2', name: 'echo', arguments: { text: 'b' } }] } } as any; }
+      return { message: { role: 'assistant', content: 'done-2' } } as any;
+    },
+  } as any });
+  await compose([iterativeToolCalling])(ctx);
+  const last = ctx.messages.at(-1) as any;
+  assert.strictEqual(last?.content, 'done-2');
+  const toolMsgs = ctx.messages.filter((m: any) => m.role === 'tool');
+  assert.strictEqual(toolMsgs.length, 2);
 });
