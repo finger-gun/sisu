@@ -16,9 +16,6 @@ Tool
 - Name: `webFetch`
 - Args: `{ url: string; format?: 'text'|'html'|'json'; maxBytes?: number }`
 - Returns: `{ url, finalUrl?, status, contentType?, title?, text?, html?, json? }`
-- Name: `webFetch`
-- Args: `{ url: string; format?: 'text'|'html'|'json'; maxBytes?: number }`
-- Returns: `{ url, finalUrl?, status, contentType?, title?, text?, html?, json? }`
 
 Behavior
 - Respects robots.txt by default for the provided User-Agent.
