@@ -27,7 +27,7 @@ const generateOnce = async (c: Ctx) => { const res: any = await c.model.generate
 
 const app = new Agent()
   .use(errorBoundary(async (err, ctx) => { ctx.log.error(err); ctx.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
-  .use(traceViewer({ style: 'light' }))
+  .use(traceViewer())
   .use(usageTracker({ '*': { inputPer1M: 0.15, outputPer1M: 0.60 } }))
   .use(withGuardrails(policy))
   .use(inputToMessage)
