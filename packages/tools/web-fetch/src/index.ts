@@ -32,6 +32,7 @@ export const webFetch: Tool<WebFetchArgs> = {
     url: z.string().url(),
     format: z.enum(['text','html','json']).optional(),
     maxBytes: z.number().int().positive().max(5_000_000).optional(),
+    respectRobots: z.boolean().optional(),
   }),
   handler: async ({ url, format = 'text', maxBytes, respectRobots }, ctx): Promise<WebFetchResult> => {
     const ua = firstConfigValue(['WEB_FETCH_USER_AGENT','HTTP_USER_AGENT'])
