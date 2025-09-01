@@ -31,7 +31,8 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
         messages: messages.map(m => toOpenAiMessage(m)),
         temperature: genOpts?.temperature ?? 0.2,
         ...(toolsParam.length ? { tools: toolsParam } : {}),
-        ...(tool_choice !== undefined ? { tool_choice } : {}),
+        // Some providers reject tool_choice when tools are not present; include only when tools exist
+        ...((toolsParam.length && tool_choice !== undefined) ? { tool_choice } : {}),
         ...(genOpts?.parallelToolCalls !== undefined ? { parallel_tool_calls: Boolean(genOpts.parallelToolCalls) } : {}),
       };
       const url = `${baseUrl}/v1/chat/completions`;
