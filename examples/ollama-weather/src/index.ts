@@ -49,7 +49,7 @@ const chatPipeline = sequence([ reactToolLoop() ]);
 
 const app = new Agent()
   .use(errorBoundary(async (err, ctx) => { ctx.log.error(err); ctx.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
-  .use(traceViewer({ style: 'dark' }))
+  .use(traceViewer())
   .use(usageTracker({ '*': { inputPer1K: 0, outputPer1K: 0 } }))
   .use(registerTools([weather as any]))
   .use(inputToMessage)

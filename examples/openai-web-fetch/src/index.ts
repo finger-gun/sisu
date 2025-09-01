@@ -26,7 +26,7 @@ const ctx: Ctx = {
 
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
-  .use(traceViewer({ style: 'modern' }))
+  .use(traceViewer())
   .use(registerTools([webFetch]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 6 }))
@@ -35,4 +35,3 @@ const app = new Agent()
 await app.handler()(ctx);
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);
-
