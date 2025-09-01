@@ -21,7 +21,7 @@ const ctx = {
 };
 const app = new Agent()
     .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
-    .use(traceViewer({ style: 'modern' }))
+    .use(traceViewer())
     .use(registerTools([duckDuckGoWebSearch]))
     .use(inputToMessage)
     .use(conversationBuffer({ window: 6 }))

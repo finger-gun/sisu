@@ -33,7 +33,7 @@ const ctx: Ctx = {
 
 const app = new Agent()
   .use(errorBoundary(async (err, ctx) => { ctx.log.error(err); ctx.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
-  .use(traceViewer({ style: 'modern' }))
+  .use(traceViewer())
   .use(usageTracker({ '*': { inputPer1M: 0.15, outputPer1M: 0.60 } }, { logPerCall: true }))
   .use(registerTools([echoTool as any]))
   .use(inputToMessage)

@@ -3,18 +3,19 @@ import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type C
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
-import { toolCalling } from '@sisu-ai/mw-tool-calling';
+import { iterativeToolCalling as toolCalling } from '@sisu-ai/mw-tool-calling';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
-import { webFetch } from '@sisu-ai/tool-web-fetch';
+import ghTools from '@sisu-ai/tool-github-projects';
 
 const model = openAIAdapter({ model: 'gpt-4o-mini' });
 
-const urlArg = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'https://en.wikipedia.org/wiki/Hubble_Space_Telescope';
+const userInput = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ')
+  || 'List issues for the configured project, then show details for the first one, then list columns.';
 
 const ctx: Ctx = {
-  input: `Summarize the content from this URL: ${urlArg}.`,
-  messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
+  input: userInput,
+  messages: [{ role: 'system', content: 'You are a helpful assistant. Use tools to interact with GitHub Projects. Start by planning out what tools to use and in what order, an interaction could require multiple tool calls in correct order.' }],
   model,
   tools: new SimpleTools(),
   memory: new InMemoryKV(),
@@ -27,9 +28,9 @@ const ctx: Ctx = {
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
   .use(traceViewer())
-  .use(registerTools([webFetch]))
+  .use(registerTools([...ghTools]))
   .use(inputToMessage)
-  .use(conversationBuffer({ window: 6 }))
+  .use(conversationBuffer({ window: 8 }))
   .use(toolCalling);
 
 await app.handler()(ctx);

@@ -26,7 +26,7 @@ const generateOnce = async (c: Ctx) => { const res: any = await c.model.generate
 
 const app = new Agent()
   .use(async (c, next) => { try { await next(); } catch (e) { c.log.error(e); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); } })
-  .use(traceViewer({ style: 'modern' }))
+  .use(traceViewer())
   .use(usageTracker({ '*': { inputPer1K: 0, outputPer1K: 0 } }, { logPerCall: true }))
   .use(inputToMessage)
   .use(generateOnce);

@@ -10,6 +10,7 @@ npm i @sisu-ai/tool-web-fetch
 Environment / Flags
 - `WEB_FETCH_USER_AGENT` or `HTTP_USER_AGENT` (flag: `--web-fetch-user-agent`)
 - `WEB_FETCH_MAX_BYTES` (flag: `--web-fetch-max-bytes`) — default 500kB
+- `WEB_FETCH_RESPECT_ROBOTS` (flag: `--web-fetch-respect-robots`) — `1`/`true` (default) to honor robots.txt; set `0`/`false` to disable
 
 Tool
 - Name: `webFetch`
@@ -17,6 +18,7 @@ Tool
 - Returns: `{ url, finalUrl?, status, contentType?, title?, text?, html?, json? }`
 
 Behavior
+- Respects robots.txt by default for the provided User-Agent.
 - Follows redirects and reads up to `maxBytes` to avoid huge pages.
 - If `format: 'text'` (default) and page is HTML, strips tags (removes script/style) and decodes basic entities; includes `title`.
 - If `format: 'html'`, returns raw HTML and `title`.

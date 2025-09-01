@@ -44,6 +44,7 @@
     "ex:ollama:web-search": "TRACE_HTML=1 npm run dev -w examples/ollama-web-search -- --trace --trace-style=modern -- \"Tallest mountain in Europe?\"",
     "ex:openai:wikipedia": "TRACE_HTML=1 npm run dev -w examples/openai-wikipedia -- --trace --trace-style=modern -- \"Tell me about the Hubble Space Telescope using Wikipedia.\"",
     "ex:openai:web-fetch": "TRACE_HTML=1 npm run dev -w examples/openai-web-fetch -- --trace --trace-style=modern -- \"https://en.wikipedia.org/wiki/Hubble_Space_Telescope\"",
-    "ex:openai:google-search": "TRACE_HTML=1 npm run dev -w examples/openai-google-search -- --trace --trace-style=modern -- \"Latest news about NASA missions?\""
+    "ex:openai:google-search": "TRACE_HTML=1 npm run dev -w examples/openai-google-search -- --trace --trace-style=modern -- \"Latest news about NASA missions?\"",
+    "ex:openai:github-projects": "TRACE_HTML=1 npm run dev -w examples/openai-github-projects -- --trace --trace-style=modern -- \"List next 3 open issues, then fetch their full details.\""
   }
 }
