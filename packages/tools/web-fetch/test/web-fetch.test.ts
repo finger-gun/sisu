@@ -96,6 +96,82 @@ test('webFetch bypasses robots.txt when respectRobots=false', async () => {
   expect(res.text).toContain('ok');
 });
 
+test('robots: longest-match precedence (allow vs disallow) is respected', async () => {
+  // robots.txt contains both a general Disallow and a longer Allow for a subpath.
+  vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (u: any) => {
+    if (u.endsWith('/robots.txt')) {
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'text/plain' },
+        text: async () => 'User-agent: *\nDisallow: /path\nAllow: /path/public',
+        url: u,
+      } as any;
+    }
+    // If requesting the public path, return real content
+    if (u.includes('/path/public')) {
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'text/html' },
+        text: async () => '<title>Public</title><p>allowed</p>',
+        url: u,
+      } as any;
+    }
+    // anything else under /path should be considered blocked by robotsDecision and will not be fetched
+    return { ok: true, status: 200, headers: { get: () => 'text/plain' }, text: async () => '' } as any;
+  });
+
+  const allowed: any = await webFetch.handler({ url: 'https://edge-long.test/path/public/file' } as any, {} as any);
+  expect(allowed.status).toBe(200);
+  expect(allowed.robotsBlocked).toBeUndefined();
+  expect(allowed.title).toBe('Public');
+
+  // A more specific disallowed path should be blocked
+  // Use a different origin to avoid cached robots rules from the previous request
+  vi.spyOn(globalThis, 'fetch' as any).mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    headers: { get: () => 'text/plain' },
+    text: async () => 'User-agent: *\nDisallow: /secret',
+    url: 'https://edge-long-block.test/robots.txt',
+  } as any);
+  const blocked: any = await webFetch.handler({ url: 'https://edge-long-block.test/secret' } as any, {} as any);
+  expect(blocked.status).toBe(403);
+  expect(blocked.robotsBlocked).toBe(true);
+});
+
+test('robots: patterns that include query strings and anchors consider the query part', async () => {
+  vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (u: any) => {
+    if (u.endsWith('/robots.txt')) {
+      // disallow a specific search with query
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'text/plain' },
+        text: async () => 'User-agent: *\nDisallow: /search?q=private\nDisallow: /onlypath$\n',
+        url: u,
+      } as any;
+    }
+    // For allowed search (different query) respond with content
+    if (u.includes('/search?q=public')) {
+      return { ok: true, status: 200, headers: { get: () => 'text/html' }, text: async () => '<title>Search</title>', url: u } as any;
+    }
+    // For blocked search we'll never reach this fetch because robots blocks it; return a fallback
+    return { ok: true, status: 200, headers: { get: () => 'text/plain' }, text: async () => 'ok', url: u } as any;
+  });
+
+  // exact query match should be blocked
+  const blocked: any = await webFetch.handler({ url: 'https://edge-query.test/search?q=private' } as any, {} as any);
+  expect(blocked.status).toBe(403);
+  expect(blocked.robotsBlocked).toBe(true);
+
+  // different query is allowed and fetch proceeds
+  const allowed: any = await webFetch.handler({ url: 'https://edge-query.test/search?q=public' } as any, {} as any);
+  expect(allowed.status).toBe(200);
+  expect(allowed.title).toBe('Search');
+});
+
 test('webFetch reads streaming body and respects maxBytes cap', async () => {
   // Mock a streaming body with two chunks of 50 bytes each
   const chunks = [Buffer.from('a'.repeat(50)), Buffer.from('b'.repeat(50))];
