@@ -30,14 +30,6 @@ interface AnthropicToolChoice {
   name?: string;
 }
 
-const VALID_ANTHROPIC_MODELS = [
-  'claude-3-5-sonnet-20241022',
-  'claude-3-5-haiku-20241022', 
-  'claude-3-opus-20240229',
-  'claude-3-sonnet-20240229',
-  'claude-3-haiku-20240307'
-];
-
 const DEFAULT_TIMEOUT = 60000; // 60 seconds
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_ANTHROPIC_VERSION = '2023-06-01';
@@ -46,11 +38,6 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
   // Validate required options
   if (!opts.model) {
     throw new Error('[anthropicAdapter] model is required');
-  }
-
-  // Validate model name (optional warning)
-  if (!VALID_ANTHROPIC_MODELS.includes(opts.model)) {
-    console.warn(`[anthropicAdapter] Unknown model: ${opts.model}. This may cause API errors.`);
   }
 
   const apiKey = opts.apiKey ?? firstConfigValue(['ANTHROPIC_API_KEY', 'API_KEY']) ?? '';
@@ -62,11 +49,6 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
 
   if (!apiKey) {
     throw new Error('[anthropicAdapter] Missing ANTHROPIC_API_KEY or API_KEY — set it in your environment or pass { apiKey }');
-  }
-
-  // Basic API key format validation
-  if (!apiKey.startsWith('sk-ant-')) {
-    console.warn('[anthropicAdapter] API key does not match expected Anthropic format');
   }
 
   const modelName = `anthropic:${opts.model}`;
