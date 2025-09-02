@@ -209,16 +209,24 @@ You are free to help out. Built an awesome middleware? Found a bug? Lets go!
 - [packages/adapters/openai](packages/adapters/openai/README.md) — OpenAI‑compatible Chat adapter (tools support, DEBUG_LLM)
 - [packages/adapters/ollama](packages/adapters/ollama/README.md) — Ollama (local/offline) Chat adapter
 - packages/middleware/* — optional middlewares:
-  - [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md) — input→message + windowed truncation
-  - [@sisu-ai/mw-control-flow](packages/middleware/control-flow/README.md) — `sequence`, `branch`, `switchCase`, `loopWhile/loopUntil`, `parallel`, `graph`
-  - [@sisu-ai/mw-error-boundary](packages/middleware/error-boundary/README.md) — try/catch with fallback
-  - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md) — ReAct fallback loop
-  - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md) — bulk tool registration
-  - [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md) — tools API loop with id‑anchored replies
-  - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md) — token usage + cost estimation
-  - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md) — JSON + HTML trace export (themes, templating)
-  - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md) — protocol checks (tool_calls ↔ tool replies)
-  - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md) — policy guard
+   - [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md) — input→message + windowed truncation
+   - [@sisu-ai/mw-context-compressor](packages/middleware/context-compressor/README.md) — model‑assisted compression of long context
+   - [@sisu-ai/mw-control-flow](packages/middleware/control-flow/README.md) — `sequence`, `branch`, `switchCase`, `loopWhile/loopUntil`, `parallel`, `graph`
+   - [@sisu-ai/mw-error-boundary](packages/middleware/error-boundary/README.md) — try/catch with fallback
+   - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md) — ReAct fallback loop
+   - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md) — bulk tool registration
+   - [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md) — tools API loop with id‑anchored replies
+   - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md) — token usage + cost estimation
+   - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md) — JSON + HTML trace export (themes, templating)
+   - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md) — protocol checks (tool_calls ↔ tool replies)
+   - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md) — policy guard
+- packages/tools/* — reusable tools:
+   - [@sisu-ai/tool-github-projects](packages/tools/github-projects/README.md) — interact with GitHub Projects
+   - [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md) — summarize long text
+   - [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md) — fetch web pages as text/HTML/JSON
+   - [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md) — DuckDuckGo instant answers
+   - [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md) — web search via OpenAI Responses
+   - [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md) — look up pages on Wikipedia
 - `examples/openai-hello` — base‑minimum hello example (OpenAI)
 - `examples/openai-weather` — tool‑calling demo with branching + loop (OpenAI)
 - `examples/openai-react` — ReAct-style tool use with OpenAI
@@ -227,8 +235,14 @@ You are free to help out. Built an awesome middleware? Found a bug? Lets go!
 - `examples/openai-branch` — route between playful vs practical response
 - `examples/openai-parallel` — fork two sub-tasks then merge
 - `examples/openai-graph` — small DAG: classify → (draft|chat) → polish
+- `examples/openai-vision` — image input and reasoning
+- `examples/openai-web-search` — OpenAI `web_search` capability
+- `examples/openai-web-fetch` — fetch and summarize a web page
+- `examples/openai-wikipedia` — use Wikipedia + summarizer
+- `examples/openai-github-projects` — manage GitHub Projects via tools
 - `examples/ollama-hello` — hello using Ollama locally
 - `examples/ollama-weather` — tool-calling with Ollama
+- `examples/ollama-web-search` — DuckDuckGo search with Ollama
 
 ## Quick Start
 ```bash
