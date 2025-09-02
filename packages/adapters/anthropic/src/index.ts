@@ -38,7 +38,8 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
         temperature: genOpts?.temperature ?? 0.2,
         ...(systemMsgs.length ? { system: systemMsgs.join('\n') } : {}),
         ...(toolsParam.length ? { tools: toolsParam } : {}),
-        ...(tool_choice !== undefined ? { tool_choice } : {}),
+        // Anthropic rejects tool_choice when tools are not provided
+        ...((toolsParam.length && tool_choice !== undefined) ? { tool_choice } : {}),
       };
       const res = await fetch(`${baseUrl}/v1/messages`, {
         method: 'POST',

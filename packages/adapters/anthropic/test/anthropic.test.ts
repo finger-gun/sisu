@@ -73,3 +73,22 @@ test('anthropicAdapter maps tool calls and tool_choice', async () => {
   expect(tcs[0].arguments).toEqual({ foo: 1 });
   expect(fetchMock).toHaveBeenCalledOnce();
 });
+
+test('anthropicAdapter omits tool_choice when no tools provided', async () => {
+  process.env.ANTHROPIC_API_KEY = 'x';
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (_url, init) => {
+    const req = JSON.parse((init as any).body);
+    expect(req.tool_choice).toBeUndefined();
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: async () => JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }),
+    } as any;
+  });
+
+  const llm = anthropicAdapter({ model: 'claude-3-haiku' });
+  const messages: Message[] = [ { role: 'user', content: 'hello' } ];
+  await llm.generate(messages, { toolChoice: 'none' });
+  expect(fetchMock).toHaveBeenCalledOnce();
+});
