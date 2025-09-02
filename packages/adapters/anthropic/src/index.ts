@@ -98,7 +98,7 @@ function toJsonSchema(schema: any): any {
 
 function normalizeToolChoice(choice: GenerateOptions['toolChoice']) {
   if (!choice) return undefined;
-  if (choice === 'auto' || choice === 'none') return choice;
+  if (choice === 'auto' || choice === 'none') return { type: choice } as const;
   return { type: 'tool', name: choice } as const;
 }
 

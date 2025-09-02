@@ -35,9 +35,9 @@ const ctx: Ctx = {
 const intentClassifier = async (c: Ctx, next: () => Promise<void>) => { const q = (c.input ?? '').toLowerCase(); c.state.intent = /weather|forecast/.test(q) ? 'tooling' : 'chat'; await next(); };
 const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => { const wasTool = c.messages.at(-1)?.role === 'tool'; const turns = Number(c.state.turns ?? 0); c.state.moreTools = Boolean(wasTool && turns < 1); c.state.turns = turns + 1; await next(); };
 
-const toolingBody = sequence([ toolCalling, decideIfMoreTools ]);
+const toolingBody = sequence([toolCalling, decideIfMoreTools]);
 const toolingLoop = loopUntil((c) => !c.state.moreTools, toolingBody, { max: 6 });
-const chatPipeline = sequence([ async (c) => { const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal }); if (res?.message) c.messages.push(res.message); } ]);
+const chatPipeline = sequence([async (c) => { const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal }); if (res?.message) c.messages.push(res.message); }]);
 
 const app = new Agent()
   .use(errorBoundary(async (err, ctx) => { ctx.log.error(err); ctx.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
@@ -50,6 +50,6 @@ const app = new Agent()
   .use(toolCallInvariant())
   .use(switchCase((c) => String(c.state.intent), { tooling: toolingLoop, chat: chatPipeline }, chatPipeline));
 
-await app.handler()(ctx, async () => {});
+await app.handler()(ctx, async () => { });
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);

@@ -42,9 +42,9 @@ const ctx: Ctx = {
 const intentClassifier = async (c: Ctx, next: () => Promise<void>) => { const q = (c.input ?? '').toLowerCase(); c.state.intent = q.includes('weather') || q.includes('forecast') ? 'tooling' : 'chat'; await next(); };
 const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => { const wasTool = c.messages.at(-1)?.role === 'tool'; const turns = Number(c.state.turns ?? 0); c.state.moreTools = Boolean(wasTool && turns < 1); c.state.turns = turns + 1; await next(); };
 
-const toolingBody = sequence([ toolCalling, decideIfMoreTools ]);
+const toolingBody = sequence([toolCalling, decideIfMoreTools]);
 const toolingLoop = loopUntil((c) => !c.state.moreTools, toolingBody, { max: 6 });
-const chatPipeline = sequence([ reactToolLoop() ]);
+const chatPipeline = sequence([reactToolLoop()]);
 
 const app = new Agent()
   .use(errorBoundary(async (err, ctx) => { ctx.log.error(err); ctx.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
@@ -61,6 +61,6 @@ const app = new Agent()
     chatPipeline
   ));
 
-await app.handler()(ctx, async () => {});
+await app.handler()(ctx, async () => { });
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);

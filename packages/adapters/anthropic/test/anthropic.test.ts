@@ -74,6 +74,28 @@ test('anthropicAdapter maps tool calls and tool_choice', async () => {
   expect(fetchMock).toHaveBeenCalledOnce();
 });
 
+test('anthropicAdapter maps "auto" and "none" toolChoice to objects', async () => {
+  process.env.ANTHROPIC_API_KEY = 'x';
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    text: async () => JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }),
+  } as any);
+
+  const tool: Tool = { name: 'echo', description: 'echo', schema: {} as any, handler: async () => null };
+  const llm = anthropicAdapter({ model: 'claude-3-haiku' });
+  const messages: Message[] = [ { role: 'user', content: 'hi' } ];
+
+  await llm.generate(messages, { tools: [tool], toolChoice: 'auto' });
+  const firstReq = JSON.parse((fetchMock.mock.calls[0] as any)[1].body);
+  expect(firstReq.tool_choice).toEqual({ type: 'auto' });
+
+  await llm.generate(messages, { tools: [tool], toolChoice: 'none' });
+  const secondReq = JSON.parse((fetchMock.mock.calls[1] as any)[1].body);
+  expect(secondReq.tool_choice).toEqual({ type: 'none' });
+});
+
 test('anthropicAdapter omits tool_choice when no tools provided', async () => {
   process.env.ANTHROPIC_API_KEY = 'x';
   const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (_url, init) => {
