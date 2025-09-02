@@ -22,6 +22,8 @@ function makeCtx(partial: Partial<Ctx> = {}): Ctx {
 test('contextCompressor summarizes head when context exceeds limit', async () => {
   const messages: Message[] = [{ role: 'system', content: 'sys' } as any];
   for (let i = 0; i < 5; i++) messages.push({ role: i % 2 ? 'assistant' : 'user', content: 'msg' + i + ' '.repeat(80) } as any);
+  // Preserve the original tail for later comparison since `messages` will mutate
+  const origTail = messages.slice(-2).map(m => (m as any).content);
   const calls: Message[][] = [];
   const model = {
     name: 'dummy', capabilities: {},
@@ -42,7 +44,6 @@ test('contextCompressor summarizes head when context exceeds limit', async () =>
   expect(finalMsgs[1].content).toMatch(/\[Summary of earlier turns\]/);
   expect(finalMsgs.length).toBe(1 + 1 + 2);
   const tail = finalMsgs.slice(2).map(m => (m as any).content);
-  const origTail = messages.slice(-2).map(m => (m as any).content);
   expect(tail).toEqual(origTail);
 });
 
@@ -74,7 +75,8 @@ test('contextCompressor preserves assistant/tool pair when tail starts with tool
     { role: 'system', content: 'sys' } as any,
     { role: 'assistant', content: 'calling', tool_calls: [{ id: '1', function: { name: 't' } }] } as any,
     { role: 'tool', content: '{}', tool_call_id: '1' } as any,
-    { role: 'user', content: 'hi' } as any,
+    // Pad the user message so the total context exceeds the compression threshold
+    { role: 'user', content: 'hi' + ' '.repeat(100) } as any,
     { role: 'assistant', content: 'end' } as any,
   ];
   const calls: Message[][] = [];
