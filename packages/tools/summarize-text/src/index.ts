@@ -33,7 +33,9 @@ export const summarizeText: Tool<SummarizeArgs> = {
     const chunks = chunkText(text, 10_000);
     const chunkSummaries: string[] = [];
     for (const [i, ch] of chunks.entries()) {
-      const prompt = buildPrompt(ch, target, Math.min(Math.floor(cap / Math.max(chunks.length, 1)) + 200, cap), bullets, includeCitations, focus, `Part ${i+1}/${chunks.length}`);
+      // Allocate characters per chunk, allowing a buffer of 200, but not exceeding the cap
+      const charsPerChunk = Math.min(Math.floor(cap / Math.max(chunks.length, 1)) + 200, cap);
+      const prompt = buildPrompt(ch, target, charsPerChunk, bullets, includeCitations, focus, `Part ${i+1}/${chunks.length}`);
       const res: any = await ctx.model.generate(prompt, { toolChoice: 'none', signal: ctx.signal });
       const s = String(res?.message?.content ?? '').trim();
       if (s) chunkSummaries.push(s.slice(0, cap));
