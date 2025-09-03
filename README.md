@@ -42,61 +42,77 @@ npm i \
 
 ```ts
 import 'dotenv/config';
-import { Agent, type Ctx, createConsoleLogger, InMemoryKV, NullStream, SimpleTools } from '@sisu-ai/core';
-import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Tool, type Ctx } from '@sisu-ai/core';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { toolCalling } from '@sisu-ai/mw-tool-calling';
 import { switchCase, sequence, loopUntil } from '@sisu-ai/mw-control-flow';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
-import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { z } from 'zod';
 
-const weather = {
+// Simple weather tool
+interface WeatherArgs { city: string }
+const weather: Tool<WeatherArgs> = {
   name: 'getWeather',
   description: 'Get weather for a city',
   schema: z.object({ city: z.string() }),
-  handler: async ({ city }: { city: string }) => ({ city, tempC: 21, summary: 'Sunny (stub)' }),
+  handler: async ({ city }) => ({ city, tempC: 21, summary: 'Sunny' }),
 };
 
 const model = openAIAdapter({ model: 'gpt-4o-mini' });
+
 const ctx: Ctx = {
-  input: 'Weather in Stockholm and plan a fika.',
-  messages: [{ role: 'system', content: 'Use tools when needed.' }],
-  model, tools: new SimpleTools(), memory: new InMemoryKV(),
-  stream: new NullStream(), state: {}, signal: new AbortController().signal,
-  log: createConsoleLogger({ level: 'info' }),
+  input: process.argv.slice(2).join(' ') || 'What is the weather in Malmö?',
+  messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
+  model,
+  tools: new SimpleTools(),
+  memory: new InMemoryKV(),
+  stream: new NullStream(),
+  state: {},
+  signal: new AbortController().signal,
+  log: createConsoleLogger(),
 };
 
-const intent = async (c: Ctx, next: () => Promise<void>) => {
-  c.state.intent = /weather|forecast/i.test(c.input ?? '') ? 'tooling' : 'chat';
+// Very small intent classifier
+const intentClassifier = async (c: Ctx, next: () => Promise<void>) => {
+  const q = String(c.input ?? '').toLowerCase();
+  c.state.intent = q.includes('weather') || q.includes('forecast') ? 'tooling' : 'chat';
   await next();
 };
-const decideMore = async (c: Ctx, next: () => Promise<void>) => {
+
+// Decide whether to loop for another tool call (simple one-turn tool loop)
+const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => {
   const wasTool = c.messages.at(-1)?.role === 'tool';
-  c.state.moreTools = Boolean(wasTool && (c.state.turns ?? 0) < 1);
-  c.state.turns = (c.state.turns ?? 0) + 1;
+  const turns = Number(c.state.turns ?? 0);
+  c.state.moreTools = Boolean(wasTool && turns < 1);
+  c.state.turns = turns + 1;
   await next();
 };
 
-const toolingBody = sequence([ toolCalling, decideMore ]);
-const toolingLoop = loopUntil(c => !c.state.moreTools, toolingBody, { max: 6 });
-const chatBody = sequence([ async (c) => {
-  const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });
-  if (res?.message) c.messages.push(res.message);
+// Tooling path: call tools, maybe loop once
+const toolingBody = sequence([ toolCalling, decideIfMoreTools ]);
+const toolingLoop = loopUntil(c => !c.state.moreTools, toolingBody, { max: 3 });
+
+// Chat path: simple single-turn completion (no tools)
+const chatPipeline = sequence([ async (c: Ctx) => {
+  const res = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });
+  if ((res as any)?.message) c.messages.push((res as any).message);
 }]);
 
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
-  .use(traceViewer({ style: 'dark' }))
-  .use(registerTools([weather as any]))
+  .use(traceViewer())
+  .use(registerTools([weather]))
   .use(inputToMessage)
-  .use(conversationBuffer({ window: 12 }))
-  .use(intent)
-  .use(switchCase((c) => String(c.state.intent), { tooling: toolingLoop, chat: chatBody }, chatBody));
+  .use(conversationBuffer({ window: 8 }))
+  .use(intentClassifier)
+  .use(switchCase((c) => String(c.state.intent), { tooling: toolingLoop, chat: chatPipeline }, chatPipeline));
 
 await app.handler()(ctx);
-console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
+const final = ctx.messages.filter(m => m.role === 'assistant').pop();
+console.log('\nAssistant:\n', final?.content);
 ```
 
 ## Core Ideas
@@ -120,6 +136,7 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 ## Find your inner strength
 - [packages/core](packages/core/README.md)
 - Adapters: [OpenAI](packages/adapters/openai/README.md), [Ollama](packages/adapters/ollama/README.md)
+- Adapters: [OpenAI](packages/adapters/openai/README.md), [Ollama](packages/adapters/ollama/README.md), [Anthropic](packages/adapters/anthropic/README.md)
 - Middlewares:
   - [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md)
   - [@sisu-ai/mw-control-flow](packages/middleware/control-flow/README.md)
@@ -132,40 +149,66 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
   - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md)
   - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md)
 
-## Adapters
+Yes — that will read much cleaner in your README. Instead of cramming everything into one wide table, we can **give each adapter its own section** with:
 
-### OpenAI
-- Env
-  - `OPENAI_API_KEY` (preferred) or `API_KEY`: API key (required)
-  - `OPENAI_BASE_URL` or `BASE_URL`: override base URL (or pass `baseUrl` in code)
-  - Optional: `DEBUG_LLM=1` to log redacted request/response summaries on errors
-- Tools
-  - Supports `tools` + `tool_choice`, returns `message.tool_calls`
-  - Assistant tool_calls messages use `content: null` when no text
-  - Follow‑up completion disables tools by default
-- Usage
-  ```ts
-  import { openAIAdapter } from '@sisu-ai/adapter-openai';
-  const model = openAIAdapter({ model: 'gpt-4o-mini' });
-  // ctx.model = model
-  ```
- - Images
-   - Send multi-part content arrays with `type: 'text' | 'image_url'`
-   - Example user message: `[{ type: 'text', text: 'What is in this image?' }, { type: 'image_url', image_url: { url: 'https://…jpg' } }]`
-   - See `examples/openai-vision`
+1. **Usage snippet** right up front (copy-paste ready).
+2. **Compact feature table** underneath for environment variables, tools, images, streaming, etc.
 
-### Ollama (local)
-- Env
-  - `OLLAMA_BASE_URL` or `BASE_URL`: override base URL (or pass `baseUrl` in code). Default `http://localhost:11434`.
-- Tools
-  - Native tools support via `tools` field; adapter maps `GenerateOptions.tools`
-  - Returns `message.tool_calls`; adapter preserves tool interactions in history
-- Usage
-  ```ts
-  import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
-  const model = ollamaAdapter({ model: 'llama3.1' });
-  // ctx.model = model
-  ```
+Here’s how it could look:
+
+---
+
+## OpenAI
+
+```ts
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
+const model = openAIAdapter({ model: 'gpt-4o-mini' });
+// ctx.model = model
+```
+
+| Feature       | Details                                                                                                                                                                 |
+|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Env Vars**  | - `OPENAI_API_KEY` or `API_KEY`<br>- `OPENAI_BASE_URL` or `BASE_URL`                                        |
+| **Tools**     | ✅ |
+| **Images**    | - Multi-part arrays: `{ type: 'text' \| 'image_url' }`<br>- Example: `[{ type: 'text', ...}, { type: 'image_url', ...}]`<br>- See `examples/openai-vision`              |
+| **Streaming** | ✅                                                                                                                                                                       |
+
+---
+
+## Ollama (local)
+
+```ts
+import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
+const model = ollamaAdapter({ model: 'llama3.1' });
+// ctx.model = model
+```
+
+| Feature       | Details                                                                                                 |
+|---------------|---------------------------------------------------------------------------------------------------------|
+| **Env Vars**  | - `OLLAMA_BASE_URL` or `BASE_URL` (default `http://localhost:11434`)                                    |
+| **Tools**     | ✅ |
+| **Images**    | –                                                                                                       |
+| **Streaming** | ✅                                                                                                       |
+
+---
+
+## Anthropic
+
+```ts
+import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
+const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
+// ctx.model = model
+```
+
+| Feature       | Details                                                                                                                                          |
+|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Env Vars**  | - `ANTHROPIC_API_KEY` or `API_KEY`<br>- `ANTHROPIC_BASE_URL` or `BASE_URL`                                                           |
+| **Tools**     | ✅ |
+| **Images**    | –                                                                                                                                                |
+| **Streaming** | ✅                                                                                                                                                |
+
+---
+
 
 ## Configuration (Env & Flags)
 - Env vars (adapters)
@@ -198,7 +241,7 @@ console.log(ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 
 ## Design Notes
 - Core stays small and stable; everything else is opt‑in middleware.
-- Protocol correctness is enforced by the tool‑calling loop and `@sisu-ai/mw-invariants`.
+- Protocol correctness can be enforced by the tool‑calling loop and `@sisu-ai/mw-invariants`.
 - The logging stack supports levels, redaction, and tracing without external services.
 
 
@@ -219,16 +262,20 @@ You are free to help out. Built an awesome middleware? Found a bug? Lets go!
   - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md) — JSON + HTML trace export (themes, templating)
   - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md) — protocol checks (tool_calls ↔ tool replies)
   - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md) — policy guard
-- `examples/openai-hello` — base‑minimum hello example (OpenAI)
-- `examples/openai-weather` — tool‑calling demo with branching + loop (OpenAI)
-- `examples/openai-react` — ReAct-style tool use with OpenAI
+- `examples/openai-hello` — base‑minimum hello example
+- `examples/openai-stream` — streaming example
+- `examples/openai-weather` — tool‑calling demo with branching + loop
+- `examples/openai-react` — ReAct-style tool use
 - `examples/openai-guardrails` — guardrails + single turn
 - `examples/openai-control-flow` — intent router between chat and tooling
 - `examples/openai-branch` — route between playful vs practical response
 - `examples/openai-parallel` — fork two sub-tasks then merge
 - `examples/openai-graph` — small DAG: classify → (draft|chat) → polish
-- `examples/ollama-hello` — hello using Ollama locally
-- `examples/ollama-weather` — tool-calling with Ollama
+- `examples/ollama-hello` — base‑minimum hello example (locally)
+- `examples/ollama-weather` — tool-calling (locally)
+- `examples/anthropic-hello` — base‑minimum hello example
+- `examples/anthropic-control-flow` — tool‑calling demo with branching + loop
+- `examples/anthropic-stream` — streaming example with Anthropic
 
 ## Quick Start
 ```bash
@@ -242,7 +289,7 @@ npm run dev -w examples/openai-hello -- "Say hello in one sentence." --trace --t
 
 # Weather tool (tools + control flow)
 cp examples/openai-weather/.env.example examples/openai-weather/.env
-npm run dev -w examples/openai-weather -- "Weather in Stockholm and plan a fika." --trace --trace-style=dark
+npm run dev -w examples/openai-weather -- "Weather in Malmö and plan a fika." --trace --trace-style=dark
 
 # Vision (image input)
 cp examples/openai-vision/.env.example examples/openai-vision/.env
