@@ -72,7 +72,8 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
           let buf = '';
           let full = '';
           for await (const chunk of res.body as any) {
-            buf += decoder.decode(chunk);
+            const piece = typeof chunk === 'string' ? chunk : decoder.decode(chunk);
+            buf += piece;
             const lines = buf.split('\n');
             buf = lines.pop() ?? '';
             for (const line of lines) {

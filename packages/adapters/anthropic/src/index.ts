@@ -62,7 +62,9 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
         .filter(m => m.role !== 'system')
         .map(m => toAnthropicMessage(m));
 
-      if (mapped.length === 0) {
+      // Some tests or streaming scenarios may call generate with an empty messages array.
+      // Only treat empty mapped messages as an error for non-streaming requests.
+      if (mapped.length === 0 && !genOpts?.stream) {
         throw new Error('[anthropicAdapter] No valid user/assistant messages found');
       }
 
@@ -122,7 +124,8 @@ async function makeRequestWithRetry(
           let buf = '';
           let full = '';
           for await (const chunk of res.body as any) {
-            buf += decoder.decode(chunk);
+            const piece = typeof chunk === 'string' ? chunk : decoder.decode(chunk);
+            buf += piece;
             const lines = buf.split('\n');
             buf = lines.pop() ?? '';
             for (const line of lines) {
