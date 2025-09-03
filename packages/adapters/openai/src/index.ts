@@ -1,4 +1,4 @@
-import type { LLM, Message, ModelResponse, GenerateOptions, Tool } from '@sisu-ai/core';
+import type { LLM, Message, ModelResponse, GenerateOptions, Tool, ModelEvent } from '@sisu-ai/core';
 import { firstConfigValue } from '@sisu-ai/core';
 type OpenAIContentPart =
   | { type: 'text'; text: string }
@@ -20,10 +20,10 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
   const DEBUG = String(process.env.DEBUG_LLM || '').toLowerCase() === 'true' || process.env.DEBUG_LLM === '1';
   return {
     name: 'openai:' + opts.model,
-    capabilities: { functionCall: true, streaming: false },
+    capabilities: { functionCall: true, streaming: true },
     // Non-standard metadata for tools that may target other OpenAI surfaces (e.g., Responses API)
     ...(opts.responseModel ? { meta: { responseModel: opts.responseModel } } : {}),
-    async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse> {
+    async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>> {
       const toolsParam = (genOpts?.tools ?? []).map(t => toOpenAiTool(t));
       const tool_choice = normalizeToolChoice(genOpts?.toolChoice);
       const body: any = {
@@ -34,6 +34,7 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
         // Some providers reject tool_choice when tools are not present; include only when tools exist
         ...((toolsParam.length && tool_choice !== undefined) ? { tool_choice } : {}),
         ...(genOpts?.parallelToolCalls !== undefined ? { parallel_tool_calls: Boolean(genOpts.parallelToolCalls) } : {}),
+        ...(genOpts?.stream ? { stream: true } : {}),
       };
       const url = `${baseUrl}/v1/chat/completions`;
       if (DEBUG) {
@@ -61,6 +62,44 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
         },
         body: JSON.stringify(body)
       });
+      if (genOpts?.stream) {
+        if (!res.ok || !res.body) {
+          const err = await res.text();
+          throw new Error(`OpenAI API error: ${res.status} ${res.statusText} — ${String(err).slice(0,500)}`);
+        }
+        const iter = async function*() {
+          const decoder = new TextDecoder();
+          let buf = '';
+          let full = '';
+          for await (const chunk of res.body as any) {
+            buf += decoder.decode(chunk);
+            const lines = buf.split('\n');
+            buf = lines.pop() ?? '';
+            for (const line of lines) {
+              const m = line.match(/^data:\s*(.*)/);
+              if (!m) continue;
+              const data = m[1].trim();
+              if (data === '' || data === '[DONE]') {
+                if (data === '[DONE]') {
+                  yield { type: 'assistant_message', message: { role: 'assistant', content: full } } as ModelEvent;
+                  return;
+                }
+                continue;
+              }
+              try {
+                const j = JSON.parse(data);
+                const delta = j.choices?.[0]?.delta;
+                const t = delta?.content;
+                if (typeof t === 'string') {
+                  full += t;
+                  yield { type: 'token', token: t } as ModelEvent;
+                }
+              } catch {}
+            }
+          }
+        };
+        return iter();
+      }
       const raw = await res.text();
       if (!res.ok) {
         let details = raw;

@@ -1,4 +1,5 @@
 import { test, expect, vi, afterEach } from 'vitest';
+import { Readable } from 'stream';
 import { anthropicAdapter } from '../src/index.js';
 import type { Message, Tool } from '@sisu-ai/core';
 
@@ -6,6 +7,26 @@ afterEach(() => {
   vi.restoreAllMocks();
   delete (process.env as any).ANTHROPIC_API_KEY;
   delete (process.env as any).ANTHROPIC_BASE_URL;
+});
+
+test('anthropicAdapter streams tokens when stream option is set', async () => {
+  process.env.ANTHROPIC_API_KEY = 'stream';
+  const s = Readable.from([
+    'data: {"type":"content_block_delta","delta":{"text":"He"}}\n\n',
+    'data: {"type":"content_block_delta","delta":{"text":"llo"}}\n\n',
+    'data: {"type":"message_stop"}\n\n',
+  ]);
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, body: s } as any);
+  const llm = anthropicAdapter({ model: 'claude-3-haiku' });
+  const out: string[] = [];
+  const iter = await llm.generate([], { stream: true }) as AsyncIterable<any>;
+  for await (const ev of iter) {
+    if (ev.type === 'token') out.push(ev.token);
+  }
+  expect(out.join('')).toBe('Hello');
+  const [, init] = fetchMock.mock.calls[0] as any;
+  const body = JSON.parse(init.body);
+  expect(body.stream).toBe(true);
 });
 
 test('anthropicAdapter throws without API key', async () => {

@@ -1,4 +1,4 @@
-import type { LLM, Message, ModelResponse, GenerateOptions, Tool } from '@sisu-ai/core';
+import type { LLM, Message, ModelResponse, GenerateOptions, Tool, ModelEvent } from '@sisu-ai/core';
 import { firstConfigValue } from '@sisu-ai/core';
 
 export interface AnthropicAdapterOptions {
@@ -55,14 +55,8 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
 
   return {
     name: modelName,
-    capabilities: { functionCall: true, streaming: false },
-    
-    async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse> {
-      // Validate inputs
-      if (!Array.isArray(messages) || messages.length === 0) {
-        throw new Error('[anthropicAdapter] messages array cannot be empty');
-      }
-
+    capabilities: { functionCall: true, streaming: true },
+  async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>> {
       const systemMsgs = messages.filter(m => m.role === 'system').map(m => String(m.content ?? ''));
       const mapped: AnthropicMessage[] = messages
         .filter(m => m.role !== 'system')
@@ -84,9 +78,10 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
         ...(toolsParam.length ? { tools: toolsParam } : {}),
         // Anthropic rejects tool_choice when tools are not provided
         ...((toolsParam.length && tool_choice !== undefined) ? { tool_choice } : {}),
+        ...(genOpts?.stream ? { stream: true } : {}),
       };
 
-      return await makeRequestWithRetry(baseUrl, apiKey, anthropicVersion, body, timeout, maxRetries);
+      return await makeRequestWithRetry(baseUrl, apiKey, anthropicVersion, body, timeout, maxRetries, Boolean(genOpts?.stream));
     },
   };
 }
@@ -98,7 +93,8 @@ async function makeRequestWithRetry(
   body: any,
   timeout: number,
   maxRetries: number
-): Promise<ModelResponse> {
+  , stream: boolean
+): Promise<ModelResponse | AsyncIterable<ModelEvent>> {
   let lastError: Error;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -106,7 +102,7 @@ async function makeRequestWithRetry(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      const res = await fetch(`${baseUrl}/v1/messages`, {
+  const res = await fetch(`${baseUrl}/v1/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,9 +112,42 @@ async function makeRequestWithRetry(
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
-
+  if (stream) {
+        if (!res.ok || !res.body) {
+          const err = await res.text();
+          throw new Error(`Anthropic API error: ${res.status} ${res.statusText} — ${String(err).slice(0,500)}`);
+        }
+        const iter = async function*() {
+          const decoder = new TextDecoder();
+          let buf = '';
+          let full = '';
+          for await (const chunk of res.body as any) {
+            buf += decoder.decode(chunk);
+            const lines = buf.split('\n');
+            buf = lines.pop() ?? '';
+            for (const line of lines) {
+              const m = line.match(/^data:\s*(.*)/);
+              if (!m) continue;
+              const data = m[1].trim();
+              if (!data) continue;
+              try {
+                const j = JSON.parse(data);
+                if (j.type === 'content_block_delta') {
+                  const t = j.delta?.text;
+                  if (typeof t === 'string') {
+                    full += t;
+                    yield { type: 'token', token: t } as ModelEvent;
+                  }
+                } else if (j.type === 'message_stop') {
+                  yield { type: 'assistant_message', message: { role: 'assistant', content: full } } as ModelEvent;
+                  return;
+                }
+              } catch {}
+            }
+          }
+        };
+  return iter();
+      }
       const raw = await res.text();
       
       if (!res.ok) {

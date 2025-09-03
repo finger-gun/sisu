@@ -1,4 +1,4 @@
-import type { LLM, Message, ModelResponse, GenerateOptions, Tool } from '@sisu-ai/core';
+import type { LLM, Message, ModelResponse, GenerateOptions, Tool, ModelEvent } from '@sisu-ai/core';
 import { firstConfigValue } from '@sisu-ai/core';
 
 export interface OllamaAdapterOptions {
@@ -16,8 +16,8 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
 
   return {
     name: modelName,
-    capabilities: { functionCall: true, streaming: false },
-    async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse> {
+    capabilities: { functionCall: true, streaming: true },
+    async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>> {
       // Map messages to Ollama format; include assistant tool_calls and tool messages
       const mapped: OllamaChatMessage[] = messages.map((m: any) => {
         const base: any = { role: m.role };
@@ -35,7 +35,7 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
       });
 
       const toolsParam = (genOpts?.tools ?? []).map(toOllamaTool);
-      const body: any = { model: opts.model, messages: mapped, stream: false };
+      const body: any = { model: opts.model, messages: mapped, stream: Boolean(genOpts?.stream) };
       if (toolsParam.length) body.tools = toolsParam;
       const res = await fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
@@ -46,6 +46,38 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
         },
         body: JSON.stringify(body),
       });
+      if (genOpts?.stream) {
+        if (!res.ok || !res.body) {
+          const err = await res.text();
+          throw new Error(`Ollama API error: ${res.status} ${res.statusText} — ${String(err).slice(0,500)}`);
+        }
+        const iter = async function*() {
+          const decoder = new TextDecoder();
+          let buf = '';
+          let full = '';
+          for await (const chunk of res.body as any) {
+            buf += decoder.decode(chunk);
+            const lines = buf.split('\n');
+            buf = lines.pop() ?? '';
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const j = JSON.parse(line);
+                if (j.done) {
+                  yield { type: 'assistant_message', message: { role: 'assistant', content: full } } as ModelEvent;
+                  return;
+                }
+                const token = j.message?.content;
+                if (typeof token === 'string' && token) {
+                  full += token;
+                  yield { type: 'token', token } as ModelEvent;
+                }
+              } catch {}
+            }
+          }
+        };
+        return iter();
+      }
       const raw = await res.text();
       if (!res.ok) {
         let details = raw;
