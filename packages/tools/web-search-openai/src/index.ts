@@ -37,10 +37,7 @@ export const openAIWebSearch: Tool<OpenAIWebSearchArgs> = {
 
     const DEBUG = String(process.env.DEBUG_LLM || '').toLowerCase() === 'true' || process.env.DEBUG_LLM === '1';
     if (DEBUG) {
-      try {
-        // eslint-disable-next-line no-console
-        console.error('[DEBUG_LLM] request', { url, headers: { Authorization: 'Bearer ***', 'Content-Type': 'application/json', Accept: 'application/json' }, body });
-      } catch {}
+      console.error('[DEBUG_LLM] request', { url, headers: { Authorization: 'Bearer ***', 'Content-Type': 'application/json', Accept: 'application/json' }, body });
     }
 
     const doRequest = async (modelToUse: string) => fetch(url, {

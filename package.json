@@ -18,11 +18,19 @@
     "dotenv": "^16.4.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0",
-    "vitest": "^3.2.4",
+  "vitest": "^3.2.4",
     "zod": "^3.23.8"
+  ,
+  "eslint": "^8.45.0",
+  "@typescript-eslint/parser": "^6.7.0",
+  "@typescript-eslint/eslint-plugin": "^6.7.0",
+  "eslint-config-prettier": "^9.1.0",
+  "prettier": "^2.8.8"
   },
   "scripts": {
     "build": "npm run -ws build",
+  "lint": "eslint --ext .ts,.js packages examples",
+  "lint:fix": "eslint --ext .ts,.js packages examples --fix",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish",

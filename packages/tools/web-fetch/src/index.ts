@@ -210,7 +210,7 @@ function evaluateRobotsDetailed(rules: RobotsRules, userAgent: string, pathWithQ
 
 function patternMatches(pat: string, path: string): boolean {
   // Support '*' wildcard and '$' end anchor; treat path as starting with '/'
-  let p = pat.trim();
+  const p = pat.trim();
   if (p === '') return false;
   // Empty disallow means allow all; already handled by return false above
   // Convert to regex

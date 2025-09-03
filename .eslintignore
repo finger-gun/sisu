@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+**/dist
+**/build
+*.d.ts
+*.tsbuildinfo
+packages/*/node_modules
+.eslintrc.cjs
