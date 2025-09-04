@@ -146,7 +146,7 @@ async function makeRequestWithRetry(
                   return;
                 }
               } catch (e: unknown) {
-                console.error('[DEBUG_LLM] request_error', { error: e });
+                console.error('[DEBUG_LLM] stream_parse_error', { error: e });
               }
             }
           }
