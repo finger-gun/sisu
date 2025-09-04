@@ -1,44 +1,70 @@
 # @sisu-ai/tool-azure-blob
 
-Azure Blob Storage tools for Sisu. Read, list, and (optionally) write blobs. Includes metadata operations.
+Azure Blob Storage tools for Sisu. Read, list, delete, and  write blobs. Includes metadata operations.
 
-Key ops
-- `azure.getBlob({ container, blobName })` — read UTF‑8 text
-- `azure.listBlobs({ container, prefix? })` — list names
-- `azure.uploadBlob({ container, blobName, content })` — write text (guarded)
-- `azure.getMetadata({ container, blobName })` — read metadata
-- `azure.setMetadata({ container, blobName, metadata })` — write metadata (guarded)
+## Exports
+- `azureGetBlob({ container, blobName })` → `{ content: string }`
+- `azureListBlobs({ container, prefix? })` → `string[]`
+- `azureListBlobsDetailed({ container, prefix? })` → `{ name: string; lastModified?: string }[]`
+- `azureGetMetadata({ container, blobName })` → `Record<string, string>` (user metadata)
+- `azureUploadBlob({ container, blobName, content })` → `{ ok: true } | { ok: false, error: string }`
+- `azureSetMetadata({ container, blobName, metadata })` → `{ ok: true } | { ok: false, error: string }`
+- `azureDeleteBlob({ container, blobName })` → `{ ok: true } | { ok: false, error: string }`
 
-Configuration
-- Connection: set `AZURE_STORAGE_CONNECTION_STRING` or provide `ctx.state.azureBlob.connectionString` or `ctx.state.azureBlob.serviceClient`.
-- Write guard: default off. Enable with `ctx.state.azureBlob.allowWrite = true` or `AZURE_BLOB_ALLOW_WRITE=1`.
+Write operations are guarded. When writes are disabled the write tools return `{ ok: false, error }` (they do not throw).
 
-Usage (preferred: static tools)
+## Configuration
+- Connection:
+  - `AZURE_STORAGE_CONNECTION_STRING`, or
+  - `ctx.state.azureBlob.connectionString`, or
+  - `ctx.state.azureBlob.serviceClient` (an instance of `BlobServiceClient`).
+- Write guard (default: disabled):
+  - `ctx.state.azureBlob.allowWrite = true`, or
+  - `AZURE_BLOB_ALLOW_WRITE=1`.
+
+## Usage
 ```ts
+import { Agent } from '@sisu-ai/core';
 import { registerTools } from '@sisu-ai/mw-register-tools';
-import { azureBlobTools } from '@sisu-ai/tool-azure-blob';
+import {
+  azureGetBlob,
+  azureListBlobs,
+  azureListBlobsDetailed,
+  azureGetMetadata,
+  azureUploadBlob,
+  azureSetMetadata,
+  azureDeleteBlob,
+} from '@sisu-ai/tool-azure-blob';
 
-agent.use(registerTools(azureBlobTools));
+const app = new Agent().use(registerTools([
+  azureGetBlob,
+  azureListBlobs,
+  azureListBlobsDetailed,
+  azureGetMetadata,
+  azureUploadBlob,
+  azureSetMetadata,
+  azureDeleteBlob,
+]));
 
 // Optional runtime config
 ctx.state.azureBlob = {
   connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING!,
-  allowWrite: false, // set true to permit upload/setMetadata
+  allowWrite: false, // set true to permit upload/setMetadata/delete
 };
 ```
 
-Usage (factory: inject client and flags)
+## Read “latest” example
 ```ts
-import createAzureBlobTools from '@sisu-ai/tool-azure-blob';
+// 1) List blobs with lastModified, pick the newest
+const items: Array<{ name: string; lastModified?: string }> = await azureListBlobsDetailed.handler({ container: 'rag' }, ctx) as any;
+const latest = items
+  .filter(i => i.lastModified)
+  .sort((a,b) => (a.lastModified! < b.lastModified! ? 1 : -1))[0]?.name;
 
-const { getBlob, listBlobs, uploadBlob } = createAzureBlobTools({
-  connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
-  allowWrite: true,
-});
-
-agent.use(registerTools([getBlob, listBlobs, uploadBlob]));
+// 2) Read its contents
+if (latest) {
+  const { content } = await azureGetBlob.handler({ container: 'rag', blobName: latest }, ctx) as any;
+  // 3) Optionally delete (requires allowWrite=true)
+  await azureDeleteBlob.handler({ container: 'rag', blobName: latest }, ctx);
+}
 ```
-
-Notes
-- For binary content, extend `getBlob` to return buffers; this tool defaults to UTF‑8 text for simplicity.
-- For SAS tokens or Managed Identity, construct a `serviceClient` externally and pass via factory or `ctx.state.azureBlob.serviceClient`.

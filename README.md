@@ -195,28 +195,62 @@ flowchart TD
 
 ## Find your inner strength
 - [packages/core](packages/core/README.md)
-- Adapters: [OpenAI](packages/adapters/openai/README.md), [Ollama](packages/adapters/ollama/README.md)
-- Adapters: [OpenAI](packages/adapters/openai/README.md), [Ollama](packages/adapters/ollama/README.md), [Anthropic](packages/adapters/anthropic/README.md)
+- Adapters: [Anthropic](packages/adapters/anthropic/README.md), [Ollama](packages/adapters/ollama/README.md), [OpenAI](packages/adapters/openai/README.md)
 - Middlewares:
-  - [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md)
+  - [@sisu-ai/mw-context-compressor](packages/middleware/context-compressor/README.md)
   - [@sisu-ai/mw-control-flow](packages/middleware/control-flow/README.md)
+  - [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md)
   - [@sisu-ai/mw-error-boundary](packages/middleware/error-boundary/README.md)
+  - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md)
+  - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md)
+  - [@sisu-ai/mw-rag](packages/middleware/rag/README.md)
   - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md)
   - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md)
   - [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md)
-  - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
   - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md)
-  - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md)
-  - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md)
-
+  - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
+- Tools:
+  - [@sisu-ai/tool-azure-blob](packages/tools/azure-blob/README.md)
+  - [@sisu-ai/tool-extract-urls](packages/tools/extract-urls/README.md)
+  - [@sisu-ai/tool-github-projects](packages/tools/github-projects/README.md)
+  - [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md)
+  - [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md)
+  - [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md)
+  - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)
+  - [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md)
+  - [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md)
+  - [@sisu-ai/vec-chroma](packages/tools/vec-chroma/README.md)
+- Examples:
+  - [anthropic-control-flow](examples/anthropic-control-flow/README.md)
+  - [anthropic-hello](examples/anthropic-hello/README.md)
+  - [anthropic-stream](examples/anthropic-stream/README.md)
+  - [anthropic-weather](examples/anthropic-weather/README.md)
+  - [ollama-hello](examples/ollama-hello/README.md)
+  - [ollama-stream](examples/ollama-stream/README.md)
+  - [ollama-weather](examples/ollama-weather/README.md)
+  - [ollama-web-search](examples/ollama-web-search/README.md)
+  - [openai-azure-blob](examples/openai-azure-blob/README.md)
+  - [openai-branch](examples/openai-branch/README.md)
+  - [openai-control-flow](examples/openai-control-flow/README.md)
+  - [openai-extract-urls](examples/openai-extract-urls/README.md)
+  - [openai-github-projects](examples/openai-github-projects/README.md)
+  - [openai-google-search](examples/openai-google-search)
+  - [openai-graph](examples/openai-graph/README.md)
+  - [openai-guardrails](examples/openai-guardrails/README.md)
+  - [openai-hello](examples/openai-hello/README.md)
+  - [openai-parallel](examples/openai-parallel/README.md)
+  - [openai-rag-chroma](examples/openai-rag-chroma/README.md)
+  - [openai-react](examples/openai-react/README.md)
+  - [openai-search-fetch](examples/openai-search-fetch)
+  - [openai-stream](examples/openai-stream/README.md)
+  - [openai-vision](examples/openai-vision/README.md)
+  - [openai-weather](examples/openai-weather/README.md)
+  - [openai-web-fetch](examples/openai-web-fetch/README.md)
+  - [openai-web-search](examples/openai-web-search/README.md)
+  - [openai-wikipedia](examples/openai-wikipedia/README.md)
 ---
 
 # Adapters
-Here’s a draft **Adapters** section you can drop into the README. It explains what adapters are, what’s supported, and when to re-use an existing adapter (like OpenAI for LM Studio).
-
----
-
-## Adapters
 
 Adapters are small shims that let Sisu talk to different LLM providers in a **normalized way**.
 Every adapter implements the same `LLM.generate(messages, opts)` contract so you can swap providers without changing your agent code.
@@ -326,63 +360,8 @@ const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
 - Set `DEBUG_LLM=1` to log redacted HTTP payloads from the OpenAI adapter when a call fails (status + body snippet).
 - The trace viewer writes `run.json` and `run.html` for quick scanning of messages and events.
 
-## Design Notes
-- Core stays small and stable; everything else is opt‑in middleware.
-- Protocol correctness can be enforced by the tool‑calling loop and `@sisu-ai/mw-invariants`.
-- The logging stack supports levels, redaction, and tracing without external services.
-
 # Developers
-You are free to help out. Built an awesome middleware? Found a bug? Lets go!
-
-- [packages/core](packages/core/README.md) — minimal contracts (`Ctx`, `Middleware`, `compose`, `Agent`, tools, memory, stream, logger)
-- [packages/adapters/openai](packages/adapters/openai/README.md) — OpenAI‑compatible Chat adapter
-- [packages/adapters/ollama](packages/adapters/ollama/README.md) — Ollama (local/offline) Chat adapter
-- [packages/adapters/anthropic](packages/adapters/anthropic/README.md) — Anthropic Chat adapter
-- packages/middleware/* — optional middlewares:
-  - [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md) — input→message + windowed truncation
-  - [@sisu-ai/mw-control-flow](packages/middleware/control-flow/README.md) — `sequence`, `branch`, `switchCase`, `loopWhile/loopUntil`, `parallel`, `graph`
-  - [@sisu-ai/mw-error-boundary](packages/middleware/error-boundary/README.md) — try/catch with fallback
-  - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md) — ReAct fallback loop
-  - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md) — bulk tool registration
-  - [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md) — tools API loop with id‑anchored replies
-  - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md) — token usage + cost estimation
-  - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md) — JSON + HTML trace export (themes, templating)
-  - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md) — protocol checks (tool_calls ↔ tool replies)
-  - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md) — policy guard
-- `examples/openai-hello` — base‑minimum hello example
-- `examples/openai-stream` — streaming example
-- `examples/openai-weather` — tool‑calling demo with branching + loop
-- `examples/openai-react` — ReAct-style tool use
-- `examples/openai-guardrails` — guardrails + single turn
-- `examples/openai-control-flow` — intent router between chat and tooling
-- `examples/openai-branch` — route between playful vs practical response
-- `examples/openai-parallel` — fork two sub-tasks then merge
-- `examples/openai-graph` — small DAG: classify → (draft|chat) → polish
-- `examples/ollama-hello` — base‑minimum hello example (locally)
-- `examples/ollama-weather` — tool-calling (locally)
-- `examples/anthropic-hello` — base‑minimum hello example
-- `examples/anthropic-control-flow` — tool‑calling demo with branching + loop
-- `examples/anthropic-stream` — streaming example with Anthropic
-
-## Quick Start
-```bash
-npm i
-npm run build -ws
-
-# Hello (minimal)
-cp examples/openai-hello/.env.example examples/openai-hello/.env
-# put your OPENAI_API_KEY into .env
-npm run dev -w examples/openai-hello -- "Say hello in one sentence." --trace --trace-style=modern
-
-# Weather tool (tools + control flow)
-cp examples/openai-weather/.env.example examples/openai-weather/.env
-npm run dev -w examples/openai-weather -- "Weather in Malmö and plan a fika." --trace --trace-style=dark
-
-# Vision (image input)
-cp examples/openai-vision/.env.example examples/openai-vision/.env
-npm run dev -w examples/openai-vision -- --trace --trace-style=modern
-# Tip: configure @sisu-ai/mw-usage-tracker with image pricing (e.g. imageInputPer1K)
-```
+You are free to help out. Built an awesome middleware? Found a bug? Lets go! Send me an email, [jamie.telin@gmail.com](mailto:jamie.telin@gmail.com), or contact me on some socials.
 
 ## Publishing
 We use Changesets to manage versioning and releases for each package.

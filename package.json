@@ -30,6 +30,7 @@
   "scripts": {
     "build": "npm run -ws build",
     "merge:md": "node ./tools/merge-md.cjs --root ./ ./.doc-bundles/",
+    "docs:update": "node ./tools/update-readme.cjs",
     "lint": "eslint --ext .ts,.js packages examples",
     "lint:fix": "eslint --ext .ts,.js packages examples --fix",
     "changeset": "changeset",
