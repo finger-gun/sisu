@@ -76,7 +76,20 @@ function chunkText(s: string, size = 10_000): string[] {
 }
 
 function extractUrls(contents: string[]): string[] {
-  const urlRe = /https?:\/\/[^\s)\]\"'>]+/gi;
+  /**
+   * Regular expression to match URLs starting with "http://" or "https://".
+   *
+   * This pattern matches any substring that:
+   * - Begins with "http://" or "https://"
+   * - Is followed by any sequence of characters except whitespace, closing parentheses, square brackets, double quotes, single quotes, greater-than signs, or angle brackets.
+   *
+   * Excluded characters (`\s)\]"'>`) are commonly found at the end of URLs in text (such as punctuation or delimiters) and are not considered part of the URL.
+   *
+   * @remarks
+   * While this regex works for many common cases, URL parsing can be complex and edge cases may not be handled correctly.
+   * For more robust and accurate URL extraction, we should consider using a dedicated URL parsing library.
+   */
+  const urlRe = /https?:\/\/[^\s)\]"'>]+/gi;
   const out = new Set<string>();
   for (const c of contents) for (const m of c.matchAll(urlRe)) out.add(m[0]);
   return Array.from(out);
