@@ -40,7 +40,7 @@ export const ragRetrieve = (opts: RagRetrieveOptions = {}): Middleware => async 
   const result = await tool.handler({ embedding, topK, filter }, ctx as any) as QueryResult;
   const srag = ((ctx.state as any).rag ||= {});
   srag.retrieval = result;
-  console.log(`[rag] retrieved ${result?.matches?.length || 0} matches`);
+  ctx.log.debug?.(`[rag] retrieved ${result?.matches?.length || 0} matches`);
   await next();
 };
 
@@ -60,7 +60,6 @@ QUESTION:
 {{question}}`;
 
 export const buildRagPrompt = <TSel = any>(opts: BuildRagPromptOptions<TSel> = {}): Middleware => async (ctx, next) => {
-  console.error('[rag] buildRagPrompt');
   const t = (opts.template || DEFAULT_TEMPLATE);
   const sel = opts.select?.(ctx) as any;
   const matches = (ctx.state as any)?.rag?.retrieval?.matches || [];
