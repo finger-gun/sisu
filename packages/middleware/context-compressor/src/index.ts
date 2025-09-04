@@ -1,5 +1,7 @@
 import type { Ctx, LLM, Message, Middleware } from '@sisu-ai/core';
 
+const HEAD_TO_SUMMARY_RATIO = 5;
+
 export interface ContextCompressorOptions {
   maxChars?: number;         // threshold to trigger compression
   keepRecent?: number;       // number of recent messages to keep verbatim
@@ -31,7 +33,7 @@ function wrapModelWithCompression(model: LLM, cfg: Required<ContextCompressorOpt
       } catch (e) {
         ctx.log.warn?.('[context-compressor] clampRecent failed (stream path); proceeding', e);
       }
-      return origGenerate(messages, genOpts) as any;
+      return origGenerate(messages, genOpts);
     }
 
     return (async () => {
@@ -39,12 +41,12 @@ function wrapModelWithCompression(model: LLM, cfg: Required<ContextCompressorOpt
         // Only compress when not already summarizing and context seems large
         if (!ctx.state.__compressing && approxChars(messages) > cfg.maxChars) {
           ctx.log.info?.('[context-compressor] compressing conversation context');
-          (ctx.state as any).__compressing = true;
+          (ctx.state).__compressing = true;
           try {
             const compressed = await compressMessages(messages, cfg, ctx, origGenerate);
             messages = compressed;
           } finally {
-            delete (ctx.state as any).__compressing;
+            delete (ctx.state).__compressing;
           }
         }
         // Always clamp oversized recent tool outputs to avoid huge bodies
@@ -52,7 +54,7 @@ function wrapModelWithCompression(model: LLM, cfg: Required<ContextCompressorOpt
       } catch (e) {
         ctx.log.warn?.('[context-compressor] failed to compress; proceeding uncompressed', e);
       }
-      return await origGenerate(messages, genOpts as any) as any;
+      return await origGenerate(messages, genOpts);
     })();
   }) as unknown as LLM['generate'];
 
@@ -62,7 +64,7 @@ function wrapModelWithCompression(model: LLM, cfg: Required<ContextCompressorOpt
 function approxChars(messages: Message[]): number {
   let n = 0;
   for (const m of messages) {
-    const c: any = (m as any).content;
+    const c = (m).content;
     if (typeof c === 'string') n += c.length; else if (Array.isArray(c)) n += JSON.stringify(c).length;
   }
   return n;
@@ -74,13 +76,13 @@ async function compressMessages(messages: Message[], cfg: Required<ContextCompre
 
   // Don’t split a tool-call group: if tail starts with tool messages, include the preceding
   // assistant that requested tool_calls in the tail as well.
-  if (messages[cut] && (messages[cut] as any).role === 'tool') {
+  if (messages[cut] && (messages[cut]).role === 'tool') {
     const anchor = findPrevAssistantWithToolCalls(messages, cut - 1);
     if (anchor >= 0) {
       cut = anchor; // include the assistant-with-tool_calls in the tail
     } else {
       // As a last resort, advance cut forward past any leading tool messages in tail
-      while (cut < messages.length && (messages[cut] as any).role === 'tool') cut++;
+      while (cut < messages.length && (messages[cut]).role === 'tool') cut++;
     }
   }
 
@@ -88,13 +90,13 @@ async function compressMessages(messages: Message[], cfg: Required<ContextCompre
   const tail = messages.slice(cut);
 
   // Build a compression prompt
-  const headText = sliceAndFlatten(head, cfg.summaryMaxChars * 5);
+  const headText = sliceAndFlatten(head, cfg.summaryMaxChars * HEAD_TO_SUMMARY_RATIO);
   const prompt = [
     { role: 'system', content: 'You are a compression assistant. Summarize the following conversation and tool outputs into a compact bullet list of established facts and extracted citations (URLs). Keep it under the specified character budget. Do not invent facts.' },
     { role: 'user', content: `Character budget: ${cfg.summaryMaxChars}. Include a section "Citations:" listing unique URLs.\n\nConversation to compress:\n${headText}` },
   ] as Message[];
 
-  const res: any = await gen(prompt, { toolChoice: 'none', signal: ctx.signal });
+  const res = await gen(prompt, { toolChoice: 'none', signal: ctx.signal });
   const summary = String(res?.message?.content ?? '').slice(0, cfg.summaryMaxChars);
   const summaryMsg: Message = { role: 'assistant', content: `[Summary of earlier turns]\n${summary}` };
   return [messages[0], summaryMsg, ...tail];
@@ -104,7 +106,7 @@ function sliceAndFlatten(msgs: Message[], max: number): string {
   const parts: string[] = [];
   for (const m of msgs) {
     const role = m.role;
-    const c: any = (m as any).content;
+    const c = (m).content;
     let text = '';
     if (typeof c === 'string') text = c;
     else if (Array.isArray(c)) text = JSON.stringify(c);
@@ -121,7 +123,7 @@ function clampRecent(messages: Message[], cfg: Required<ContextCompressorOptions
   const out = messages.map(m => ({ ...m }));
   const limit = cfg.recentClampChars;
   for (let i = Math.max(0, out.length - (cfg.keepRecent + 4)); i < out.length; i++) {
-    const m: any = out[i];
+    const m = out[i];
     const c = m.content;
     if (typeof c !== 'string') continue;
     if (m.role === 'tool') {
@@ -150,14 +152,14 @@ function clampToolContentString(s: string, limit: number): string {
       // Recursively clamp nested arrays/objects
       return JSON.stringify(clampDeep(obj, limit));
     }
-  } catch {}
+  } catch { /* ignore JSON parse error */ }
   return s.length > limit ? s.slice(0, limit) : s;
 }
 
-function clampDeep(v: any, limit: number): any {
+function clampDeep(v: unknown, limit: number): unknown {
   if (!v || typeof v !== 'object') return v;
   if (Array.isArray(v)) return v.slice(0, 50).map(x => clampDeep(x, limit));
-  const out: any = {};
+  const out: Record<string, unknown> = {};
   for (const [k, val] of Object.entries(v)) {
     if (k === 'html') continue; // drop
     if (typeof val === 'string') out[k] = val.length > limit ? val.slice(0, limit) : val;
@@ -168,7 +170,7 @@ function clampDeep(v: any, limit: number): any {
 
 function findPrevAssistantWithToolCalls(messages: Message[], start: number): number {
   for (let i = start; i >= 0; i--) {
-    const m: any = messages[i];
+    const m = messages[i];
     if (m?.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length > 0) return i;
   }
   return -1;
