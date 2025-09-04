@@ -8,7 +8,7 @@ import { z } from 'zod';
  * @returns Array of unique URLs found in the contents.
  */
 export function extractUrls(contents: string[]): string[] {
-  const urlRe = /https?:\/\/[\S)\]\"'>]+/gi;
+  const urlRe = /https?:\/\/[\S)\]"'>]+/gi;
   const out = new Set<string>();
   for (const c of contents) for (const m of c.matchAll(urlRe)) out.add(m[0]);
   return Array.from(out);

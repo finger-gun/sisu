@@ -62,6 +62,7 @@
     "ex:openai:web-fetch": "TRACE_HTML=1 npm run dev -w examples/openai-web-fetch -- --trace -- \"https://en.wikipedia.org/wiki/Hubble_Space_Telescope\"",
     "ex:openai:github-projects": "TRACE_HTML=1 npm run dev -w examples/openai-github-projects -- --trace -- \"List next 3 open issues, then fetch their full details.\"",
     "ex:openai:openai-rag-chroma": "TRACE_HTML=1 npm run dev -w examples/openai-rag-chroma -- --trace -- \"Best fika in Malmö?\"",
-    "ex:openai:openai-azure-blob": "TRACE_HTML=1 npm run dev -w examples/openai-azure-blob -- --trace"
+    "ex:openai:openai-azure-blob": "TRACE_HTML=1 npm run dev -w examples/openai-azure-blob -- --trace",
+    "ex:openai:extract-urls": "TRACE_HTML=1 npm run dev -w examples/openai-extract-urls -- --trace -- \"Extract URLs from: 'Check out https://www.google.com and also https://example.com'\""
   }
 }

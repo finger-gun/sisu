@@ -12,7 +12,7 @@ test('getBlob downloads content (static tool)', async () => {
   } as any;
   const ctx = { state: { azureBlob: { serviceClient: service } } } as any;
   const res = await azureGetBlob.handler({ container: 'c', blobName: 'b' } as any, ctx);
-  expect(res.content).toBe('hello');
+  expect((res as { content: string }).content).toBe('hello');
 });
 
 test('uploadBlob respects allowWrite flag (static tool)', async () => {
@@ -76,6 +76,6 @@ test('static tools read config from ctx.state and guard writes', async () => {
   const ctx = { state: { azureBlob: { serviceClient: service, allowWrite: true } } } as any;
   await azureUploadBlob.handler({ container: 'c', blobName: 'b', content: 'x' } as any, ctx);
   expect(upload).toHaveBeenCalled();
-  const text = await azureGetBlob.handler({ container: 'c', blobName: 'b' } as any, ctx);
+  const text = await azureGetBlob.handler({ container: 'c', blobName: 'b' } as any, ctx) as { content: string };
   expect(text.content).toBe('hi');
 });
