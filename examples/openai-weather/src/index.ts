@@ -18,8 +18,7 @@ const weather: Tool<WeatherArgs> = {
 };
 
 // Model
-const model = openAIAdapter({ model: 'openai/gpt-oss-20b', baseUrl: 'http://127.0.0.1:1234/' });
-
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 // Ctx
 const ctx: Ctx = {
   input: process.argv.slice(2).join(' ') || 'What is the weather in Malmö?',

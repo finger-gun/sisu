@@ -8,7 +8,7 @@ import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { duckDuckGoWebSearch } from '@sisu-ai/tool-web-search-duckduckgo';
 
-const model = ollamaAdapter({ model: 'llama3.1' });
+const model = ollamaAdapter({ model: process.env.MODEL || 'llama3.1' });
 
 const ctx: Ctx = {
   input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Search the web for the tallest mountain in Europe.',

@@ -6,8 +6,7 @@ import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
 
 // Minimal example with Ollama (local). Ensure ollama is running, and the model is pulled.
 // Example: ollama serve; ollama pull llama3.1:latest
-
-const model = ollamaAdapter({ model: 'llama3.1' }); // use 'llama3.1:latest' if needed
+const model = ollamaAdapter({ model: process.env.MODEL || 'llama3.1' }); 
 
 const ctx: Ctx = {
   input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Say hello in one short sentence.',

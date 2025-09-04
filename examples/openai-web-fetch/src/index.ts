@@ -8,7 +8,7 @@ import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { webFetch } from '@sisu-ai/tool-web-fetch';
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const urlArg = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'https://en.wikipedia.org/wiki/Hubble_Space_Telescope';
 

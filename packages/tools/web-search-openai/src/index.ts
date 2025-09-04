@@ -54,9 +54,8 @@ export const openAIWebSearch: Tool<OpenAIWebSearchArgs> = {
     let raw = await res.text();
     if (!res.ok) {
       let details = raw;
-      try { const j = JSON.parse(raw); details = j.error?.message ?? raw; } catch {}
+      try { const j = JSON.parse(raw); details = j.error?.message ?? raw; } catch { /* ignore JSON parse error */ }
       if (DEBUG) {
-        // eslint-disable-next-line no-console
         console.error('[DEBUG_LLM] response_error', { status: res.status, statusText: res.statusText, body: typeof raw === 'string' ? raw.slice(0, 500) : raw });
       }
       // Retry once with a safe default model if we suspect model/tool mismatch
@@ -64,12 +63,12 @@ export const openAIWebSearch: Tool<OpenAIWebSearchArgs> = {
       const shouldRetry = res.status === 400 || msg.includes('tool') || msg.includes('web_search');
       if (shouldRetry && model !== 'gpt-4.1-mini') {
         const fallback = 'gpt-4.1-mini';
-        if (DEBUG) { try { console.error('[DEBUG_LLM] retrying with fallback model', { from: model, to: fallback }); } catch {} }
+        if (DEBUG) { try { console.error('[DEBUG_LLM] retrying with fallback model', { from: model, to: fallback }); } catch { /* ignore JSON parse error */ } }
         model = fallback;
         res = await doRequest(model);
         raw = await res.text();
         if (!res.ok) {
-          let d2 = raw; try { const j2 = JSON.parse(raw); d2 = j2.error?.message ?? raw; } catch {}
+          let d2 = raw; try { const j2 = JSON.parse(raw); d2 = j2.error?.message ?? raw; } catch { /* ignore JSON parse error */ }
           throw new Error(`OpenAI web search failed: ${res.status} ${res.statusText} — ${String(d2).slice(0, 500)}`);
         }
       } else {
@@ -79,22 +78,25 @@ export const openAIWebSearch: Tool<OpenAIWebSearchArgs> = {
     const ct = res.headers.get('content-type') || '';
     if (!ct.toLowerCase().includes('application/json')) {
       if (DEBUG) {
-        try {
-          // eslint-disable-next-line no-console
-          console.error('[DEBUG_LLM] non_json_response', { contentType: ct, snippet: typeof raw === 'string' ? raw.slice(0, 200) : raw });
-        } catch {}
+        console.error('[DEBUG_LLM] non_json_response', { contentType: ct, snippet: typeof raw === 'string' ? raw.slice(0, 200) : raw });
       }
       throw new Error(`OpenAI web search returned non-JSON content (content-type: ${ct}). Check OPENAI_BASE_URL/BASE_URL and API key. Snippet: ${String(raw).slice(0, 200)}`);
     }
-    const json: any = raw ? JSON.parse(raw) : {};
-    if (DEBUG) {
-      try {
-        // eslint-disable-next-line no-console
-        console.error('[DEBUG_LLM] response_ok', { keys: Object.keys(json ?? {}), outputType: Array.isArray(json?.output) ? 'array' : typeof json?.output });
-      } catch {}
+    interface WebSearchResult {
+      type: string;
+      web_search_results?: unknown;
+      content?: { type: string; web_search_results?: unknown }[];
     }
-    const results = json.output?.find?.((p: any) => p.type === 'web_search_results')?.web_search_results
-      ?? json.output?.[0]?.content?.find?.((c: any) => c.type === 'web_search_results')?.web_search_results;
+    interface OpenAIWebSearchResponse {
+      output?: WebSearchResult[];
+      [key: string]: unknown;
+    }
+    const json: OpenAIWebSearchResponse = raw ? JSON.parse(raw) : {};
+    if (DEBUG) {
+      console.log('[DEBUG_LLM] response_ok', { keys: Object.keys(json ?? {}), outputType: Array.isArray(json?.output) ? 'array' : typeof json?.output });
+    }
+    const results = json.output?.find?.((p) => p.type === 'web_search_results')?.web_search_results
+      ?? json.output?.[0]?.content?.find?.((c) => c.type === 'web_search_results')?.web_search_results;
     return results ?? json;
   }
 };

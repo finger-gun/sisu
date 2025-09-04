@@ -1,5 +1,4 @@
-import { test } from 'vitest';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import type { Ctx } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
 import { errorBoundary } from '../src/index.js';
@@ -24,7 +23,7 @@ test('errorBoundary catches errors and invokes handler', async () => {
   const onError = async (err: unknown, _ctx: any) => { seen.push(err); };
   const boom = async () => { throw new Error('boom'); };
   await compose([errorBoundary(onError as any), boom as any])(makeCtx());
-  assert.strictEqual(seen.length, 1);
-  assert.match(String(seen[0]), /boom/);
+  expect(seen.length).toBe(1);
+  expect(String(seen[0])).toMatch(/boom/);
 });
 

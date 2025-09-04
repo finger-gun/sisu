@@ -10,6 +10,9 @@ pnpm-debug.log*
 dist/
 build/
 out/
+**/**/dist/
+**/**/build/
+**/**/out/
 packages/**/dist/
 examples/**/dist/
 .doc-bundles/
@@ -55,3 +58,4 @@ traces/
 
 # Misc
 *.local
+

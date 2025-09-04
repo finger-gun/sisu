@@ -1,4 +1,4 @@
-import type { LLM, Message, ModelResponse, GenerateOptions, Tool, ModelEvent } from '@sisu-ai/core';
+import type { LLM, Message, ModelResponse, GenerateOptions, Tool, ModelEvent, AssistantMessage, ToolCall as NormalizedToolCall } from '@sisu-ai/core';
 import { firstConfigValue } from '@sisu-ai/core';
 
 // Small typed helpers for parsing OpenAI shapes without using `any`
@@ -137,21 +137,19 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
       }
       const data = (raw ? JSON.parse(raw) : {}) as OpenAIResponse;
       const choice = data?.choices?.[0];
-      const toolCalls = (() => {
+      const toolCalls: NormalizedToolCall[] | undefined = (() => {
         const msgShape = (choice?.message ?? {}) as OpenAIMessageShape;
         const tcs = msgShape?.tool_calls as ToolCall[] | undefined;
         if (Array.isArray(tcs) && tcs.length) {
-          return tcs.map((tc) => ({ id: tc.id, name: tc.function?.name, arguments: safeJson(tc.function?.arguments) }));
+          return tcs.map((tc) => ({ id: tc.id ?? stableToolCallId(tc.function?.name ?? '', tc.function?.arguments), name: tc.function?.name ?? '', arguments: safeJson(tc.function?.arguments) }));
         }
         if (msgShape?.function_call) {
-          return [{ name: msgShape.function_call.name, arguments: safeJson(msgShape.function_call.arguments) }];
+          return [{ id: stableToolCallId(msgShape.function_call.name, msgShape.function_call.arguments), name: msgShape.function_call.name, arguments: safeJson(msgShape.function_call.arguments) }];
         }
         return undefined;
       })();
-      type MessageWithToolCalls = Message & { tool_calls?: Array<{ id?: string; name?: string; arguments?: unknown }> };
-      const msgBase = { role: (choice?.message?.role ?? 'assistant') as Message['role'], content: choice?.message?.content ?? '' };
-      const msg = msgBase as MessageWithToolCalls;
-      if (toolCalls) msg.tool_calls = toolCalls;
+      const msg: AssistantMessage = { role: 'assistant', content: choice?.message?.content ?? '' };
+      if (toolCalls) (msg as AssistantMessage).tool_calls = toolCalls;
       const usage = mapUsage(data?.usage);
       return { message: msg, ...(usage ? { usage } : {}) };
     })();
@@ -334,6 +332,30 @@ function normalizePartsArray(parts: Array<unknown>): OpenAIContentPart[] {
 function summarize(v: unknown, max = 300): unknown {
   if (typeof v !== 'string') return v;
   return v.length > max ? v.slice(0, max) + '…' : v;
+}
+
+// Create a deterministic id from function name + arguments
+function stableToolCallId(name: string, args: unknown): string {
+  const s = `${name}:${stableStringify(args)}`;
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0; // djb2-like
+  }
+  const hex = (h >>> 0).toString(16);
+  return `fc_${name || 'fn'}_${hex}`;
+}
+
+function stableStringify(v: unknown): string {
+  try {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return JSON.stringify(v);
+    const obj = v as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    const sorted: Record<string, unknown> = {};
+    for (const k of keys) sorted[k] = obj[k];
+    return JSON.stringify(sorted);
+  } catch {
+    return String(v);
+  }
 }
 
 function mapUsage(u: unknown) {

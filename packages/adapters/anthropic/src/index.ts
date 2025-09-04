@@ -368,7 +368,7 @@ function normalizeToolChoice(choice: GenerateOptions['toolChoice'], hasTools: bo
   if (choice === 'none') return { type: 'none' };
 
   // Specific tool choice
-  return { type: 'tool', name: choice };
+  return { type: 'tool', name: typeof choice === 'string' ? choice : undefined };
 }
 
 function toAnthropicMessage(m: Message): AnthropicMessage {

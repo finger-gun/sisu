@@ -1,5 +1,4 @@
-import { test } from 'vitest';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import type { Ctx, Tool } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
 import { registerTools } from '../src/index.js';
@@ -26,7 +25,7 @@ test('registerTools registers provided tools', async () => {
   ];
   const ctx = makeCtx();
   await compose([registerTools(tools)])(ctx);
-  assert.ok(ctx.tools.get('a'));
-  assert.ok(ctx.tools.get('b'));
+  expect(ctx.tools.get('a')).toBeTruthy();
+  expect(ctx.tools.get('b')).toBeTruthy();
 });
 

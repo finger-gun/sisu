@@ -17,7 +17,7 @@ function embed(text: string): number[] {
   const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1; return v.map(x => x / norm);
 }
 
-const model = openAIAdapter({ model: process.env.OPENAI_MODEL || 'gpt-4o-mini' });
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const query = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Best fika in Malmö?';
 

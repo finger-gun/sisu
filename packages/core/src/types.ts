@@ -1,28 +1,88 @@
-export type Role = 'user'|'assistant'|'system'|'tool';
+export type Role = 'user' | 'assistant' | 'system' | 'tool';
 
-export interface Message { role: Role; content: string; name?: string; }
+/** Tool call envelope normalized across providers */
+export interface ToolCall {
+  id: string;                 // provider's tool_call_id (or synthesized UUID)
+  name: string;               // tool name
+  arguments: unknown;         // provider-parsed args (object) or raw JSON string parsed upstream
+}
+
+/** Messages are discriminated by role for precision */
+export type Message =
+  | SystemMessage
+  | UserMessage
+  | AssistantMessage
+  | ToolMessage;
+
+export interface SystemMessage {
+  role: 'system';
+  content: string;
+  name?: string;
+}
+
+export interface UserMessage {
+  role: 'user';
+  content: string;
+  name?: string;
+}
+
+export interface AssistantMessage {
+  role: 'assistant';
+  content: string;            // final text from the model
+  name?: string;
+  /** When the model wants to call tools, it returns one or more tool calls */
+  tool_calls?: ToolCall[];
+}
+
+export interface ToolMessage {
+  role: 'tool';
+  /** Tool JSON/string result to be fed back to the model */
+  content: string;
+  /** Link back to the specific assistant tool call */
+  tool_call_id: string;
+  /** (optional) echo the tool name for debugging/trace */
+  name?: string;
+}
+
+/** LLM call options */
+export type ToolChoice =
+  | 'auto'                     // model decides
+  | 'none'                     // forbid tools
+  | 'required'                 // force at least one tool call when supported
+  | { name: string };          // force a specific tool by name (if provider supports)
 
 export interface GenerateOptions {
   temperature?: number;
   maxTokens?: number;
-  toolChoice?: 'auto'|'none'|string;
+  toolChoice?: ToolChoice;
   signal?: AbortSignal;
-  tools?: Tool[];
-  parallelToolCalls?: boolean; // hint for providers that support it
-  stream?: boolean; // request token streaming when supported
+  tools?: Tool[];              // schemas surfaced to the provider
+  parallelToolCalls?: boolean; // hint for providers supporting parallelism
+  stream?: boolean;            // request token streaming when supported
+  // providerMeta?: Record<string, unknown>; // (optional) adapter-specific knob pass-through
 }
 
+/** Streaming events */
 export type ModelEvent =
   | { type: 'token'; token: string }
-  | { type: 'tool_call'; name: string; arguments: unknown }
-  | { type: 'assistant_message'; message: Message }
-  ;
+  | { type: 'tool_call'; call: ToolCall }      // normalized, not per-provider delta
+  | { type: 'assistant_message'; message: AssistantMessage }
+  | { type: 'usage'; usage: Usage };           // optional live usage updates
 
-export interface ModelResponse {
-  message: Message;
-  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number; costUSD?: number };
+export interface Usage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  costUSD?: number;
 }
 
+/** Final response */
+export interface ModelResponse {
+  message: AssistantMessage;  // assistant may or may not have tool_calls
+  usage?: Usage;
+}
+
+/** Adapter contract */
 export interface LLM {
   name: string;
   capabilities: { functionCall?: boolean; streaming?: boolean };
@@ -31,6 +91,7 @@ export interface LLM {
   generate(messages: Message[], opts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>>;
 }
 
+/** Logger, Memory, TokenStream: unchanged */
 export interface Logger {
   debug(...args: any[]): void;
   info(...args: any[]): void;
@@ -40,9 +101,11 @@ export interface Logger {
 }
 
 export interface Memory {
-  get<T=unknown>(key: string): Promise<T|undefined>;
+  get<T = unknown>(key: string): Promise<T | undefined>;
   set(key: string, val: unknown): Promise<void>;
-  retrieval?(index: string): { search: (q: string, topK?: number) => Promise<Array<{text: string, score?: number}>> };
+  retrieval?(
+    index: string
+  ): { search: (q: string, topK?: number) => Promise<Array<{ text: string; score?: number }>> };
 }
 
 export interface TokenStream {
@@ -50,19 +113,22 @@ export interface TokenStream {
   end(): void;
 }
 
-export interface Tool<T=any> {
+/** Stronger Tool typing with generics */
+export interface Tool<TArgs = any, TResult = unknown> {
   name: string;
   description?: string;
-  schema: any; // zod type at runtime
-  handler: (args: T, ctx: Ctx) => Promise<unknown>;
+  schema: any; // zod schema at runtime
+  handler: (args: TArgs, ctx: Ctx) => Promise<TResult>;
 }
 
+/** Registry */
 export interface ToolRegistry {
   list(): Tool[];
   get(name: string): Tool | undefined;
   register(tool: Tool): void;
 }
 
+/** Context */
 export interface Ctx {
   input?: string;
   messages: Message[];
