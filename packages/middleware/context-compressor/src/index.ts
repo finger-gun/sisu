@@ -1,6 +1,7 @@
 import type { Ctx, LLM, Message, Middleware } from '@sisu-ai/core';
 
 const HEAD_TO_SUMMARY_RATIO = 5;
+const MAX_ARRAY_CLAMP = 50; // Maximum number of array elements to keep when clamping
 
 export interface ContextCompressorOptions {
   maxChars?: number;         // threshold to trigger compression
@@ -158,7 +159,7 @@ function clampToolContentString(s: string, limit: number): string {
 
 function clampDeep(v: unknown, limit: number): unknown {
   if (!v || typeof v !== 'object') return v;
-  if (Array.isArray(v)) return v.slice(0, 50).map(x => clampDeep(x, limit));
+  if (Array.isArray(v)) return v.slice(0, MAX_ARRAY_CLAMP).map(x => clampDeep(x, limit));
   const out: Record<string, unknown> = {};
   for (const [k, val] of Object.entries(v)) {
     if (k === 'html') continue; // drop
