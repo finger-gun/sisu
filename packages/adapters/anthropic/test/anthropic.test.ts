@@ -1,4 +1,5 @@
 import { test, expect, vi, afterEach } from 'vitest';
+import { Readable } from 'stream';
 import { anthropicAdapter } from '../src/index.js';
 import type { Message, Tool } from '@sisu-ai/core';
 
@@ -6,6 +7,26 @@ afterEach(() => {
   vi.restoreAllMocks();
   delete (process.env as any).ANTHROPIC_API_KEY;
   delete (process.env as any).ANTHROPIC_BASE_URL;
+});
+
+test('anthropicAdapter streams tokens when stream option is set', async () => {
+  process.env.ANTHROPIC_API_KEY = 'stream';
+  const s = Readable.from([
+    'data: {"type":"content_block_delta","delta":{"text":"He"}}\n\n',
+    'data: {"type":"content_block_delta","delta":{"text":"llo"}}\n\n',
+    'data: {"type":"message_stop"}\n\n',
+  ]);
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, body: s } as any);
+  const llm = anthropicAdapter({ model: 'claude-3-haiku' });
+  const out: string[] = [];
+  const iter = await llm.generate([], { stream: true }) as AsyncIterable<any>;
+  for await (const ev of iter) {
+    if (ev.type === 'token') out.push(ev.token);
+  }
+  expect(out.join('')).toBe('Hello');
+  const [, init] = fetchMock.mock.calls[0] as any;
+  const body = JSON.parse(init.body);
+  expect(body.stream).toBe(true);
 });
 
 test('anthropicAdapter throws without API key', async () => {
@@ -27,11 +48,16 @@ test('anthropicAdapter posts messages and returns mapped response with usage', a
   const llm = anthropicAdapter({ model: 'claude-3-haiku', baseUrl: 'https://api.example.com' });
   const msgs: Message[] = [ { role: 'user', content: 'hello' } ];
   const out = await llm.generate(msgs, { temperature: 0.1 });
-  expect(out.message.role).toBe('assistant');
-  expect(out.message.content).toBe('hi');
-  expect(out.usage?.promptTokens).toBe(5);
-  expect(out.usage?.completionTokens).toBe(3);
-  expect(out.usage?.totalTokens).toBe(8);
+  // Ensure 'out' is a ModelResponse, not an AsyncIterable
+  if ('message' in out) {
+    expect(out.message.role).toBe('assistant');
+    expect(out.message.content).toBe('hi');
+    expect(out.usage?.promptTokens).toBe(5);
+    expect(out.usage?.completionTokens).toBe(3);
+    expect(out.usage?.totalTokens).toBe(8);
+  } else {
+    throw new Error('Expected ModelResponse, got AsyncIterable');
+  }
 
   expect(fetchMock).toHaveBeenCalledOnce();
   const [url, init] = fetchMock.mock.calls[0] as any;
@@ -67,10 +93,14 @@ test('anthropicAdapter maps tool calls and tool_choice', async () => {
     { role: 'assistant', content: '', tool_calls: [ { id: '1', name: 'echo', arguments: { foo: 1 } } ] } as any,
   ];
   const out = await llm.generate(messages, { tools: [tool], toolChoice: 'echo' });
-  const tcs = (out.message as any).tool_calls;
-  expect(Array.isArray(tcs)).toBe(true);
-  expect(tcs[0].name).toBe('echo');
-  expect(tcs[0].arguments).toEqual({ foo: 1 });
+  if ('message' in out) {
+    const tcs = (out.message as any).tool_calls;
+    expect(Array.isArray(tcs)).toBe(true);
+    expect(tcs[0].name).toBe('echo');
+    expect(tcs[0].arguments).toEqual({ foo: 1 });
+  } else {
+    throw new Error('Expected ModelResponse, got AsyncIterable');
+  }
   expect(fetchMock).toHaveBeenCalledOnce();
 });
 

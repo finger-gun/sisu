@@ -9,7 +9,7 @@ Concepts
 
 Usage
 - Quick start: `npm run ex:anthropic:control`
-- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/anthropic-control-flow -- --trace --trace-style=light -- "Weather in Stockholm and suggest a fika plan."`
+- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/anthropic-control-flow -- --trace --trace-style=light -- "Weather in Malmö and suggest a fika plan."`
 
 Config Flags (CLI overrides env)
 - `--anthropic-api-key`, `--api-key`

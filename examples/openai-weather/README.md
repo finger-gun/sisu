@@ -4,7 +4,7 @@ Shows tools and control flow by fetching weather and summarizing.
 
 Usage
 - Quick start: `npm run ex:openai:weather`
-- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-weather -- --trace --trace-style=dark -- "Weather in Stockholm and plan a fika."`
+- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-weather -- --trace --trace-style=dark -- "Weather in Malmö and plan a fika."`
 
 Config Flags (CLI overrides env)
 - `--openai-api-key`, `--api-key`

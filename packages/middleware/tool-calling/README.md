@@ -17,9 +17,62 @@ Discover what you can do through examples or documentation. Check it out at http
     - Executes each unique `(name, args)` once and responds to every `tool_call_id`.
     - Handles provider quirks by reusing last args for identical tool names with missing args.
   - Second turn: asks for a pure completion (`toolChoice:'none'`).
+```mermaid
+sequenceDiagram
+  autonumber
+  participant A as Agent toolCalling
+  participant M as Model Adapter
+  participant R as Tools Registry
+  participant H as Tool Handler
 
+  A->>R: list
+  R-->>A: tools
+  A->>M: generate with tools auto
+  alt tool calls
+    M-->>A: assistant with tool calls
+    loop each unique name args
+      A->>R: resolve and validate
+      R-->>A: handler
+      A->>H: execute
+      H-->>A: append tool message
+    end
+    A->>M: generate finalize none
+    M-->>A: assistant completion
+  else no tool calls
+    M-->>A: assistant completion
+  end
+
+```
 - `iterativeToolCalling`: multi-round tool calling.
   - Repeats calls with `toolChoice:'auto'` until the model returns a message with no `tool_calls` (max 12 iters).
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant A as Agent iterativeToolCalling
+  participant M as Model Adapter
+  participant R as Tools Registry
+  participant H as Tool Handler
+
+  A->>R: list
+  R-->>A: tools
+  loop max twelve iterations until no tool calls
+    A->>M: generate with tools auto
+    alt tool calls present
+      M-->>A: assistant with tool calls
+      loop each unique name args
+        A->>R: resolve and validate
+        R-->>A: handler
+        A->>H: execute
+        H-->>A: append tool message
+      end
+    else no tool calls
+      M-->>A: assistant no tools
+    end
+  end
+  A->>M: generate finalize none
+  M-->>A: assistant completion
+```
 
 ## Usage
 ```ts

@@ -9,6 +9,7 @@ export interface GenerateOptions {
   signal?: AbortSignal;
   tools?: Tool[];
   parallelToolCalls?: boolean; // hint for providers that support it
+  stream?: boolean; // request token streaming when supported
 }
 
 export type ModelEvent =
@@ -25,7 +26,9 @@ export interface ModelResponse {
 export interface LLM {
   name: string;
   capabilities: { functionCall?: boolean; streaming?: boolean };
-  generate(messages: Message[], opts?: GenerateOptions): AsyncIterable<ModelEvent> | Promise<ModelResponse>;
+  generate(messages: Message[], opts?: GenerateOptions): Promise<ModelResponse>;
+  generate(messages: Message[], opts?: GenerateOptions): AsyncIterable<ModelEvent>;
+  generate(messages: Message[], opts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>>;
 }
 
 export interface Logger {

@@ -12,6 +12,7 @@ build/
 out/
 packages/**/dist/
 examples/**/dist/
+.doc-bundles/
 
 # TypeScript
 *.tsbuildinfo
