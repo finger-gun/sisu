@@ -21,19 +21,30 @@ export const contextCompressor = (opts: ContextCompressorOptions = {}): Middlewa
 
 function wrapModelWithCompression(model: LLM, cfg: Required<ContextCompressorOptions>, ctx: Ctx): LLM {
   const origGenerate = model.generate.bind(model);
-  return {
-    ...model,
-    async generate(messages, genOpts) {
+
+  // Provide a generate function compatible with LLM overloads.
+  const wrappedGenerate = ((messages: Message[], genOpts?: any) => {
+    // For streaming requests, avoid async prework that would change return type.
+    if (genOpts?.stream) {
+      try {
+        messages = clampRecent(messages, cfg, ctx);
+      } catch (e) {
+        ctx.log.warn?.('[context-compressor] clampRecent failed (stream path); proceeding', e);
+      }
+      return origGenerate(messages, genOpts) as any;
+    }
+
+    return (async () => {
       try {
         // Only compress when not already summarizing and context seems large
         if (!ctx.state.__compressing && approxChars(messages) > cfg.maxChars) {
           ctx.log.info?.('[context-compressor] compressing conversation context');
-          ctx.state.__compressing = true;
+          (ctx.state as any).__compressing = true;
           try {
             const compressed = await compressMessages(messages, cfg, ctx, origGenerate);
             messages = compressed;
           } finally {
-            delete ctx.state.__compressing;
+            delete (ctx.state as any).__compressing;
           }
         }
         // Always clamp oversized recent tool outputs to avoid huge bodies
@@ -42,8 +53,10 @@ function wrapModelWithCompression(model: LLM, cfg: Required<ContextCompressorOpt
         ctx.log.warn?.('[context-compressor] failed to compress; proceeding uncompressed', e);
       }
       return await origGenerate(messages, genOpts as any) as any;
-    }
-  };
+    })();
+  }) as unknown as LLM['generate'];
+
+  return { ...model, generate: wrappedGenerate } as LLM;
 }
 
 function approxChars(messages: Message[]): number {

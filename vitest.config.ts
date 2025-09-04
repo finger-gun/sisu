@@ -31,7 +31,8 @@ export default defineConfig({
         'packages/core/src/index.ts',
         'packages/core/src/types.ts',
         'vitest.config.ts',
-        'tools/**'
+        'tools/**',
+        '.eslintrc.cjs'
       ],
     },
   },
