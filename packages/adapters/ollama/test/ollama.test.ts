@@ -1,10 +1,30 @@
 import { test, expect, vi, afterEach } from 'vitest';
+import { Readable } from 'stream';
 import { ollamaAdapter } from '../src/index.js';
 import type { Message, Tool } from '@sisu-ai/core';
 
 afterEach(() => {
   vi.restoreAllMocks();
   delete (process.env as any).OLLAMA_BASE_URL;
+});
+
+test('ollamaAdapter streams tokens when stream option is set', async () => {
+  const s = Readable.from([
+    JSON.stringify({ message: { role: 'assistant', content: 'He' } }) + '\n',
+    JSON.stringify({ message: { role: 'assistant', content: 'llo' } }) + '\n',
+    JSON.stringify({ done: true }) + '\n',
+  ]);
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, body: s } as any);
+  const llm = ollamaAdapter({ model: 'llama3' });
+  const out: string[] = [];
+  const iter = await llm.generate([], { stream: true }) as AsyncIterable<any>;
+  for await (const ev of iter) {
+    if (ev.type === 'token') out.push(ev.token);
+  }
+  expect(out.join('')).toBe('Hello');
+  const [, init] = fetchMock.mock.calls[0] as any;
+  const body = JSON.parse(init.body);
+  expect(body.stream).toBe(true);
 });
 
 test('ollamaAdapter posts to /api/chat with mapped messages', async () => {

@@ -30,7 +30,8 @@ export default defineConfig({
         '**/*.test.*',
         'packages/core/src/index.ts',
         'packages/core/src/types.ts',
-        'vitest.config.ts'
+        'vitest.config.ts',
+        'tools/**'
       ],
     },
   },

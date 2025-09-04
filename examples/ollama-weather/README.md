@@ -4,7 +4,7 @@ Shows tools and control flow by fetching weather and summarizing with Ollama.
 
 Usage
 - Quick start: `npm run ex:ollama:weather`
-- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/ollama-weather -- --trace --trace-style=dark -- "Weather in Stockholm and plan a fika."`
+- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/ollama-weather -- --trace --trace-style=dark -- "Weather in Malmö and plan a fika."`
 
 Config Flags (CLI overrides env)
 - `--ollama-base-url`, `--base-url`
