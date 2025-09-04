@@ -38,6 +38,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "rebuild:test": "rm -f package-lock.json && npm install && npm run build -ws && npm run test:coverage",
     "ex:anthropic:hello": "TRACE_HTML=1 npm run dev -w examples/anthropic-hello -- --trace",
     "ex:anthropic:control": "TRACE_HTML=1 npm run dev -w examples/anthropic-control-flow -- --trace --trace-style=light -- \"Weather in Malmö and suggest a fika plan.\"",
     "ex:anthropic:weather": "TRACE_HTML=1 npm run dev -w examples/anthropic-weather -- --trace --trace-style=dark -- \"Weather in Malmö and plan a fika.\"",
