@@ -209,14 +209,41 @@ flowchart TD
   - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md)
   - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md)
 
-Yes — that will read much cleaner in your README. Instead of cramming everything into one wide table, we can **give each adapter its own section** with:
+---
 
-1. **Usage snippet** right up front (copy-paste ready).
-2. **Compact feature table** underneath for environment variables, tools, images, streaming, etc.
-
-Here’s how it could look:
+# Adapters
+Here’s a draft **Adapters** section you can drop into the README. It explains what adapters are, what’s supported, and when to re-use an existing adapter (like OpenAI for LM Studio).
 
 ---
+
+## Adapters
+
+Adapters are small shims that let Sisu talk to different LLM providers in a **normalized way**.
+Every adapter implements the same `LLM.generate(messages, opts)` contract so you can swap providers without changing your agent code.
+
+| Adapter       | Package                      | Features                                                                               | Notes                                                                                                                         |
+| ------------- | ---------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **OpenAI**    | `@sisu-ai/adapter-openai`    | ✅ Tool calling, ✅ JSON mode, ✅ Streaming, ✅ Vision (multi-part input), usage reporting | Works with OpenAI API and *any service that is OpenAI-compatible* (e.g. **LM Studio**, **vLLM**, some **OpenRouter** models). |
+| **Ollama**    | `@sisu-ai/adapter-ollama`    | ✅ Local inference, ✅ Tool calling, partial streaming                                   | Run local models via [`ollama serve`](https://ollama.com).                                                                    |
+| **Anthropic** | `@sisu-ai/adapter-anthropic` | ✅ Tool calling, ✅ Streaming, ✅ Usage reporting                                         | Claude family models. Slightly different tool-call semantics are normalized for you.                                          |
+
+### When to re-use vs. add a new adapter
+
+* If a provider exposes an **OpenAI-compatible API** (LM Studio, vLLM server, some OpenRouter models), you can just use the **OpenAI adapter** with a custom `baseUrl`.
+
+  ```ts
+  import { openAIAdapter } from '@sisu-ai/adapter-openai';
+
+  const model = openAIAdapter({
+    model: 'gpt-4o-mini',
+    baseUrl: 'http://localhost:1234/v1', // e.g. LM Studio
+  });
+  ```
+* A **dedicated adapter** is only needed when a provider:
+
+  * has **different request/response shapes** (e.g. Anthropic),
+  * exposes **extra metadata or headers** (usage, rate-limits),
+  * or supports **special features** you want to surface in `GenerateOptions`.
 
 ## OpenAI
 
@@ -303,7 +330,6 @@ const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
 - Core stays small and stable; everything else is opt‑in middleware.
 - Protocol correctness can be enforced by the tool‑calling loop and `@sisu-ai/mw-invariants`.
 - The logging stack supports levels, redaction, and tracing without external services.
-
 
 # Developers
 You are free to help out. Built an awesome middleware? Found a bug? Lets go!
