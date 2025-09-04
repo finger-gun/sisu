@@ -16,7 +16,7 @@ type OpenAIContentPart =
   | { type: 'image_url'; image_url: { url: string } | string };
 
 type OpenAIChatMessage = {
-  role: 'system'|'user'|'assistant'|'tool';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content?: string | OpenAIContentPart[] | null;
   name?: string;
   tool_calls?: Array<{ id?: string; type: 'function'; function: { name: string; arguments: string } }>;
@@ -26,8 +26,8 @@ type ToolCall = { id?: string; function?: { name?: string; arguments?: string } 
 type ZodLike = { _def?: { typeName?: string; type?: unknown; innerType?: unknown; shape?: unknown } };
 export interface OpenAIAdapterOptions { model: string; apiKey?: string; baseUrl?: string; responseModel?: string; }
 export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
-  const apiKey = opts.apiKey ?? firstConfigValue(['OPENAI_API_KEY','API_KEY']) ?? '';
-  const envBase = firstConfigValue(['OPENAI_BASE_URL','BASE_URL']);
+  const apiKey = opts.apiKey ?? firstConfigValue(['OPENAI_API_KEY', 'API_KEY']) ?? '';
+  const envBase = firstConfigValue(['OPENAI_BASE_URL', 'BASE_URL']);
   const baseUrl = (opts.baseUrl ?? envBase ?? 'https://api.openai.com').replace(/\/$/, '');
   if (!apiKey) throw new Error('[openAIAdapter] Missing OPENAI_API_KEY or API_KEY — set it in your environment or pass { apiKey }');
   const DEBUG = String(process.env.DEBUG_LLM || '').toLowerCase() === 'true' || process.env.DEBUG_LLM === '1';
@@ -73,7 +73,7 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
 
     if (genOpts?.stream === true) {
       // Return an async generator that performs the fetch and yields tokens
-      return (async function*() {
+      return (async function* () {
         const res = await fetch(url, {
           method: 'POST',
           headers: {
@@ -85,7 +85,7 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
         });
         if (!res.ok || !res.body) {
           const err = await res.text();
-          throw new Error(`OpenAI API error: ${res.status} ${res.statusText} — ${String(err).slice(0,500)}`);
+          throw new Error(`OpenAI API error: ${res.status} ${res.statusText} — ${String(err).slice(0, 500)}`);
         }
         const decoder = new TextDecoder();
         let buf = '';
@@ -107,7 +107,9 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
                 full += token;
                 yield { type: 'token', token } as ModelEvent;
               }
-            } catch {}
+            } catch (e: unknown) {
+              console.error('[DEBUG_LLM] stream_parse_error', { error: e });
+            }
           }
         }
         yield { type: 'assistant_message', message: { role: 'assistant', content: full } } as ModelEvent;
@@ -128,8 +130,10 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
       const raw = await res.text();
       if (!res.ok) {
         let details = raw;
-        try { const j = JSON.parse(raw); details = (j as any).error?.message ?? (j as any).error ?? raw; } catch (e) { void e; }
-        throw new Error(`OpenAI API error: ${res.status} ${res.statusText} — ${String(details).slice(0,500)}`);
+        try { const j = JSON.parse(raw); details = (j as any).error?.message ?? (j as any).error ?? raw; } catch (e) {
+          console.error('[DEBUG_LLM] request_error', { error: e });
+        }
+        throw new Error(`OpenAI API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`);
       }
       const data = (raw ? JSON.parse(raw) : {}) as OpenAIResponse;
       const choice = data?.choices?.[0];

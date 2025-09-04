@@ -234,8 +234,8 @@ function makeRequestWithRetry(
             try {
               const j = JSON.parse(raw);
               details = j.error?.message ?? j.error ?? raw;
-            } catch (e: unknown) {
-              console.error('[DEBUG_LLM] Failed to parse error response from Anthropic API', { rawResponse: raw, parseError: e });
+            } catch (e) {
+              console.error('[DEBUG_LLM] request_error', { error: e });
             }
 
             const error = new Error(`Anthropic API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`);

@@ -33,7 +33,7 @@ Turn intent into action with a clear, inspectable pipeline.
 npm i \
   @sisu-ai/core @sisu-ai/adapter-openai \
   @sisu-ai/mw-register-tools @sisu-ai/mw-conversation-buffer \
-  @sisu-ai/mw-tool-calling @sisu-ai/mw-control-flow \
+  @sisu-ai/mw-tool-calling \
   @sisu-ai/mw-trace-viewer @sisu-ai/mw-error-boundary \
   zod dotenv
 ```
@@ -46,13 +46,12 @@ import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type T
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
-import { toolCalling } from '@sisu-ai/mw-tool-calling';
-import { switchCase, sequence, loopUntil } from '@sisu-ai/mw-control-flow';
+import { toolCalling /* or iterativeToolCalling */ } from '@sisu-ai/mw-tool-calling';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { z } from 'zod';
 
-// Simple weather tool
+// Tool
 interface WeatherArgs { city: string }
 const weather: Tool<WeatherArgs> = {
   name: 'getWeather',
@@ -61,8 +60,10 @@ const weather: Tool<WeatherArgs> = {
   handler: async ({ city }) => ({ city, tempC: 21, summary: 'Sunny' }),
 };
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+// Model
+const model = openAIAdapter({ model: 'openai/gpt-oss-20b', baseUrl: 'http://127.0.0.1:1234/' });
 
+// Ctx
 const ctx: Ctx = {
   input: process.argv.slice(2).join(' ') || 'What is the weather in Malmö?',
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
@@ -75,40 +76,17 @@ const ctx: Ctx = {
   log: createConsoleLogger(),
 };
 
-// Very small intent classifier
-const intentClassifier = async (c: Ctx, next: () => Promise<void>) => {
-  const q = String(c.input ?? '').toLowerCase();
-  c.state.intent = q.includes('weather') || q.includes('forecast') ? 'tooling' : 'chat';
-  await next();
-};
-
-// Decide whether to loop for another tool call (simple one-turn tool loop)
-const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => {
-  const wasTool = c.messages.at(-1)?.role === 'tool';
-  const turns = Number(c.state.turns ?? 0);
-  c.state.moreTools = Boolean(wasTool && turns < 1);
-  c.state.turns = turns + 1;
-  await next();
-};
-
-// Tooling path: call tools, maybe loop once
-const toolingBody = sequence([ toolCalling, decideIfMoreTools ]);
-const toolingLoop = loopUntil(c => !c.state.moreTools, toolingBody, { max: 3 });
-
-// Chat path: simple single-turn completion (no tools)
-const chatPipeline = sequence([ async (c: Ctx) => {
-  const res = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });
-  if ((res as any)?.message) c.messages.push((res as any).message);
-}]);
-
+// Minimal pipeline: no classifier, no switch, no manual loop
 const app = new Agent()
-  .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
+  .use(errorBoundary(async (err, c) => {
+    c.log.error(err);
+    c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' });
+  }))
   .use(traceViewer())
   .use(registerTools([weather]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(intentClassifier)
-  .use(switchCase((c) => String(c.state.intent), { tooling: toolingLoop, chat: chatPipeline }, chatPipeline));
+  .use(toolCalling); // 1) generate(..., auto) → maybe run tools → 2) finalize with none
 
 await app.handler()(ctx);
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
@@ -122,6 +100,88 @@ console.log('\nAssistant:\n', final?.content);
 - Control flow is code: `sequence`, `branch`, `switchCase`, `loopUntil`, `parallel`, `graph`—you read the plan in the code.
 - Deterministic modes: timeouts, bounded loops, retries are explicit—in your hands.
 - Observability by default: leveled logs, redaction, and a trace viewer that writes `traces/run-*.html`.
+
+## How it works
+This is a typical use case flow. However, as SIsu is very flexible by nature, it can vary. But this is the core idea.
+
+```mermaid
+flowchart TD
+  %% High level data flow in Sisu (top-down)
+
+  Caller[Caller] --> Agent[Agent compose]
+  Agent --> MW1[inputToMessage]
+  MW1 --> MW2[conversationBuffer]
+  MW2 --> MWE[errorBoundary]
+  MWE --> MWC[control flow]
+
+  %% Branching by intent
+  MWC -->|chat| GEN1[model.generate toolChoice=none]
+  MWC -->|tooling| TLoop[toolCalling / iterativeToolCalling]
+
+  %% Tool loop
+  TLoop -->|tool calls| TReg[tools registry]
+  TReg --> TH[tool handlers]
+  TH -->|tool result| TLoop
+  TLoop --> GEN2[model.generate toolChoice=none]
+
+  %% Replies
+  GEN1 --> Reply[assistant reply]
+  GEN2 --> Reply
+
+  %% Core plumbing
+  subgraph Core
+    direction TB
+    Ctx[Ctx]
+    Mem[InMemoryKV]
+    Tools[SimpleTools]
+    Log[Logger & Tracing]
+    Stream[Stream sink]
+    Ctx --- Mem
+    Ctx --- Tools
+    Ctx --- Log
+    Ctx --- Stream
+  end
+
+  Agent --- Ctx
+
+  %% Adapter layer
+  subgraph Adapters
+    direction TB
+    Model[ctx.model]
+    OA[OpenAI adapter]
+    OL[Ollama adapter]
+    AN[Anthropic adapter]
+    Model --- OA
+    Model --- OL
+    Model --- AN
+  end
+
+  %% Middleware to adapter calls
+  GEN1 --> Model
+  GEN2 --> Model
+
+  %% Observability sidecars
+  subgraph Observability
+    direction TB
+    Trace[trace viewer]
+    Usage[usage tracker]
+    Inv[invariants]
+    Guard[guardrails]
+  end
+
+  Reply -.-> Trace
+  GEN1 -.-> Usage
+  GEN2 -.-> Usage
+  TLoop -.-> Inv
+  MWE -.-> Guard
+```
+
+* **Middleware pipeline**: your `Agent` runs a Koa-style chain (`ctx`, `next`). Each middleware reads or updates `ctx` and calls `await next()` unless it short-circuits. Core stays tiny; everything else is opt-in middleware.
+* **Adapters**: middleware like `toolCalling` and control-flow ultimately call `ctx.model.generate(...)`. The model is provided by an adapter (e.g. OpenAI, Ollama or Anthropic), but any provider can implement the `LLM.generate` contract.
+* **Tools**: the tools registry holds named handlers with zod schemas. `toolCalling` does a first turn with `toolChoice auto`, runs each unique tool pick, then a final completion with `toolChoice none`. `iterativeToolCalling` repeats the “auto” turn until no more tool calls.
+* **Core services**: `Ctx` carries messages, tools, memory, logger, stream, state; `InMemoryKV` and `SimpleTools` are minimal defaults.
+* **Observability**: tracing, usage, invariants, guardrails are middlewares that tap the flow without changing behavior.
+
 
 ## Run your first mile
 - OpenAI hello:
