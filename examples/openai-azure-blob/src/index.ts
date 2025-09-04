@@ -3,7 +3,7 @@ import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type C
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
-import { toolCalling, iterativeToolCalling } from '@sisu-ai/mw-tool-calling';
+import { iterativeToolCalling } from '@sisu-ai/mw-tool-calling';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { azureGetBlob, azureListBlobs, azureGetMetadata } from '@sisu-ai/tool-azure-blob';
@@ -31,7 +31,7 @@ const app = new Agent()
   .use(registerTools([azureGetBlob, azureListBlobs, azureGetMetadata]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 6 }))
-  .use(toolCalling);
+  .use(iterativeToolCalling);
 
 await app.handler()(ctx);
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
