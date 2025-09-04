@@ -7,7 +7,7 @@ import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 import { graph, type Node, type Edge } from '@sisu-ai/mw-control-flow';
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const ctx: Ctx = {
   input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Give me a short travel tip for Helsinki.',

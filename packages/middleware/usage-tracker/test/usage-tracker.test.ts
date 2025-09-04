@@ -1,5 +1,4 @@
-import { test } from 'vitest';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import type { Ctx } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
 import { usageTracker } from '../src/index.js';
@@ -32,11 +31,11 @@ test('usageTracker accumulates token usage and cost (text only)', async () => {
   const caller = async (c: Ctx) => { const res = await c.model.generate(c.messages, {}); c.messages.push((res as any).message); };
   await compose([usageTracker(prices), caller as any])(ctx);
   const usage: any = (ctx.state as any).usage;
-  assert.strictEqual(usage.promptTokens, 100);
-  assert.strictEqual(usage.completionTokens, 50);
-  assert.strictEqual(usage.totalTokens, 150);
+  expect(usage.promptTokens).toBe(100);
+  expect(usage.completionTokens).toBe(50);
+  expect(usage.totalTokens).toBe(150);
   // cost = (100/1000)*1 + (50/1000)*2 = 0.2
-  assert.strictEqual(usage.costUSD, 0.2);
+  expect(usage.costUSD).toBe(0.2);
 });
 
 test('usageTracker counts image inputs and computes image cost', async () => {
@@ -52,13 +51,13 @@ test('usageTracker counts image inputs and computes image cost', async () => {
   const caller = async (c: Ctx) => { const res = await c.model.generate(c.messages, {}); c.messages.push((res as any).message); };
   await compose([usageTracker(prices), caller as any])(ctx);
   const usage: any = (ctx.state as any).usage;
-  assert.strictEqual(usage.promptTokens, 2000);
-  assert.strictEqual(usage.completionTokens, 0);
-  assert.strictEqual(usage.totalTokens, 2000);
+  expect(usage.promptTokens).toBe(2000);
+  expect(usage.completionTokens).toBe(0);
+  expect(usage.totalTokens).toBe(2000);
   // two images -> 2000 image tokens at 0.2 per 1k => 0.4
-  assert.strictEqual(usage.imageTokens, 2000);
-  assert.strictEqual(usage.imageCount, 2);
-  assert.strictEqual(usage.costUSD, 0.4);
+  expect(usage.imageTokens).toBe(2000);
+  expect(usage.imageCount).toBe(2);
+  expect(usage.costUSD).toBe(0.4);
 });
 
 test('usageTracker supports per-image pricing and wildcard model', async () => {
@@ -72,7 +71,7 @@ test('usageTracker supports per-image pricing and wildcard model', async () => {
   await compose([usageTracker(prices), caller as any])(ctx);
   const usage: any = (ctx.state as any).usage;
   // Two images at $0.5 per image
-  assert.strictEqual(usage.costUSD, 1.0);
+  expect(usage.costUSD).toBe(1.0);
 });
 
 test('usageTracker counts top-level image fields even without content', async () => {
@@ -87,7 +86,7 @@ test('usageTracker counts top-level image fields even without content', async ()
   await compose([usageTracker(prices), caller as any])(ctx);
   const usage: any = (ctx.state as any).usage;
   // 4 images at $0.25 each
-  assert.strictEqual(usage.costUSD, 1.0);
+  expect(usage.costUSD).toBe(1.0);
 });
 test('usageTracker can log per-call metrics when enabled', async () => {
   const prices = { dummy: { inputPer1K: 1, outputPer1K: 1 } };
@@ -99,5 +98,5 @@ test('usageTracker can log per-call metrics when enabled', async () => {
   await compose([usageTracker(prices, { logPerCall: true }), caller as any])(ctx);
   // Expect at least one [ '[usage] call', {...} ] entry
   const hadUsageLog = logs.some((args) => args[0] === '[usage] call');
-  assert.ok(hadUsageLog);
+  expect(hadUsageLog).toBe(true);
 });

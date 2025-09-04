@@ -5,8 +5,7 @@ import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 
 // Vision-capable model
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
-
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 // Example image (public domain)
 const imageUrl = process.argv.find(a => a.startsWith('http'))
   || 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg';

@@ -19,7 +19,7 @@ const weather: Tool<WeatherArgs> = {
 
 // Model
 // Ensure: ollama serve; ollama pull llama3.1:latest
-const model = ollamaAdapter({ model: 'llama3.1' });
+const model = ollamaAdapter({ model: process.env.MODEL || 'llama3.1' });
 
 // Ctx
 const ctx: Ctx = {

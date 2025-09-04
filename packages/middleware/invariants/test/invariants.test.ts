@@ -1,5 +1,4 @@
-import { test } from 'vitest';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import type { Ctx } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
 import { toolCallInvariant } from '../src/index.js';
@@ -28,12 +27,12 @@ test('toolCallInvariant warns for missing tool responses', async () => {
   const ctx = makeCtx(messages);
   ctx.log = { ...ctx.log, warn: (...a: any[]) => { warned = a; } } as any;
   await compose([toolCallInvariant()])(ctx);
-  assert.ok(warned, 'expected a warning');
+  expect(!!warned).toBe(true);
 });
 
 test('toolCallInvariant throws in strict mode', async () => {
   const messages = [ { role: 'assistant', content: 'call', tool_calls: [{ id: 'x1', function: { name: 'foo' } }] } ] as any[];
   const ctx = makeCtx(messages);
-  await assert.rejects(compose([toolCallInvariant({ strict: true })])(ctx), /Missing tool responses/);
+  await expect(compose([toolCallInvariant({ strict: true })])(ctx)).rejects.toThrow(/Missing tool responses/);
 });
 

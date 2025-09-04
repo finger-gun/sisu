@@ -18,7 +18,7 @@ const weather = {
   handler: async ({ city }: { city: string }) => ({ city, tempC: 20, summary: 'Partly cloudy (stub)' })
 };
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const ctx: Ctx = {
   input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Weather in Malmö and suggest a fika plan.',

@@ -4,7 +4,7 @@ import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 
-const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
+const model = anthropicAdapter({ model: process.env.MODEL || 'claude-sonnet-4-20250514' });
 
 const ctx: Ctx = {
   input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Say hello in one short sentence.',
