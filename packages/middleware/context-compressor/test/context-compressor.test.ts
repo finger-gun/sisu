@@ -47,11 +47,11 @@ function makeDummyModel(
 
 test('compresses head into summary when over maxChars', async () => {
   // Build a conversation large enough to trigger compression
-  const headChunks: Message[] = [{ role: 'system', content: 'sys' } as any];
+  const headChunks: Message[] = [{ role: 'system', content: 'sys' }];
   for (let i = 0; i < 6; i++) headChunks.push({ role: i % 2 ? 'assistant' : 'user', content: ('X'.repeat(60)) } as any);
   const tail: Message[] = [
-    { role: 'user', content: 'most recent q1' } as any,
-    { role: 'assistant', content: 'most recent a1' } as any,
+    { role: 'user', content: 'most recent q1' },
+    { role: 'assistant', content: 'most recent a1' },
   ];
   const all = [...headChunks, ...tail];
 
@@ -60,11 +60,11 @@ test('compresses head into summary when over maxChars', async () => {
     messages: all,
     model: makeDummyModel(async (messages) => {
       // If this is the compression prompt, return a short summary
-      if ((messages[0] as any).role === 'system' && String((messages[0] as any).content).includes('compression assistant')) {
+      if ((messages[0]).role === 'system' && String((messages[0] as any).content).includes('compression assistant')) {
         return { message: { role: 'assistant', content: 'facts: A; B; C.\nCitations: https://ex' } } as any;
       }
       finalCallMessages = messages.slice();
-      return { message: { role: 'assistant', content: 'ok' } } as any;
+      return { message: { role: 'assistant', content: 'ok' } };
     }),
   });
 
@@ -75,28 +75,28 @@ test('compresses head into summary when over maxChars', async () => {
   expect(finalCallMessages[1].role).toBe('assistant');
   expect(String(finalCallMessages[1].content)).toContain('[Summary of earlier turns]');
   // Ensure tail preserved
-  const lastTwo = finalCallMessages.slice(-2).map(m => (m as any).content);
+  const lastTwo = finalCallMessages.slice(-2).map(m => (m).content);
   expect(lastTwo).toEqual(['most recent q1', 'most recent a1']);
 });
 
 test('clamps recent tool outputs and truncates long texts', async () => {
   const bigToolPayload = JSON.stringify({ html: '<div>HUGE</div>', text: 'T'.repeat(10_000), small: 'ok' });
   const msgs: Message[] = [
-    { role: 'system', content: 'sys' } as any,
-    { role: 'user', content: 'q' } as any,
-    { role: 'assistant', content: 'a' } as any,
-    { role: 'tool', content: bigToolPayload } as any,
+    { role: 'system', content: 'sys' },
+    { role: 'user', content: 'q' },
+    { role: 'assistant', content: 'a' },
+    { role: 'tool', content: bigToolPayload, tool_call_id: 'dummy-id' },
   ];
 
   let seenToolContent = '';
   const ctx = makeCtx({
     messages: msgs,
     model: makeDummyModel(async (messages) => {
-      const last = messages[messages.length - 1] as any;
+      const last = messages[messages.length - 1];
       if (last.role === 'tool') {
         seenToolContent = String(last.content);
       }
-      return { message: { role: 'assistant', content: 'done' } } as any;
+      return { message: { role: 'assistant', content: 'done' } };
     }),
   });
 
@@ -112,40 +112,38 @@ test('clamps recent tool outputs and truncates long texts', async () => {
 test('does not split assistant+tool group when cutting head', async () => {
   // Arrange messages so that cut falls before a tool group
   const older: Message[] = [
-    { role: 'system', content: 'sys' } as any,
-    { role: 'user', content: 'old1 ' + 'x'.repeat(200) } as any,
-    { role: 'assistant', content: 'old2 ' + 'y'.repeat(200) } as any,
+    { role: 'system', content: 'sys' },
+    { role: 'user', content: 'old1 ' + 'x'.repeat(200) },
+    { role: 'assistant', content: 'old2 ' + 'y'.repeat(200) },
   ];
   const withTools: any[] = [
     { role: 'assistant', content: 'calling tools', tool_calls: [{ id: '1', name: 'dummy', arguments: {} }] },
     { role: 'tool', content: '{"ok":true}', tool_call_id: '1' },
   ];
-  const tail: Message[] = [ { role: 'user', content: 'final q' } as any ];
-  const all = [...older, ...withTools as any, ...tail];
+  const tail: Message[] = [ { role: 'user', content: 'final q' } ];
+  const all = [...older, ...withTools, ...tail];
 
   let callMessages: Message[] = [];
   const ctx = makeCtx({
     messages: all,
     model: makeDummyModel(async (messages) => {
       // Return summary for compression prompt
-      if ((messages[0] as any).role === 'system' && String((messages[0] as any).content).includes('compression assistant')) {
-        return { message: { role: 'assistant', content: 'summary here' } } as any;
+      if ((messages[0]).role === 'system' && String((messages[0]).content).includes('compression assistant')) {
+        return { message: { role: 'assistant', content: 'summary here' } };
       }
       callMessages = messages.slice();
-      return { message: { role: 'assistant', content: 'ok' } } as any;
+      return { message: { role: 'assistant', content: 'ok' } };
     }),
   });
 
-  await compose([contextCompressor({ maxChars: 200, keepRecent: 2, summaryMaxChars: 200 }), invokeModel as any])(ctx);
+  await compose([contextCompressor({ maxChars: 200, keepRecent: 2, summaryMaxChars: 200 }), invokeModel])(ctx);
 
-  // Expect the assistant with tool_calls remains in the tail (not summarized away)
-  const roles = callMessages.map((m: any) => m.role);
   // Should contain summary at index 1
   expect(callMessages[1].role).toBe('assistant');
   expect(String(callMessages[1].content)).toContain('[Summary of earlier turns]');
   // Verify that an assistant with tool_calls appears after summary (in the tail segment)
-  const assistantWithToolsIdx = callMessages.findIndex((m: any) => m.role === 'assistant' && Array.isArray((m as any).tool_calls));
+  const assistantWithToolsIdx = callMessages.findIndex((m) => m.role === 'assistant' && Array.isArray(m.tool_calls));
   expect(assistantWithToolsIdx).toBeGreaterThan(1);
   // And the tool message follows somewhere after
-  expect(callMessages.some((m: any) => m.role === 'tool')).toBe(true);
+  expect(callMessages.some((m) => m.role === 'tool')).toBe(true);
 });
