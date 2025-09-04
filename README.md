@@ -210,6 +210,7 @@ flowchart TD
   - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md)
   - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
 - Tools:
+  - [@sisu-ai/tool-aws-s3](packages/tools/aws-s3/README.md)
   - [@sisu-ai/tool-azure-blob](packages/tools/azure-blob/README.md)
   - [@sisu-ai/tool-extract-urls](packages/tools/extract-urls/README.md)
   - [@sisu-ai/tool-github-projects](packages/tools/github-projects/README.md)
@@ -229,6 +230,7 @@ flowchart TD
   - [ollama-stream](examples/ollama-stream/README.md)
   - [ollama-weather](examples/ollama-weather/README.md)
   - [ollama-web-search](examples/ollama-web-search/README.md)
+  - [openai-aws-s3](examples/openai-aws-s3/README.md)
   - [openai-azure-blob](examples/openai-azure-blob/README.md)
   - [openai-branch](examples/openai-branch/README.md)
   - [openai-control-flow](examples/openai-control-flow/README.md)
