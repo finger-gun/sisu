@@ -35,5 +35,3 @@ const app = new Agent()
 await app.handler()(ctx);
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);
-
-console.log(ctx);
