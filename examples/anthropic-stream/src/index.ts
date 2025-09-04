@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
 
-const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
+const model = anthropicAdapter({ model: process.env.MODEL || 'claude-sonnet-4-20250514' });
 
 async function main() {
   const iter = await model.generate(

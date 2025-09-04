@@ -4,7 +4,7 @@ import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const ctx: Ctx = {
   input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Say hello in one short sentence.',

@@ -18,7 +18,7 @@ const weather: Tool<WeatherArgs> = {
 };
 
 // Model
-const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
+const model = anthropicAdapter({ model: process.env.MODEL || 'claude-sonnet-4-20250514' });
 
 // Ctx
 const ctx: Ctx = {

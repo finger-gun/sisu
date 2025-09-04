@@ -8,7 +8,7 @@ import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import ghTools from '@sisu-ai/tool-github-projects';
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const userInput = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ')
   || 'List issues for the configured project, then show details for the first one, then list columns.';

@@ -18,7 +18,7 @@ const weather = {
   handler: async ({ city }: { city: string }) => ({ city, tempC: 20, summary: 'Partly cloudy (stub)' })
 };
 
-const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
+const model = anthropicAdapter({ model: process.env.MODEL || 'claude-sonnet-4-20250514' });
 
 const ctx: Ctx = {
   input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Weather in Malmö and suggest a fika plan.',
