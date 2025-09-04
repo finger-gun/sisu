@@ -6,14 +6,13 @@ import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buf
 import { iterativeToolCalling } from '@sisu-ai/mw-tool-calling';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
-import { azureGetBlob, azureListBlobs, azureGetMetadata } from '@sisu-ai/tool-azure-blob';
+import { azureGetBlob, azureListBlobsDetailed } from '@sisu-ai/tool-azure-blob';
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const container = process.env.AZURE_CONTAINER || 'test';
 
 const ctx: Ctx = {
-  //input: `List all my blobs in container ${container} on Azure Storage.`,
   input: `Read the latest blob in my container ${container} on Azure Storage.`,
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
   model,
@@ -28,7 +27,7 @@ const ctx: Ctx = {
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
   .use(traceViewer())
-  .use(registerTools([azureGetBlob, azureListBlobs, azureGetMetadata]))
+  .use(registerTools([azureGetBlob, azureListBlobsDetailed]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 6 }))
   .use(iterativeToolCalling);

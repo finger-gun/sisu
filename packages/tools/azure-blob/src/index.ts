@@ -54,12 +54,27 @@ export const azureListBlobs: Tool<{ container: string; prefix?: string }> = {
   },
 };
 
+export const azureListBlobsDetailed: Tool<{ container: string; prefix?: string }> = {
+  name: 'azureListBlobsDetailed',
+  description: 'List blobs with details (e.g., lastModified) in a container, optionally filtered by prefix.',
+  schema: z.object({ container: z.string(), prefix: z.string().optional() }),
+  handler: async ({ container, prefix }, ctx) => {
+    const iter = base.containerClient(ctx, container).listBlobsFlat({ prefix });
+    const items: Array<{ name: string; lastModified?: string }> = [];
+    for await (const b of iter as any) {
+      const lm = b?.properties?.lastModified ?? b?.lastModified;
+      items.push({ name: b.name, ...(lm ? { lastModified: new Date(lm).toISOString() } : {}) });
+    }
+    return items;
+  },
+};
+
 export const azureUploadBlob: Tool<{ container: string; blobName: string; content: string }> = {
   name: 'azureUploadBlob',
   description: 'Upload text content to a blob in Azure Storage.',
   schema: z.object({ container: z.string(), blobName: z.string(), content: z.string() }),
   handler: async ({ container, blobName, content }, ctx) => {
-    if (!allowWriteFromCtx(ctx)) throw new Error('Write operations disabled (set ctx.state.azureBlob.allowWrite = true)');
+    if (!allowWriteFromCtx(ctx)) return { ok: false, error: 'Write operations are not allowed.' };
     const block = base.containerClient(ctx, container).getBlockBlobClient(blobName);
     await block.upload(content, Buffer.byteLength(content));
     return { ok: true };
@@ -82,9 +97,21 @@ export const azureSetMetadata: Tool<{ container: string; blobName: string; metad
   description: 'Set metadata on a blob in Azure Storage.',
   schema: z.object({ container: z.string(), blobName: z.string(), metadata: z.record(z.string()) }),
   handler: async ({ container, blobName, metadata }, ctx) => {
-    if (!allowWriteFromCtx(ctx)) throw new Error('Write operations disabled (set ctx.state.azureBlob.allowWrite = true)');
+    if (!allowWriteFromCtx(ctx)) return { ok: false, error: 'Write operations are not allowed.' };
     const block = base.containerClient(ctx, container).getBlockBlobClient(blobName);
     await block.setMetadata(metadata);
+    return { ok: true };
+  },
+};
+
+export const azureDeleteBlob: Tool<{ container: string; blobName: string }> = {
+  name: 'azureDeleteBlob',
+  description: 'Delete a blob in Azure Storage.',
+  schema: z.object({ container: z.string(), blobName: z.string() }),
+  handler: async ({ container, blobName }, ctx) => {
+    if (!allowWriteFromCtx(ctx)) return { ok: false, error: 'Write operations are not allowed.' };
+    const block = base.containerClient(ctx, container).getBlockBlobClient(blobName);
+    await block.delete();
     return { ok: true };
   },
 };
@@ -92,7 +119,9 @@ export const azureSetMetadata: Tool<{ container: string; blobName: string; metad
 export default {
   azureGetBlob,
   azureListBlobs,
+  azureListBlobsDetailed,
   azureUploadBlob,
   azureGetMetadata,
-  azureSetMetadata
+  azureSetMetadata,
+  azureDeleteBlob
 }
