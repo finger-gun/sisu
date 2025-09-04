@@ -1,8 +1,8 @@
 import { test, expect, vi } from 'vitest';
-import { createAzureBlobTools, azureUploadBlob, azureGetBlob } from '../src/index.js';
+import { azureUploadBlob, azureGetBlob } from '../src/index.js';
 import { Buffer } from 'node:buffer';
 
-test('getBlob downloads content', async () => {
+test('getBlob downloads content (static tool)', async () => {
   const service = {
     getContainerClient: () => ({
       getBlockBlobClient: () => ({
@@ -10,23 +10,24 @@ test('getBlob downloads content', async () => {
       })
     })
   } as any;
-  const { getBlob } = createAzureBlobTools({ serviceClient: service });
-  const res = await getBlob.handler({ container: 'c', blobName: 'b' } as any, {} as any);
+  const ctx = { state: { azureBlob: { serviceClient: service } } } as any;
+  const res = await azureGetBlob.handler({ container: 'c', blobName: 'b' } as any, ctx);
   expect(res.content).toBe('hello');
 });
 
-test('uploadBlob respects allowWrite flag', async () => {
+test('uploadBlob respects allowWrite flag (static tool)', async () => {
   const upload = vi.fn();
   const service = {
     getContainerClient: () => ({
       getBlockBlobClient: () => ({ upload })
     })
   } as any;
-  const { uploadBlob } = createAzureBlobTools({ serviceClient: service, allowWrite: true });
-  await uploadBlob.handler({ container: 'c', blobName: 'b', content: 'x' } as any, {} as any);
+  const ctxAllow = { state: { azureBlob: { serviceClient: service, allowWrite: true } } } as any;
+  await azureUploadBlob.handler({ container: 'c', blobName: 'b', content: 'x' } as any, ctxAllow);
   expect(upload).toHaveBeenCalled();
-  const { uploadBlob: denied } = createAzureBlobTools({ serviceClient: service, allowWrite: false });
-  await expect(denied.handler({ container: 'c', blobName: 'b', content: 'x' } as any, {} as any)).rejects.toThrow(/write/i);
+
+  const ctxDeny = { state: { azureBlob: { serviceClient: service, allowWrite: false } } } as any;
+  await expect(azureUploadBlob.handler({ container: 'c', blobName: 'b', content: 'x' } as any, ctxDeny)).rejects.toThrow(/write/i);
 });
 
 test('static tools read config from ctx.state and guard writes', async () => {
