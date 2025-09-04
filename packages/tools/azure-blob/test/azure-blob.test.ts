@@ -1,5 +1,5 @@
 import { test, expect, vi } from 'vitest';
-import { createAzureBlobTools } from '../src/index.js';
+import { createAzureBlobTools, azureUploadBlob, azureGetBlob } from '../src/index.js';
 import { Buffer } from 'node:buffer';
 
 test('getBlob downloads content', async () => {
@@ -27,4 +27,19 @@ test('uploadBlob respects allowWrite flag', async () => {
   expect(upload).toHaveBeenCalled();
   const { uploadBlob: denied } = createAzureBlobTools({ serviceClient: service, allowWrite: false });
   await expect(denied.handler({ container: 'c', blobName: 'b', content: 'x' } as any, {} as any)).rejects.toThrow(/write/i);
+});
+
+test('static tools read config from ctx.state and guard writes', async () => {
+  const upload = vi.fn();
+  const downloadToBuffer = vi.fn(async () => Buffer.from('hi'));
+  const service = {
+    getContainerClient: () => ({
+      getBlockBlobClient: () => ({ upload, downloadToBuffer, setMetadata: vi.fn(), getProperties: vi.fn(async () => ({ metadata: {} })) })
+    })
+  } as any;
+  const ctx = { state: { azureBlob: { serviceClient: service, allowWrite: true } } } as any;
+  await azureUploadBlob.handler({ container: 'c', blobName: 'b', content: 'x' } as any, ctx);
+  expect(upload).toHaveBeenCalled();
+  const text = await azureGetBlob.handler({ container: 'c', blobName: 'b' } as any, ctx);
+  expect(text.content).toBe('hi');
 });

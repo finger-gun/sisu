@@ -3,17 +3,18 @@ import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type C
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
-import { toolCalling } from '@sisu-ai/mw-tool-calling';
+import { toolCalling, iterativeToolCalling } from '@sisu-ai/mw-tool-calling';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
-import createAzureBlobTools from '@sisu-ai/tool-azure-blob';
+import { azureGetBlob, azureListBlobs, azureGetMetadata } from '@sisu-ai/tool-azure-blob';
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const container = process.env.AZURE_CONTAINER || 'test';
 
 const ctx: Ctx = {
-  input: `List blobs in container ${container}.`,
+  //input: `List all my blobs in container ${container} on Azure Storage.`,
+  input: `Read the latest blob in my container ${container} on Azure Storage.`,
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
   model,
   tools: new SimpleTools(),
@@ -24,12 +25,10 @@ const ctx: Ctx = {
   log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
 };
 
-const tools = Object.values(createAzureBlobTools());
-
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
   .use(traceViewer())
-  .use(registerTools(tools))
+  .use(registerTools([azureGetBlob, azureListBlobs, azureGetMetadata]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 6 }))
   .use(toolCalling);
