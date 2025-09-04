@@ -18,7 +18,7 @@ const weather: Tool<WeatherArgs> = {
   handler: async ({ city }) => ({ city, tempC: 21, summary: 'Sunny' }),
 };
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: 'openai/gpt-oss-20b', baseUrl: 'http://127.0.0.1:1234/' });
 
 const ctx: Ctx = {
   input: process.argv.slice(2).join(' ') || 'What is the weather in Malmö?',

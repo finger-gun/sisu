@@ -39,7 +39,7 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
     async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>> {
       const toolsParam = (genOpts?.tools ?? []).map(t => toOpenAiTool(t));
       const tool_choice = normalizeToolChoice(genOpts?.toolChoice);
-  const body: Record<string, unknown> = {
+      const body: Record<string, unknown> = {
         model: opts.model,
         messages: messages.map(m => toOpenAiMessage(m)),
         temperature: genOpts?.temperature ?? 0.2,
@@ -68,7 +68,7 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
             };
           });
           // eslint-disable-next-line no-console
-          console.error('[DEBUG_LLM] request', { url, headers: { Authorization: 'Bearer ***', 'Content-Type': 'application/json', Accept: 'application/json' }, body: { ...body, messages: dbgMsgs } });
+          console.error('[DEBUG_LLM] request', JSON.stringify({ url, headers: { Authorization: 'Bearer ***', 'Content-Type': 'application/json', Accept: 'application/json' }, body: { ...body, messages: dbgMsgs } }));
         } catch (e) { void e; }
       }
       const res = await fetch(url, {
