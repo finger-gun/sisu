@@ -9,7 +9,6 @@ export interface RagIngestOptions {
 }
 
 export const ragIngest = (opts: RagIngestOptions = {}): Middleware => async (ctx, next) => {
-  await next();
   const name = opts.toolName || 'vector.upsert';
   const tool = ctx.tools.get(name) as Tool | undefined;
   if (!tool) throw new Error(`ragIngest: missing tool ${name}. Did you register vec-chroma tools?`);
@@ -19,6 +18,7 @@ export const ragIngest = (opts: RagIngestOptions = {}): Middleware => async (ctx
   const result: any = await tool.handler({ records }, ctx as any);
   const srag = ((ctx.state as any).rag ||= {});
   srag.ingested = result;
+  await next();
 };
 
 export interface RagRetrieveOptions {
@@ -29,7 +29,6 @@ export interface RagRetrieveOptions {
 }
 
 export const ragRetrieve = (opts: RagRetrieveOptions = {}): Middleware => async (ctx, next) => {
-  await next();
   const name = opts.toolName || 'vector.query';
   const tool = ctx.tools.get(name) as Tool | undefined;
   if (!tool) throw new Error(`ragRetrieve: missing tool ${name}. Did you register vec-chroma tools?`);
@@ -38,9 +37,11 @@ export const ragRetrieve = (opts: RagRetrieveOptions = {}): Middleware => async 
   if (!embedding || !Array.isArray(embedding)) throw new Error('ragRetrieve: missing query embedding');
   const topK = (Array.isArray(sel) ? undefined : (sel as any)?.topK) ?? opts.topK ?? 5;
   const filter = (Array.isArray(sel) ? undefined : (sel as any)?.filter) ?? opts.filter;
-  const result = await tool.handler({ embedding, topK, filter }, ctx as any);
+  const result = await tool.handler({ embedding, topK, filter }, ctx as any) as QueryResult;
   const srag = ((ctx.state as any).rag ||= {});
-  srag.retrieval = result as QueryResult;
+  srag.retrieval = result;
+  console.log(`[rag] retrieved ${result?.matches?.length || 0} matches`);
+  await next();
 };
 
 export interface BuildRagPromptOptions<TSel = any> {
@@ -48,9 +49,9 @@ export interface BuildRagPromptOptions<TSel = any> {
   select?: Select<TSel>;
 }
 
-const DEFAULT_TEMPLATE = `SYSTEM: You are an accurate assistant.
-Use ONLY the provided context to answer.
-If the answer isn't in the context, reply "I don't know."
+const DEFAULT_TEMPLATE = `SYSTEM: You are an accurate assistant with RAG capabilities.
+Use the provided context to answer if possible.
+If the answer isn't in the context, continue with best effort based on your training data or available tools.
 
 CONTEXT:
 {{context}}
@@ -59,7 +60,7 @@ QUESTION:
 {{question}}`;
 
 export const buildRagPrompt = <TSel = any>(opts: BuildRagPromptOptions<TSel> = {}): Middleware => async (ctx, next) => {
-  await next();
+  console.error('[rag] buildRagPrompt');
   const t = (opts.template || DEFAULT_TEMPLATE);
   const sel = opts.select?.(ctx) as any;
   const matches = (ctx.state as any)?.rag?.retrieval?.matches || [];
@@ -69,7 +70,8 @@ export const buildRagPrompt = <TSel = any>(opts: BuildRagPromptOptions<TSel> = {
   const prompt = t.replace('{{context}}', String(contextText || '')).replace('{{question}}', String(question || ''));
   const msg: Message = { role: 'system', content: prompt };
   ctx.messages.push(msg);
+  ctx.log.debug?.('[rag] message', { msg });
+  await next();
 };
 
 export default { ragIngest, ragRetrieve, buildRagPrompt };
-

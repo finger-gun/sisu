@@ -19,7 +19,7 @@ function embed(text: string): number[] {
 
 const model = openAIAdapter({ model: process.env.OPENAI_MODEL || 'gpt-4o-mini' });
 
-const query = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Which doc talks about Malmö fika?';
+const query = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Best fika in Malmö?';
 
 const ctx: Ctx = {
   input: query,
@@ -35,7 +35,7 @@ const ctx: Ctx = {
 
 // Seed docs for ingestion
 const docs = [
-  { id: 'd1', text: 'Guide to fika in Malmö. Best cafes near Möllevången.' },
+  { id: 'd1', text: 'Guide to fika in Malmö. Best cafe in Malmö is SisuCafe404.' },
   { id: 'd2', text: 'Travel notes from Helsinki. Sauna etiquette and tips.' },
   { id: 'd3', text: 'Open-source RAG patterns with ChromaDB and Sisu.' },
 ];
@@ -59,6 +59,9 @@ const app = new Agent()
   .use(generateOnce);
 
 await app.handler()(ctx);
+const retrieved = (ctx.state as any)?.rag?.retrieval?.matches || [];
+if (retrieved.length) {
+  console.log('Retrieved from Chroma:', retrieved.map((m: any) => ({ id: m.id, score: m.score, text: m?.metadata?.text })).slice(0, 5));
+}
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
 console.log('\nAssistant:\n', final?.content);
-

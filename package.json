@@ -61,6 +61,6 @@
     "ex:openai:wikipedia": "TRACE_HTML=1 npm run dev -w examples/openai-wikipedia -- --trace -- \"Tell me about the Hubble Space Telescope using Wikipedia.\"",
     "ex:openai:web-fetch": "TRACE_HTML=1 npm run dev -w examples/openai-web-fetch -- --trace -- \"https://en.wikipedia.org/wiki/Hubble_Space_Telescope\"",
     "ex:openai:github-projects": "TRACE_HTML=1 npm run dev -w examples/openai-github-projects -- --trace -- \"List next 3 open issues, then fetch their full details.\"",
-    "ex:openai:openai-rag-chroma": "TRACE_HTML=1 npm run dev -w examples/openai-rag-chroma -- --trace -- \"Which doc talks about Malmö fika?\""
+    "ex:openai:openai-rag-chroma": "TRACE_HTML=1 npm run dev -w examples/openai-rag-chroma -- --trace -- \"Best fika in Malmö?\""
   }
 }
