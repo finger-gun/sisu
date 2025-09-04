@@ -26,6 +26,8 @@ export interface ModelResponse {
 export interface LLM {
   name: string;
   capabilities: { functionCall?: boolean; streaming?: boolean };
+  generate(messages: Message[], opts?: GenerateOptions): Promise<ModelResponse>;
+  generate(messages: Message[], opts?: GenerateOptions): AsyncIterable<ModelEvent>;
   generate(messages: Message[], opts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>>;
 }
 

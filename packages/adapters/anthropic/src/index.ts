@@ -53,42 +53,70 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
 
   const modelName = `anthropic:${opts.model}`;
 
+  // Define a local function with overloads, then attach it below
+  function generate(messages: Message[], genOpts: GenerateOptions & { stream: true }): AsyncIterable<ModelEvent>;
+  function generate(messages: Message[], genOpts?: Omit<GenerateOptions, 'stream'> | (GenerateOptions & { stream?: false | undefined })): Promise<ModelResponse>;
+  function generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse> | AsyncIterable<ModelEvent> {
+    const systemMsgs = messages.filter(m => m.role === 'system').map(m => String(m.content ?? ''));
+    const mapped: AnthropicMessage[] = messages
+      .filter(m => m.role !== 'system')
+      .map(m => toAnthropicMessage(m));
+
+    // Some tests or streaming scenarios may call generate with an empty messages array.
+    // Only treat empty mapped messages as an error for non-streaming requests.
+    if (mapped.length === 0 && !genOpts?.stream) {
+      throw new Error('[anthropicAdapter] No valid user/assistant messages found');
+    }
+
+    const toolsParam = (genOpts?.tools ?? []).map(toAnthropicTool);
+    const tool_choice = normalizeToolChoice(genOpts?.toolChoice, toolsParam.length > 0);
+
+    const body: any = {
+      model: opts.model,
+      max_tokens: Math.min(genOpts?.maxTokens ?? 4096, 8192), // Ensure reasonable limits
+      messages: mapped,
+      temperature: Math.max(0, Math.min(1, genOpts?.temperature ?? 0.7)), // Clamp to valid range
+      ...(systemMsgs.length ? { system: systemMsgs.join('\n') } : {}),
+      ...(toolsParam.length ? { tools: toolsParam } : {}),
+      // Anthropic rejects tool_choice when tools are not provided
+      ...((toolsParam.length && tool_choice !== undefined) ? { tool_choice } : {}),
+      ...(genOpts?.stream ? { stream: true } : {}),
+    };
+
+    if (genOpts?.stream === true) {
+      return makeRequestWithRetry(baseUrl, apiKey, anthropicVersion, body, timeout, maxRetries, true);
+    }
+    return makeRequestWithRetry(baseUrl, apiKey, anthropicVersion, body, timeout, maxRetries, false);
+  }
+
   return {
     name: modelName,
     capabilities: { functionCall: true, streaming: true },
-    async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>> {
-      const systemMsgs = messages.filter(m => m.role === 'system').map(m => String(m.content ?? ''));
-      const mapped: AnthropicMessage[] = messages
-        .filter(m => m.role !== 'system')
-        .map(m => toAnthropicMessage(m));
-
-      // Some tests or streaming scenarios may call generate with an empty messages array.
-      // Only treat empty mapped messages as an error for non-streaming requests.
-      if (mapped.length === 0 && !genOpts?.stream) {
-        throw new Error('[anthropicAdapter] No valid user/assistant messages found');
-      }
-
-      const toolsParam = (genOpts?.tools ?? []).map(toAnthropicTool);
-      const tool_choice = normalizeToolChoice(genOpts?.toolChoice, toolsParam.length > 0);
-
-      const body: any = {
-        model: opts.model,
-        max_tokens: Math.min(genOpts?.maxTokens ?? 4096, 8192), // Ensure reasonable limits
-        messages: mapped,
-        temperature: Math.max(0, Math.min(1, genOpts?.temperature ?? 0.7)), // Clamp to valid range
-        ...(systemMsgs.length ? { system: systemMsgs.join('\n') } : {}),
-        ...(toolsParam.length ? { tools: toolsParam } : {}),
-        // Anthropic rejects tool_choice when tools are not provided
-        ...((toolsParam.length && tool_choice !== undefined) ? { tool_choice } : {}),
-        ...(genOpts?.stream ? { stream: true } : {}),
-      };
-
-      return await makeRequestWithRetry(baseUrl, apiKey, anthropicVersion, body, timeout, maxRetries, Boolean(genOpts?.stream));
-    },
+    // Cast to align with overloaded interface expectations
+    generate: generate as unknown as LLM['generate'],
   };
 }
 
-async function makeRequestWithRetry(
+// Overloaded helper to align return types with streaming flag
+function makeRequestWithRetry(
+  baseUrl: string,
+  apiKey: string,
+  anthropicVersion: string,
+  body: any,
+  timeout: number,
+  maxRetries: number
+  , stream: true
+): AsyncIterable<ModelEvent>;
+function makeRequestWithRetry(
+  baseUrl: string,
+  apiKey: string,
+  anthropicVersion: string,
+  body: any,
+  timeout: number,
+  maxRetries: number
+  , stream: false
+): Promise<ModelResponse>;
+function makeRequestWithRetry(
   baseUrl: string,
   apiKey: string,
   anthropicVersion: string,
@@ -96,129 +124,178 @@ async function makeRequestWithRetry(
   timeout: number,
   maxRetries: number
   , stream: boolean
-): Promise<ModelResponse | AsyncIterable<ModelEvent>> {
+): Promise<ModelResponse> | AsyncIterable<ModelEvent> {
   let lastError: Error;
+  if (stream) {
+    const iter = async function* () {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
+          try {
+            const res = await fetch(`${baseUrl}/v1/messages`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': anthropicVersion,
+              },
+              body: JSON.stringify(body),
+              signal: controller.signal,
+            });
+            if (!res.ok || !res.body) {
+              const err = await res.text();
+              const error = new Error(`Anthropic API error: ${res.status} ${res.statusText} — ${String(err).slice(0, 500)}`);
+              if (res.status >= 400 && res.status < 500 && res.status !== 429) throw error;
+              lastError = error;
+              if (attempt < maxRetries) {
+                await sleep(Math.pow(2, attempt) * 1000);
+                continue;
+              }
+              throw error;
+            }
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-      const res = await fetch(`${baseUrl}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': anthropicVersion,
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      if (stream) {
-        if (!res.ok || !res.body) {
-          const err = await res.text();
-          throw new Error(`Anthropic API error: ${res.status} ${res.statusText} — ${String(err).slice(0, 500)}`);
-        }
-        const iter = async function* () {
-          const decoder = new TextDecoder();
-          let buf = '';
-          let full = '';
-          for await (const chunk of res.body as any) {
-            const piece = typeof chunk === 'string' ? chunk : decoder.decode(chunk);
-            buf += piece;
-            const lines = buf.split('\n');
-            buf = lines.pop() ?? '';
-            for (const line of lines) {
-              const m = line.match(/^data:\s*(.*)/);
-              if (!m) continue;
-              const data = m[1].trim();
-              if (!data) continue;
-              try {
-                const j = JSON.parse(data);
-                if (j.type === 'content_block_delta') {
-                  const t = j.delta?.text;
-                  if (typeof t === 'string') {
-                    full += t;
-                    yield { type: 'token', token: t } as ModelEvent;
+            const decoder = new TextDecoder();
+            let buf = '';
+            let full = '';
+            for await (const chunk of res.body as any) {
+              const piece = typeof chunk === 'string' ? chunk : decoder.decode(chunk);
+              buf += piece;
+              const lines = buf.split('\n');
+              buf = lines.pop() ?? '';
+              for (const line of lines) {
+                const m = line.match(/^data:\s*(.*)/);
+                if (!m) continue;
+                const data = m[1].trim();
+                if (!data) continue;
+                try {
+                  const j = JSON.parse(data);
+                  if (j.type === 'content_block_delta') {
+                    const t = j.delta?.text;
+                    if (typeof t === 'string') {
+                      full += t;
+                      yield { type: 'token', token: t } as ModelEvent;
+                    }
+                  } else if (j.type === 'message_stop') {
+                    yield { type: 'assistant_message', message: { role: 'assistant', content: full } } as ModelEvent;
+                    return;
                   }
-                } else if (j.type === 'message_stop') {
-                  yield { type: 'assistant_message', message: { role: 'assistant', content: full } } as ModelEvent;
-                  return;
+                } catch (e: unknown) {
+                  console.error('[DEBUG_LLM] stream_parse_error', { error: e });
                 }
-              } catch (e: unknown) {
-                console.error('[DEBUG_LLM] stream_parse_error', { error: e });
               }
             }
+            return;
+          } finally {
+            // ensure timeout is cleared when request completes/aborts
+            clearTimeout(timeoutId);
           }
-        };
-        return iter();
-      }
-      const raw = await res.text();
-
-      if (!res.ok) {
-        let details = raw;
-        try {
-          const j = JSON.parse(raw);
-          details = j.error?.message ?? j.error ?? raw;
-        } catch (e: unknown) {
-            console.error('[DEBUG_LLM] Failed to parse error response from Anthropic API', { rawResponse: raw, parseError: e });
+        } catch (error) {
+          lastError = error as Error;
+          if (error instanceof Error && (
+            error.name === 'AbortError'
+          )) {
+            throw error;
+          }
+          if (attempt < maxRetries) {
+            await sleep(Math.pow(2, attempt) * 1000);
+            continue;
+          }
+          throw error;
         }
+      }
+      throw lastError!;
+    };
+    return iter();
+  }
 
-        const error = new Error(`Anthropic API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`);
+  // Non-streaming branch returns a Promise
+  return (async () => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        try {
+          const res = await fetch(`${baseUrl}/v1/messages`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              'anthropic-version': anthropicVersion,
+            },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
 
-        // Don't retry on client errors (4xx) except rate limits
-        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+          const raw = await res.text();
+
+          if (!res.ok) {
+            let details = raw;
+            try {
+              const j = JSON.parse(raw);
+              details = j.error?.message ?? j.error ?? raw;
+            } catch (e: unknown) {
+              console.error('[DEBUG_LLM] Failed to parse error response from Anthropic API', { rawResponse: raw, parseError: e });
+            }
+
+            const error = new Error(`Anthropic API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`);
+
+            // Don't retry on client errors (4xx) except rate limits
+            if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+              throw error;
+            }
+
+            lastError = error;
+            if (attempt < maxRetries) {
+              await sleep(Math.pow(2, attempt) * 1000); // Exponential backoff
+              continue;
+            }
+            throw error;
+          }
+
+          let data: any;
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (parseError) {
+            throw new Error(`Failed to parse Anthropic API response: ${parseError}`);
+          }
+
+          // Validate response structure
+          if (!data.content || !Array.isArray(data.content)) {
+            throw new Error('Invalid Anthropic API response: missing or invalid content array');
+          }
+
+          const { text, tool_calls } = fromAnthropicContent(data.content);
+          const msg: any = { role: 'assistant', content: text };
+          if (tool_calls && tool_calls.length > 0) msg.tool_calls = tool_calls;
+
+          const usage = mapUsage(data.usage);
+          return { message: msg, ...(usage ? { usage } : {}) };
+
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      } catch (error) {
+        lastError = error as Error;
+
+        // Don't retry on non-retryable errors
+        if (error instanceof Error && (
+          error.name === 'AbortError' ||
+          error.message.includes('Failed to parse') ||
+          error.message.includes('Invalid Anthropic API response')
+        )) {
           throw error;
         }
 
-        lastError = error;
         if (attempt < maxRetries) {
           await sleep(Math.pow(2, attempt) * 1000); // Exponential backoff
           continue;
         }
         throw error;
       }
-
-      let data: any;
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch (parseError) {
-        throw new Error(`Failed to parse Anthropic API response: ${parseError}`);
-      }
-
-      // Validate response structure
-      if (!data.content || !Array.isArray(data.content)) {
-        throw new Error('Invalid Anthropic API response: missing or invalid content array');
-      }
-
-      const { text, tool_calls } = fromAnthropicContent(data.content);
-      const msg: any = { role: 'assistant', content: text };
-      if (tool_calls && tool_calls.length > 0) msg.tool_calls = tool_calls;
-
-      const usage = mapUsage(data.usage);
-      return { message: msg, ...(usage ? { usage } : {}) };
-
-    } catch (error) {
-      lastError = error as Error;
-
-      // Don't retry on non-retryable errors
-      if (error instanceof Error && (
-        error.name === 'AbortError' ||
-        error.message.includes('Failed to parse') ||
-        error.message.includes('Invalid Anthropic API response')
-      )) {
-        throw error;
-      }
-
-      if (attempt < maxRetries) {
-        await sleep(Math.pow(2, attempt) * 1000); // Exponential backoff
-        continue;
-      }
-      throw error;
     }
-  }
-
-  throw lastError!;
+    throw lastError!;
+  })();
 }
 
 function toAnthropicTool(tool: Tool) {

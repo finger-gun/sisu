@@ -31,46 +31,91 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
   const baseUrl = (opts.baseUrl ?? envBase ?? 'https://api.openai.com').replace(/\/$/, '');
   if (!apiKey) throw new Error('[openAIAdapter] Missing OPENAI_API_KEY or API_KEY — set it in your environment or pass { apiKey }');
   const DEBUG = String(process.env.DEBUG_LLM || '').toLowerCase() === 'true' || process.env.DEBUG_LLM === '1';
-  return {
-    name: 'openai:' + opts.model,
-    capabilities: { functionCall: true, streaming: true },
-    // Non-standard metadata for tools that may target other OpenAI surfaces (e.g., Responses API)
-    ...(opts.responseModel ? { meta: { responseModel: opts.responseModel } } : {}),
-    async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>> {
-      const toolsParam = (genOpts?.tools ?? []).map(t => toOpenAiTool(t));
-      const tool_choice = normalizeToolChoice(genOpts?.toolChoice);
-      const body: Record<string, unknown> = {
-        model: opts.model,
-        messages: messages.map(m => toOpenAiMessage(m)),
-        temperature: genOpts?.temperature ?? 0.2,
-        ...(toolsParam.length ? { tools: toolsParam } : {}),
-        // Some providers reject tool_choice when tools are not present; include only when tools exist
-        ...((toolsParam.length && tool_choice !== undefined) ? { tool_choice } : {}),
-        ...(genOpts?.parallelToolCalls !== undefined ? { parallel_tool_calls: Boolean(genOpts.parallelToolCalls) } : {}),
-        ...(genOpts?.stream ? { stream: true } : {}),
-      };
-      const url = `${baseUrl}/v1/chat/completions`;
-      if (DEBUG) {
-        try {
-          // Print a redacted/summarized payload for troubleshooting
-          const dbgMsgs = (body.messages as OpenAIChatMessage[]).map((m) => {
-            const toolCalls = Array.isArray(m.tool_calls)
-              ? (m.tool_calls as Array<ToolCall>).map((tc) => ({ id: tc.id, function: { name: tc.function?.name, arguments: summarize(tc.function?.arguments) } }))
-              : undefined;
-            return {
-              role: m.role,
-              name: m.name,
-              tool_call_id: m.tool_call_id,
-              tool_calls: toolCalls,
-              content: Array.isArray(m.content)
-                ? `[${m.content.length} parts]`
-                : (typeof m.content === 'string' ? summarize(m.content) : m.content === null ? null : typeof m.content),
-            };
-          });
-          // eslint-disable-next-line no-console
-          console.error('[DEBUG_LLM] request', JSON.stringify({ url, headers: { Authorization: 'Bearer ***', 'Content-Type': 'application/json', Accept: 'application/json' }, body: { ...body, messages: dbgMsgs } }));
-        } catch (e) { void e; }
-      }
+
+  // Overloaded generate with streaming returning AsyncIterable synchronously
+  function generate(messages: Message[], genOpts: GenerateOptions & { stream: true }): AsyncIterable<ModelEvent>;
+  function generate(messages: Message[], genOpts?: Omit<GenerateOptions, 'stream'> | (GenerateOptions & { stream?: false | undefined })): Promise<ModelResponse>;
+  function generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse> | AsyncIterable<ModelEvent> {
+    const toolsParam = (genOpts?.tools ?? []).map(t => toOpenAiTool(t));
+    const tool_choice = normalizeToolChoice(genOpts?.toolChoice);
+    const body: Record<string, unknown> = {
+      model: opts.model,
+      messages: messages.map(m => toOpenAiMessage(m)),
+      temperature: genOpts?.temperature ?? 0.2,
+      ...(toolsParam.length ? { tools: toolsParam } : {}),
+      // Some providers reject tool_choice when tools are not present; include only when tools exist
+      ...((toolsParam.length && tool_choice !== undefined) ? { tool_choice } : {}),
+      ...(genOpts?.parallelToolCalls !== undefined ? { parallel_tool_calls: Boolean(genOpts.parallelToolCalls) } : {}),
+      ...(genOpts?.stream ? { stream: true } : {}),
+    };
+    const url = `${baseUrl}/v1/chat/completions`;
+    if (DEBUG) {
+      try {
+        // Print a redacted/summarized payload for troubleshooting
+        const dbgMsgs = (body.messages as OpenAIChatMessage[]).map((m) => {
+          const toolCalls = Array.isArray(m.tool_calls)
+            ? (m.tool_calls as Array<ToolCall>).map((tc) => ({ id: tc.id, function: { name: tc.function?.name, arguments: summarize(tc.function?.arguments) } }))
+            : undefined;
+          return {
+            role: m.role,
+            name: m.name,
+            tool_call_id: m.tool_call_id,
+            tool_calls: toolCalls,
+            content: Array.isArray(m.content)
+              ? `[${m.content.length} parts]`
+              : (typeof m.content === 'string' ? summarize(m.content) : m.content === null ? null : typeof m.content),
+          };
+        });
+        // eslint-disable-next-line no-console
+        console.error('[DEBUG_LLM] request', JSON.stringify({ url, headers: { Authorization: 'Bearer ***', 'Content-Type': 'application/json', Accept: 'application/json' }, body: { ...body, messages: dbgMsgs } }));
+      } catch (e) { void e; }
+    }
+
+    if (genOpts?.stream === true) {
+      // Return an async generator that performs the fetch and yields tokens
+      return (async function*() {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok || !res.body) {
+          const err = await res.text();
+          throw new Error(`OpenAI API error: ${res.status} ${res.statusText} — ${String(err).slice(0,500)}`);
+        }
+        const decoder = new TextDecoder();
+        let buf = '';
+        let full = '';
+        for await (const chunk of res.body as AsyncIterable<Uint8Array | string>) {
+          const piece = typeof chunk === 'string' ? chunk : decoder.decode(chunk as Uint8Array);
+          buf += piece;
+          const lines = buf.split('\n');
+          buf = lines.pop() ?? '';
+          for (const line of lines) {
+            const m = line.match(/^data:\s*(.*)/);
+            if (!m) continue;
+            const data = m[1].trim();
+            if (!data) continue;
+            try {
+              const j = JSON.parse(data) as OpenAIStreamChunk;
+              const token = j?.choices?.[0]?.delta?.content;
+              if (typeof token === 'string') {
+                full += token;
+                yield { type: 'token', token } as ModelEvent;
+              }
+            } catch {}
+          }
+        }
+        yield { type: 'assistant_message', message: { role: 'assistant', content: full } } as ModelEvent;
+      })();
+    }
+
+    // Non-stream: return a Promise
+    return (async () => {
       const res = await fetch(url, {
         method: 'POST',
         headers: {
@@ -80,66 +125,19 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
         },
         body: JSON.stringify(body)
       });
-      if (genOpts?.stream) {
-        if (!res.ok || !res.body) {
-          const err = await res.text();
-          throw new Error(`OpenAI API error: ${res.status} ${res.statusText} — ${String(err).slice(0,500)}`);
-        }
-        const iter = async function*() {
-          const decoder = new TextDecoder();
-          let buf = '';
-          let full = '';
-          for await (const chunk of res.body as AsyncIterable<Uint8Array | string>) {
-            const piece = typeof chunk === 'string' ? chunk : decoder.decode(chunk as Uint8Array);
-            buf += piece;
-            const lines = buf.split('\n');
-            buf = lines.pop() ?? '';
-            for (const line of lines) {
-              const m = line.match(/^data:\s*(.*)/);
-              if (!m) continue;
-              const data = m[1].trim();
-              if (data === '' || data === '[DONE]') {
-                if (data === '[DONE]') {
-                  yield { type: 'assistant_message', message: { role: 'assistant', content: full } } as ModelEvent;
-                  return;
-                }
-                continue;
-              }
-              try {
-                const j = JSON.parse(data);
-                const delta = (j as OpenAIStreamChunk)?.choices?.[0]?.delta;
-                const t = delta?.content;
-                if (typeof t === 'string') {
-                  full += t;
-                  yield { type: 'token', token: t } as ModelEvent;
-                }
-              } catch (e) { void e; }
-            }
-          }
-        };
-        return iter();
-      }
       const raw = await res.text();
       if (!res.ok) {
         let details = raw;
-        try {
-          const j = JSON.parse(raw) as Record<string, unknown>;
-          const maybeError = j.error as Record<string, unknown> | undefined;
-          const msg = maybeError?.message;
-          if (typeof msg === 'string') details = msg;
-        } catch (e) { void e; }
-        if (DEBUG) {
-          // eslint-disable-next-line no-console
-          console.error('[DEBUG_LLM] response_error', { status: res.status, statusText: res.statusText, body: summarize(String(raw)) });
-        }
-        throw new Error(`OpenAI API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`);
+        try { const j = JSON.parse(raw); details = (j as any).error?.message ?? (j as any).error ?? raw; } catch (e) { void e; }
+        throw new Error(`OpenAI API error: ${res.status} ${res.statusText} — ${String(details).slice(0,500)}`);
       }
-      const data = raw ? JSON.parse(raw) as OpenAIResponse : {} as Record<string, unknown>;
-      const choice = (data as OpenAIResponse).choices?.[0];
+      const data = (raw ? JSON.parse(raw) : {}) as OpenAIResponse;
+      const choice = data?.choices?.[0];
       const toolCalls = (() => {
-        const msgShape = choice?.message;
-        if (Array.isArray(msgShape?.tool_calls)) {
-          return (msgShape.tool_calls as ToolCall[]).map(tc => ({ id: tc.id, name: tc.function?.name, arguments: safeJson(tc.function?.arguments) }));
+        const msgShape = (choice?.message ?? {}) as OpenAIMessageShape;
+        const tcs = msgShape?.tool_calls as ToolCall[] | undefined;
+        if (Array.isArray(tcs) && tcs.length) {
+          return tcs.map((tc) => ({ id: tc.id, name: tc.function?.name, arguments: safeJson(tc.function?.arguments) }));
         }
         if (msgShape?.function_call) {
           return [{ name: msgShape.function_call.name, arguments: safeJson(msgShape.function_call.arguments) }];
@@ -152,7 +150,14 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
       if (toolCalls) msg.tool_calls = toolCalls;
       const usage = mapUsage(data?.usage);
       return { message: msg, ...(usage ? { usage } : {}) };
-    }
+    })();
+  }
+  return {
+    name: 'openai:' + opts.model,
+    capabilities: { functionCall: true, streaming: true },
+    // Non-standard metadata for tools that may target other OpenAI surfaces (e.g., Responses API)
+    ...(opts.responseModel ? { meta: { responseModel: opts.responseModel } } : {}),
+    generate: generate as unknown as LLM['generate']
   };
 }
 

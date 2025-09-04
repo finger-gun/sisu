@@ -14,10 +14,10 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
   const baseUrl = (opts.baseUrl ?? envBase ?? 'http://localhost:11434').replace(/\/$/, '');
   const modelName = `ollama:${opts.model}`;
 
-  return {
-    name: modelName,
-    capabilities: { functionCall: true, streaming: true },
-    async generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>> {
+  // Overloaded generate to match `LLM` interface
+  function generate(messages: Message[], genOpts: GenerateOptions & { stream: true }): AsyncIterable<ModelEvent>;
+  function generate(messages: Message[], genOpts?: Omit<GenerateOptions, 'stream'> | (GenerateOptions & { stream?: false | undefined })): Promise<ModelResponse>;
+  function generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse> | AsyncIterable<ModelEvent> {
       // Map messages to Ollama format; include assistant tool_calls and tool messages
       const mapped: OllamaChatMessage[] = messages.map((m: any) => {
         const base: any = { role: m.role };
@@ -35,23 +35,24 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
       });
 
       const toolsParam = (genOpts?.tools ?? []).map(toOllamaTool);
-      const body: any = { model: opts.model, messages: mapped, stream: Boolean(genOpts?.stream) };
-      if (toolsParam.length) body.tools = toolsParam;
-      const res = await fetch(`${baseUrl}/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          ...(opts.headers ?? {}),
-        },
-        body: JSON.stringify(body),
-      });
-      if (genOpts?.stream) {
-        if (!res.ok || !res.body) {
-          const err = await res.text();
-          throw new Error(`Ollama API error: ${res.status} ${res.statusText} — ${String(err).slice(0,500)}`);
-        }
-        const iter = async function*() {
+      const baseBody: any = { model: opts.model, messages: mapped };
+      if (toolsParam.length) baseBody.tools = toolsParam;
+
+      if (genOpts?.stream === true) {
+        return (async function*() {
+          const res = await fetch(`${baseUrl}/api/chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              ...(opts.headers ?? {}),
+            },
+            body: JSON.stringify({ ...baseBody, stream: true }),
+          });
+          if (!res.ok || !res.body) {
+            const err = await res.text();
+            throw new Error(`Ollama API error: ${res.status} ${res.statusText} — ${String(err).slice(0,500)}`);
+          }
           const decoder = new TextDecoder();
           let buf = '';
           let full = '';
@@ -76,26 +77,42 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
               } catch {}
             }
           }
-        };
-        return iter();
+        })();
       }
-      const raw = await res.text();
-      if (!res.ok) {
-        let details = raw;
-        try { const j = JSON.parse(raw); details = j.error ?? j.message ?? raw; } catch {}
-        throw new Error(`Ollama API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`);
-      }
-      const data: any = raw ? JSON.parse(raw) : {};
-      // /api/chat response example (non-stream): { message: { role:'assistant', content:'...', tool_calls?: [...] }, done: true }
-      const choice = data?.message ?? {};
-      const content = choice?.content ?? '';
-      const tcs = Array.isArray(choice?.tool_calls)
-        ? choice.tool_calls.map((tc: any) => ({ id: tc.id, name: tc.function?.name, arguments: safeJson(tc.function?.arguments) }))
-        : undefined;
-      const out: any = { role: 'assistant', content: String(content ?? '') };
-      if (tcs) out.tool_calls = tcs;
-      return { message: out };
-    },
+
+      // Non-stream path
+      return (async () => {
+        const res = await fetch(`${baseUrl}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            ...(opts.headers ?? {}),
+          },
+          body: JSON.stringify({ ...baseBody, stream: false }),
+        });
+        const raw = await res.text();
+        if (!res.ok) {
+          let details = raw;
+          try { const j = JSON.parse(raw); details = j.error ?? j.message ?? raw; } catch {}
+          throw new Error(`Ollama API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`);
+        }
+        const data: any = raw ? JSON.parse(raw) : {};
+        const choice = data?.message ?? {};
+        const content = choice?.content ?? '';
+        const tcs = Array.isArray(choice?.tool_calls)
+          ? choice.tool_calls.map((tc: any) => ({ id: tc.id, name: tc.function?.name, arguments: safeJson(tc.function?.arguments) }))
+          : undefined;
+        const out: any = { role: 'assistant', content: String(content ?? '') };
+        if (tcs) out.tool_calls = tcs;
+        return { message: out };
+      })();
+    }
+  
+  return {
+    name: modelName,
+    capabilities: { functionCall: true, streaming: true },
+    generate: generate as unknown as LLM['generate'],
   };
 }
 
