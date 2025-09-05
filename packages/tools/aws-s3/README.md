@@ -1,6 +1,6 @@
 # @sisu-ai/tool-aws-s3
 
-AWS S3 tools for Sisu. Read, list, delete, and (optionally) write objects. Includes metadata helpers.
+AWS S3 tools for Sisu. Read, list, delete, and write objects. Includes metadata helpers.
 
 ## Exports
 - `s3GetObject({ bucket, key })` → `{ content: string }`
@@ -13,31 +13,31 @@ AWS S3 tools for Sisu. Read, list, delete, and (optionally) write objects. Inclu
 Write operations are guarded. When disabled, write tools return `{ ok: false, error }` (they do not throw).
 
 ## Configuration
-- Provide a client via `ctx.state.s3.client` (recommended):
-  - For AWS SDK v3: `new S3Client({ region, credentials? })`
-  - For v2‑like clients: an object supporting `getObject`, `listObjectsV2`, `putObject`, `deleteObject`, `headObject`
+  - Region: `AWS_REGION` or `AWS_DEFAULT_REGION` (defaults to `us-east-1`)
+  - Credentials (optional): `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` when set; otherwise it relies on the default credential chain
+- Optional client injection: Provide your own client via `ctx.state.s3.client` (v3 S3Client or v2‑like shape with `getObject`, `listObjectsV2`, `putObject`, `deleteObject`, `headObject`).
 - Write guard (default: disabled):
   - `ctx.state.s3.allowWrite = true`, or
   - `AWS_S3_ALLOW_WRITE=1`.
-
-Note: If you only provide a v3 client, this package will `import('@aws-sdk/client-s3')` lazily to create command instances.
 
 ## Usage
 ```ts
 import { Agent } from '@sisu-ai/core';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { s3GetObject, s3ListObjectsDetailed, s3DeleteObject } from '@sisu-ai/tool-aws-s3';
-import { S3Client } from '@aws-sdk/client-s3';
 
 const app = new Agent().use(registerTools([
   s3GetObject, s3ListObjectsDetailed, s3DeleteObject
 ]));
 
-ctx.state.s3 = {
-  client: new S3Client({ region: process.env.AWS_REGION || 'us-east-1' }),
-  allowWrite: false,
-};
+// Optional: tweak write policy; region/creds read from env
+ctx.state.s3 = { allowWrite: false };
 ```
+
+Env vars commonly used
+- `AWS_REGION` or `AWS_DEFAULT_REGION`
+- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (optional if using instance/profile/role creds)
+- `AWS_S3_ALLOW_WRITE` (set to `1`/`true` to enable writes)
 
 ## Read “latest” example
 ```ts
@@ -51,4 +51,3 @@ if (latest) {
   await s3DeleteObject.handler({ bucket: 'my-bucket', key: latest } as any, ctx);
 }
 ```
-
