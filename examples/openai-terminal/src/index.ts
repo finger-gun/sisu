@@ -3,7 +3,7 @@ import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type C
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
-import { toolCalling } from '@sisu-ai/mw-tool-calling';
+import { iterativeToolCalling } from '@sisu-ai/mw-tool-calling';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { createTerminalTool } from '@sisu-ai/tool-terminal';
@@ -15,7 +15,7 @@ const terminal = createTerminalTool({
   capabilities: { read: true, write: false, delete: false, exec: true },
 });
 
-const userInput = 'Try to find a file that mentions lejahmie in the root folder.';
+const userInput = 'List files in current working directory and show the contents of any file named README.';
 
 const ctx: Ctx = {
   input: userInput,
@@ -35,7 +35,7 @@ const app = new Agent()
   .use(registerTools(terminal.tools))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 6 }))
-  .use(toolCalling);
+  .use(iterativeToolCalling);
 
 await app.handler()(ctx);
 const final = ctx.messages.filter(m => m.role === 'assistant').pop();
