@@ -7,7 +7,7 @@
 - Everything is middleware: compose planning, tools, routing, safety like you compose Express/Koa apps.
 - One ctx, zero magic: a single typed context flows through; what you see is what runs.
 - Typed tools, explicit loops: tool calls and control flow are first‑class and deterministic.
-- Provider‑agnostic, adapter‑friendly: OpenAI, Ollama (local), or your own HTTP client.
+- Provider‑agnostic, adapter‑friendly: OpenAI, Anthropic, Ollama (local), or your own HTTP client.
 - Built‑in observability: structured logs, redaction, and an HTML trace viewer per run.
 <div align="center">
 
