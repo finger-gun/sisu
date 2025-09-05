@@ -8,5 +8,8 @@
     "emitDeclarationOnly": false
   },
   "include": ["src"]
+  ,
+  "references": [
+    { "path": "../../vector/core" }
+  ]
 }
-
