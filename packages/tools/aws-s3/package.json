@@ -12,5 +12,13 @@
   "dependencies": {
     "zod": "^3.23.8",
     "@aws-sdk/client-s3": "^3.0.0"
-  }
+  },
+  "keywords": [
+    "sisu",
+    "ai",
+    "ai-agent",
+    "agentic",
+    "tool",
+    "aws-s3"
+  ]
 }

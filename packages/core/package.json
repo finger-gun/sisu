@@ -25,5 +25,12 @@
   },
   "dependencies": {
     "zod": "^3.23.8"
-  }
+  },
+  "keywords": [
+    "sisu",
+    "ai",
+    "ai-agent",
+    "agentic",
+    "core"
+  ]
 }

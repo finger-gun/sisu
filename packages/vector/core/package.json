@@ -21,5 +21,13 @@
   "homepage": "https://github.com/finger-gun/sisu#readme",
   "bugs": {
     "url": "https://github.com/finger-gun/sisu/issues"
-  }
+  },
+  "keywords": [
+    "sisu",
+    "ai",
+    "ai-agent",
+    "agentic",
+    "vector",
+    "core"
+  ]
 }
