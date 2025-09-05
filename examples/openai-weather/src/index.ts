@@ -21,7 +21,7 @@ const weather: Tool<WeatherArgs> = {
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 // Ctx
 const ctx: Ctx = {
-  input: process.argv.slice(2).join(' ') || 'What is the weather in Malmö?',
+  input: 'What is the weather in Malmö?',
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
   model,
   tools: new SimpleTools(),

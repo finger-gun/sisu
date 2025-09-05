@@ -28,12 +28,12 @@ const app = new Agent()
 - `path?: string` — output target; `.html` writes HTML only, `.json` writes JSON + HTML sidecar (default: `trace.json`)
 - `html?: boolean` — write HTML (default `true`)
 - `json?: boolean` — write JSON (default `true`)
-- `style?: 'light'|'dark'|'modern'` — built‑in themes (default `light`)
+- `style?: 'light'|'dark'` — built‑in themes (default `light`)
 - `template?: (doc, style) => string` — custom HTML renderer
 
 ## CLI / Env
 - `--trace` or `--trace=run.json|run.html`
-- `--trace-style=light|dark|modern`
+- `--trace-style=light|dark`
 - `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=dark`
 
 ## What’s captured

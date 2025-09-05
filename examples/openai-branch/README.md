@@ -14,7 +14,7 @@ Config Flags (CLI overrides env)
 - `--openai-api-key`, `--api-key`
 - `--openai-base-url`, `--base-url`
 - `--openai-model`
-- Tracing: `--trace` and `--trace-style=light|dark|modern`
+- Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
 - `OPENAI_API_KEY` or `API_KEY`

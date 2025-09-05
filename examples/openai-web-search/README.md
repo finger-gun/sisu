@@ -4,14 +4,14 @@ Runs an agent with the OpenAI adapter and a web search tool using OpenAI's Respo
 
 Usage
 - Quick start: `npm run ex:openai:web-search`
-- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-web-search -- --trace --trace-style=modern -- "Latest news about NASA missions?"`
+- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-web-search -- --trace --trace-style=dark -- "Latest news about NASA missions?"`
 
 Config Flags (CLI overrides env)
 - `--openai-api-key`, `--api-key`
 - `--openai-base-url`, `--base-url`
 - `--openai-model`
 - Responses tool: `--openai-responses-base-url`, `--openai-responses-model`
-- Tracing: `--trace` and `--trace-style=light|dark|modern`
+- Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
 - `OPENAI_API_KEY` or `API_KEY`

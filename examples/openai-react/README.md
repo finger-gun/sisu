@@ -11,13 +11,13 @@ Concept
 
 Usage
 - Quick start: `npm run ex:openai:react`
-- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-react -- --trace --trace-style=modern -- "Use Action: echo with Action Input: {\"text\":\"hello from ReAct\"}"`
+- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-react -- --trace --trace-style=dark -- "Use Action: echo with Action Input: {\"text\":\"hello from ReAct\"}"`
 
 Config Flags (CLI overrides env)
 - `--openai-api-key`, `--api-key`
 - `--openai-base-url`, `--base-url`
 - `--openai-model`
-- Tracing: `--trace` and `--trace-style=light|dark|modern`
+- Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
 - `OPENAI_API_KEY` or `API_KEY`

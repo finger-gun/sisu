@@ -352,8 +352,8 @@ const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
   - `LOG_LEVEL`: `debug|info|warn|error` (default `info`)
   - `DEBUG_LLM`: `1|true` to log adapter request/response summaries on errors
 - Trace viewer flags
-  - CLI: `--trace` (optional `--trace=run.json|run.html`), `--trace-style=light|dark|modern`
-  - Env: `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=light|dark|modern`
+  - CLI: `--trace` (optional `--trace=run.json|run.html`), `--trace-style=light|dark`
+  - Env: `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=light|dark`
 - Notes
   - Precedence in examples: CLI flags > env vars. At library level, adapter options in code override env.
   - Adapters accept `baseUrl` in code; env overrides are convenient for examples and scripts.

@@ -8,7 +8,7 @@ Usage
 
 Config Flags (CLI overrides env)
 - `--ollama-base-url`, `--base-url`
-- Tracing: `--trace` and `--trace-style=light|dark|modern`
+- Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
 - `OLLAMA_BASE_URL` or `BASE_URL`
