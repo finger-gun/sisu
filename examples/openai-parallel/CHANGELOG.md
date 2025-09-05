@@ -1,5 +1,19 @@
 # openai-parallel
 
+## 0.2.3
+
+### Patch Changes
+
+- 2b3af8b: Documentation updates
+- Updated dependencies [2b3af8b]
+  - @sisu-ai/adapter-openai@3.0.2
+  - @sisu-ai/core@1.0.2
+  - @sisu-ai/mw-control-flow@3.0.2
+  - @sisu-ai/mw-conversation-buffer@3.0.2
+  - @sisu-ai/mw-error-boundary@3.0.2
+  - @sisu-ai/mw-trace-viewer@3.0.2
+  - @sisu-ai/mw-usage-tracker@3.0.2
+
 ## 0.2.2
 
 ### Patch Changes

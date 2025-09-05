@@ -1,5 +1,20 @@
 # openai-azure-blob
 
+## 0.1.4
+
+### Patch Changes
+
+- 2b3af8b: Documentation updates
+- Updated dependencies [2b3af8b]
+  - @sisu-ai/adapter-openai@3.0.2
+  - @sisu-ai/core@1.0.2
+  - @sisu-ai/mw-conversation-buffer@3.0.2
+  - @sisu-ai/mw-error-boundary@3.0.2
+  - @sisu-ai/mw-register-tools@3.0.2
+  - @sisu-ai/mw-tool-calling@3.0.2
+  - @sisu-ai/mw-trace-viewer@3.0.2
+  - @sisu-ai/tool-azure-blob@3.0.2
+
 ## 0.1.3
 
 ### Patch Changes

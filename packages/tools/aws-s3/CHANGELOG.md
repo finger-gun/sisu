@@ -1,5 +1,11 @@
 # @sisu-ai/tool-aws-s3
 
+## 1.0.2
+
+### Patch Changes
+
+- 2b3af8b: Documentation updates
+
 ## 1.0.1
 
 ### Patch Changes

@@ -1,20 +1,20 @@
 {
   "name": "openai-parallel",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sisu-ai/core": "1.0.1",
-    "@sisu-ai/adapter-openai": "3.0.1",
-    "@sisu-ai/mw-control-flow": "3.0.1",
-    "@sisu-ai/mw-conversation-buffer": "3.0.1",
-    "@sisu-ai/mw-error-boundary": "3.0.1",
-    "@sisu-ai/mw-trace-viewer": "3.0.1",
-    "@sisu-ai/mw-usage-tracker": "3.0.1",
+    "@sisu-ai/core": "1.0.2",
+    "@sisu-ai/adapter-openai": "3.0.2",
+    "@sisu-ai/mw-control-flow": "3.0.2",
+    "@sisu-ai/mw-conversation-buffer": "3.0.2",
+    "@sisu-ai/mw-error-boundary": "3.0.2",
+    "@sisu-ai/mw-trace-viewer": "3.0.2",
+    "@sisu-ai/mw-usage-tracker": "3.0.2",
     "dotenv": "^16.4.5"
   }
 }

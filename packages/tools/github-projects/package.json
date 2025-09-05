@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/tool-github-projects",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "1.0.1"
+    "@sisu-ai/core": "1.0.2"
   },
   "repository": {
     "type": "git",

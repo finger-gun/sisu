@@ -1,5 +1,13 @@
 # @sisu-ai/mw-tool-calling
 
+## 3.0.2
+
+### Patch Changes
+
+- 2b3af8b: Documentation updates
+- Updated dependencies [2b3af8b]
+  - @sisu-ai/core@1.0.2
+
 ## 3.0.1
 
 ### Patch Changes

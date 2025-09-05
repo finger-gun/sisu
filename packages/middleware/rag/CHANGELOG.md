@@ -1,5 +1,14 @@
 # @sisu-ai/mw-rag
 
+## 2.0.2
+
+### Patch Changes
+
+- 2b3af8b: Documentation updates
+- Updated dependencies [2b3af8b]
+  - @sisu-ai/core@1.0.2
+  - @sisu-ai/vector-core@1.0.2
+
 ## 2.0.1
 
 ### Patch Changes
