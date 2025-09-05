@@ -4,7 +4,7 @@ import path from 'node:path';
 import { exec as cpExec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { minimatch } from 'minimatch';
-import type { Tool } from '@sisu-ai/core';
+import type { Tool, Ctx } from '@sisu-ai/core';
 import { z } from 'zod';
 
 const exec = promisify(cpExec);
@@ -88,6 +88,24 @@ export const DEFAULT_CONFIG: TerminalToolConfig = {
   sessions: { enabled: true, ttlMs: 120_000, maxPerAgent: 4 }
 };
 
+// Reusable exports for consumers who want to surface or extend policy
+export const TERMINAL_COMMANDS_ALLOW: ReadonlyArray<string> = Object.freeze([...DEFAULT_CONFIG.commands.allow]);
+export const TERMINAL_COMMANDS_DENY: ReadonlyArray<string> = Object.freeze([...DEFAULT_CONFIG.commands.deny]);
+
+export function defaultTerminalConfig(overrides?: Partial<TerminalToolConfig>): TerminalToolConfig {
+  return {
+    ...DEFAULT_CONFIG,
+    ...overrides,
+    capabilities: { ...DEFAULT_CONFIG.capabilities, ...(overrides?.capabilities ?? {}) },
+    commands: {
+      allow: overrides?.commands?.allow ?? DEFAULT_CONFIG.commands.allow,
+      deny: overrides?.commands?.deny ?? DEFAULT_CONFIG.commands.deny,
+    },
+    execution: { ...DEFAULT_CONFIG.execution, ...(overrides?.execution ?? {}) },
+    sessions: { ...DEFAULT_CONFIG.sessions, ...(overrides?.sessions ?? {}) },
+  };
+}
+
 interface Session {
   cwd: string;
   env: Record<string, string>;
@@ -117,18 +135,28 @@ function isPathAllowed(absPath: string, cfg: TerminalToolConfig, mode: 'read' | 
   return true;
 }
 
+function extractAbsolutePaths(cmd: string): string[] {
+  // Very simple token scan: find whitespace-delimited tokens that start with '/'
+  const matches = cmd.match(/(?:^|\s)(\/[\w\-./]+)(?=\s|$)/g) || [];
+  return matches.map(m => m.trim());
+}
+
+function commandPolicyCheck(args: { command: string; cwd: string }, cfg: TerminalToolConfig): { allowed: boolean; reason?: string } {
+  if (!cfg.capabilities.exec) return { allowed: false, reason: 'exec disabled' };
+  if (!isPathAllowed(args.cwd, cfg, 'exec')) return { allowed: false, reason: 'cwd outside roots' };
+  if (!isCommandAllowed(args.command, cfg.commands)) return { allowed: false, reason: 'command denied' };
+  // Guard against absolute path escapes: deny any absolute path outside roots
+  const abs = extractAbsolutePaths(args.command);
+  for (const p of abs) {
+    if (!isPathAllowed(p, cfg, 'read')) {
+      return { allowed: false, reason: `absolute path outside roots: ${p}` };
+    }
+  }
+  return { allowed: true };
+}
+
 export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
-  const cfg: TerminalToolConfig = {
-    ...DEFAULT_CONFIG,
-    ...config,
-    capabilities: { ...DEFAULT_CONFIG.capabilities, ...(config?.capabilities ?? {}) },
-    commands: {
-      allow: config?.commands?.allow ?? DEFAULT_CONFIG.commands.allow,
-      deny: config?.commands?.deny ?? DEFAULT_CONFIG.commands.deny
-    },
-    execution: { ...DEFAULT_CONFIG.execution, ...(config?.execution ?? {}) },
-    sessions: { ...DEFAULT_CONFIG.sessions, ...(config?.sessions ?? {}) }
-  };
+  const cfg: TerminalToolConfig = defaultTerminalConfig(config);
 
   const sessions = new Map<string, Session>();
 
@@ -155,17 +183,12 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
   }
 
   async function run_command(args: { command: string; cwd?: string; env?: Record<string, string>; stdin?: string; sessionId?: string }) {
-    if (!cfg.capabilities.exec) {
-      return { exitCode: -1, stdout: '', stderr: '', durationMs: 0, policy: { allowed: false, reason: 'exec disabled' }, cwd: args.cwd ?? '' };
-    }
     const session = getSession(args.sessionId);
     const cwd = path.resolve(args.cwd ?? session?.cwd ?? cfg.roots[0]);
-    if (!isPathAllowed(cwd, cfg, 'exec')) {
-      return { exitCode: -1, stdout: '', stderr: '', durationMs: 0, policy: { allowed: false, reason: 'cwd outside roots' }, cwd };
-    }
     const commandStr = args.command;
-    if (!isCommandAllowed(commandStr, cfg.commands)) {
-      return { exitCode: -1, stdout: '', stderr: '', durationMs: 0, policy: { allowed: false, reason: 'command denied' }, cwd };
+    const pre = commandPolicyCheck({ command: commandStr, cwd }, cfg);
+    if (!pre.allowed) {
+      return { exitCode: -1, stdout: '', stderr: '', durationMs: 0, policy: pre, cwd };
     }
     const start = Date.now();
     try {
@@ -232,7 +255,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     name: 'terminalRun',
     description:
       [
-        'Run a non-interactive, sandboxed terminal command within allowed roots.',
+        `Run a non-interactive, sandboxed terminal command within allowed roots (${cfg.roots}).`,
         `Use for listing files (ls), printing files (cat), simple text processing etc. Allowed commands are ${cfg.commands.allow.join(', ')}).`,
         'Always prefer passing a safe single command. Network and destructive commands are denied by policy.',
         'Tips: pass cwd to run in a specific folder; use terminalCd first to set a working directory for subsequent calls; prefer terminalReadFile when you only need file contents.'
@@ -244,7 +267,23 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
       stdin: z.string().optional(),
       sessionId: z.string().optional()
     }),
-    handler: run_command
+    handler: async (a, ctx: Ctx) => {
+      const s = getSession(a.sessionId);
+      const effCwd = path.resolve(a.cwd ?? s?.cwd ?? cfg.roots[0]);
+      const policy = commandPolicyCheck({ command: a.command, cwd: effCwd }, cfg);
+      ctx?.log?.debug?.('[terminalRun] policy', { command: a.command, cwd: effCwd, policy });
+      const res = await run_command(a);
+      ctx?.log?.info?.('[terminalRun] result', {
+        command: a.command,
+        cwd: res.cwd,
+        exitCode: res.exitCode,
+        durationMs: res.durationMs,
+        stdoutBytes: Buffer.byteLength(res.stdout || ''),
+        stderrBytes: Buffer.byteLength(res.stderr || ''),
+        policy: res.policy,
+      });
+      return res;
+    }
   };
 
   const cdTool: Tool<{ path: string; sessionId?: string }, { cwd: string; sessionId?: string }> = {
@@ -257,7 +296,16 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
         'Use before terminalRun when you need to run multiple commands in the same folder.'
       ].join(' '),
     schema: z.object({ path: z.string(), sessionId: z.string().optional() }),
-    handler: async ({ path, sessionId }) => cd({ path, sessionId })
+    handler: async ({ path: relPath, sessionId }, ctx: Ctx) => {
+      const s = getSession(sessionId);
+      const base = s?.cwd ?? cfg.roots[0];
+      const target = path.resolve(base, relPath);
+      const allowed = isPathAllowed(target, cfg, 'exec');
+      ctx?.log?.debug?.('[terminalCd] request', { base, path: relPath, target, allowed });
+      const res = cd({ path: relPath, sessionId });
+      ctx?.log?.info?.('[terminalCd] result', res);
+      return res;
+    }
   };
 
   const readFileTool: Tool<{ path: string; encoding?: 'utf8' | 'base64'; sessionId?: string }, { contents: string }> = {
@@ -269,7 +317,16 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
         'Path must be inside allowed roots; returns UTF-8 text by default.'
       ].join(' '),
     schema: z.object({ path: z.string(), encoding: z.enum(['utf8', 'base64']).optional(), sessionId: z.string().optional() }),
-    handler: read_file
+    handler: async (a, ctx: Ctx) => {
+      const s = getSession(a.sessionId);
+      const base = s?.cwd ?? cfg.roots[0];
+      const abs = path.resolve(base, a.path);
+      const allowed = isPathAllowed(abs, cfg, 'read');
+      ctx?.log?.debug?.('[terminalReadFile] request', { base, path: a.path, abs, allowed });
+      const res = await read_file(a);
+      ctx?.log?.info?.('[terminalReadFile] result', { abs, bytes: Buffer.byteLength(res.contents || ''), encoding: a.encoding || 'utf8' });
+      return res;
+    }
   };
 
   // Do not expose start_session as a tool by default to keep the model API simple.
