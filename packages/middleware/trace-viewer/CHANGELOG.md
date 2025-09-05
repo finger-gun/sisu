@@ -1,5 +1,13 @@
 # @sisu-ai/mw-trace-viewer
 
+## 3.0.1
+
+### Patch Changes
+
+- 94c8fd1: Add keywords to package metadata.
+- Updated dependencies [94c8fd1]
+  - @sisu-ai/core@1.0.1
+
 ## 3.0.0
 
 ### Patch Changes

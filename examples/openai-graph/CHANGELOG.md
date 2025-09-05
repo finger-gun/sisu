@@ -1,5 +1,18 @@
 # openai-graph
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [94c8fd1]
+  - @sisu-ai/adapter-openai@3.0.1
+  - @sisu-ai/core@1.0.1
+  - @sisu-ai/mw-control-flow@3.0.1
+  - @sisu-ai/mw-conversation-buffer@3.0.1
+  - @sisu-ai/mw-error-boundary@3.0.1
+  - @sisu-ai/mw-trace-viewer@3.0.1
+  - @sisu-ai/mw-usage-tracker@3.0.1
+
 ## 0.2.1
 
 ### Patch Changes

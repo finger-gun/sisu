@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/mw-context-compressor",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,7 +11,7 @@
     "build": "tsc -b"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "1.0.0"
+    "@sisu-ai/core": "1.0.1"
   },
   "repository": {
     "type": "git",

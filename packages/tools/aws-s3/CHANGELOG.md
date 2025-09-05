@@ -1,5 +1,11 @@
 # @sisu-ai/tool-aws-s3
 
+## 1.0.1
+
+### Patch Changes
+
+- 94c8fd1: Add keywords to package metadata.
+
 ## 1.0.0
 
 ### Major Changes
