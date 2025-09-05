@@ -1,5 +1,11 @@
 # @sisu-ai/core
 
+## 1.0.0
+
+### Major Changes
+
+- 8a5a90e: Improvments and stability updates
+
 ## 0.3.0
 
 ### Minor Changes

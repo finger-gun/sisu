@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/mw-tool-calling",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "build": "tsc -b"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "0.3.0"
+    "@sisu-ai/core": "1.0.0"
   },
   "repository": {
     "type": "git",

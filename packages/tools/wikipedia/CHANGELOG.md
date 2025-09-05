@@ -1,5 +1,12 @@
 # @sisu-ai/tool-wikipedia
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [8a5a90e]
+  - @sisu-ai/core@1.0.0
+
 ## 1.0.0
 
 ### Minor Changes

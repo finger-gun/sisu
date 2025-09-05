@@ -1,5 +1,16 @@
 # @sisu-ai/adapter-ollama
 
+## 3.0.0
+
+### Minor Changes
+
+- 8a5a90e: Improvements and adds streaming support
+
+### Patch Changes
+
+- Updated dependencies [8a5a90e]
+  - @sisu-ai/core@1.0.0
+
 ## 2.0.0
 
 ### Minor Changes
