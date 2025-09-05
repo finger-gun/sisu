@@ -19,7 +19,7 @@ const userInput = 'List files in current working directory and show the contents
 
 const ctx: Ctx = {
   input: userInput,
-  messages: [{ role: 'system', content: 'Use tools when helpful. Prefer safe, non-destructive commands.' }],
+  messages: [{ role: 'system', content: 'You are a useful and helpful assistant.' }],
   model,
   tools: new SimpleTools(),
   memory: new InMemoryKV(),
