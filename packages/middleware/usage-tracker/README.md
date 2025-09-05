@@ -49,3 +49,10 @@ const app = new Agent()
 - Each adapter should map its native usage fields to `ModelResponse.usage`.
 - If a provider doesn’t return usage, you’ll get counts of calls only (no cost).
 - Image cost estimation is an approximation unless your adapter returns precise image token usage.
+
+# Community & Support
+- [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
+- [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
+- [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+- [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
+- [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)

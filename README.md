@@ -3,6 +3,11 @@
 
 **Sisu** is a lightweight TypeScript framework for turning intent into action. Inspired by the Finnish idea of sisu—calm resolve under pressure—Sisu favors explicit tools, predictable plans, and built‑in guardrails. No ceremony, no mystery: compose, decide, do.
 
+[![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+[![Downloads (core)](https://img.shields.io/npm/dm/%40sisu-ai%2Fcore)](https://www.npmjs.com/package/@sisu-ai/core)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
+
 ## Why Sisu?
 - Everything is middleware: compose planning, tools, routing, safety like you compose Express/Koa apps.
 - One ctx, zero magic: a single typed context flows through; what you see is what runs.
@@ -220,7 +225,7 @@ flowchart TD
   - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)
   - [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md)
   - [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md)
-  - [@sisu-ai/vec-chroma](packages/tools/vec-chroma/README.md)
+  - [@sisu-ai/tool-vec-chroma](packages/tools/vec-chroma/README.md)
 - Examples:
   - [anthropic-control-flow](examples/anthropic-control-flow/README.md)
   - [anthropic-hello](examples/anthropic-hello/README.md)
@@ -361,6 +366,13 @@ const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
 - Set `LOG_LEVEL=debug` to see control‑flow, tool loop, and invariant logs.
 - Set `DEBUG_LLM=1` to log redacted HTTP payloads from the OpenAI adapter when a call fails (status + body snippet).
 - The trace viewer writes `run.json` and `run.html` for quick scanning of messages and events.
+
+# Community & Support
+- [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
+- [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
+- [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+- [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
+- [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)
 
 # Developers
 You are free to help out. Built an awesome middleware? Found a bug? Lets go! Send me an email, [jamie.telin@gmail.com](mailto:jamie.telin@gmail.com), or contact me on some socials.

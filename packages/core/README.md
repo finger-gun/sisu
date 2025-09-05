@@ -72,3 +72,10 @@ Use any provider by implementing `LLM.generate(messages, opts)`, or use a ready 
 
 ## Philosophy
 Small, explicit, composable. Sisu’s core stays tiny; everything else — tools, control flow, guardrails, usage/cost, tracing — lives in opt-in middlewares and adapters.
+
+# Community & Support
+- [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
+- [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
+- [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+- [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
+- [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)

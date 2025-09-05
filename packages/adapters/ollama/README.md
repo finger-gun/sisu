@@ -32,3 +32,10 @@ const model = ollamaAdapter({ model: 'llama3.1' });
 - Tool choice forcing is model-dependent; current loop asks for tools on first turn and plain completion on second.
 - Streaming can be added via Ollama's streaming API if desired.
  - Env: `OLLAMA_BASE_URL` or `BASE_URL` can override the base URL (or pass `baseUrl` in code). Examples may also support a CLI flag `--base-url` to override env.
+
+# Community & Support
+- [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
+- [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
+- [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+- [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
+- [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)

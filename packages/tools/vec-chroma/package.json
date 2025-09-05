@@ -1,6 +1,7 @@
 {
-  "name": "@sisu-ai/vec-chroma",
+  "name": "@sisu-ai/tool-vec-chroma",
   "version": "2.0.1",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -36,6 +37,7 @@
     "ai-agent",
     "agentic",
     "tool",
-    "vec-chroma"
+    "vec-chroma",
+    "chromadb"
   ]
 }

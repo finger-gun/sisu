@@ -55,3 +55,9 @@ The adapter maps `usage.input_tokens` and `usage.output_tokens` to `{ promptToke
 - `DEBUG_LLM=1` prints sanitized payloads and error bodies.
 - Combine with your app logger’s `LOG_LEVEL=debug` to see middleware events.
 
+# Community & Support
+- [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
+- [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
+- [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+- [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
+- [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)

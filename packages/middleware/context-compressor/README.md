@@ -19,3 +19,10 @@ agent.use(contextCompressor({ maxChars: 200_000, keepRecent: 8, summaryMaxChars:
 - `summaryMaxChars` (default 12k): target maximum size of the generated summary message.
 
 Note: This is a best-effort char-based heuristic; exact token accounting varies by model.
+
+# Community & Support
+- [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
+- [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
+- [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+- [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
+- [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)

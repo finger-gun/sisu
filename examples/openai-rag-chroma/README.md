@@ -2,7 +2,7 @@
 
 Demonstrates a minimal RAG flow using:
 
-- `@sisu-ai/vec-chroma` tools (`vector.upsert`, `vector.query`)
+- `@sisu-ai/tool-vec-chroma` tools (`vector.upsert`, `vector.query`)
 - `@sisu-ai/mw-rag` middlewares (`ragIngest`, `ragRetrieve`, `buildRagPrompt`)
 - OpenAI adapter to synthesize the final answer
 

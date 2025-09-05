@@ -4,7 +4,7 @@ import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { ragIngest, ragRetrieve, buildRagPrompt } from '@sisu-ai/mw-rag';
-import { vectorTools } from '@sisu-ai/vec-chroma';
+import { vectorTools } from '@sisu-ai/tool-vec-chroma';
 
 // Trivial local embedding for demo purposes (fixed dim=8)
 function embed(text: string): number[] {

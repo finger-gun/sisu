@@ -32,3 +32,10 @@ const app = new Agent()
 ## Notes
 - The regex targets `http`/`https` URLs and ignores surrounding punctuation where possible.
 - Prefer pairing with a fetch tool (e.g., `@sisu-ai/tool-web-fetch`) for subsequent content analysis.
+
+# Community & Support
+- [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
+- [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
+- [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+- [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
+- [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)
