@@ -22,5 +22,5 @@ test('read_file refuses outside roots', async () => {
 
 test('cd cannot escape root', async () => {
   const { sessionId } = tool.start_session({ cwd: root });
-  await expect(() => tool.cd({ sessionId, path: '..' })).toThrow();
+  expect(() => tool.cd({ sessionId, path: '..' })).toThrow();
 });
