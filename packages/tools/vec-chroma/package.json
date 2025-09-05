@@ -1,0 +1,34 @@
+{
+  "name": "@sisu-ai/vec-chroma",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "chromadb": "^1.8.0",
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@sisu-ai/core": "0.3.0",
+    "@sisu-ai/vector-core": "0.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/tools/vec-chroma"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  }
+}
+

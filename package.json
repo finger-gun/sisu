@@ -14,22 +14,22 @@
   "devDependencies": {
     "@changesets/cli": "^2.27.8",
     "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "@typescript-eslint/parser": "^6.7.0",
     "@vitest/coverage-v8": "^3.2.4",
     "dotenv": "^16.4.5",
+    "eslint": "^8.45.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^2.8.8",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0",
-  "vitest": "^3.2.4",
+    "vitest": "^3.2.4",
     "zod": "^3.23.8"
-  ,
-  "eslint": "^8.45.0",
-  "@typescript-eslint/parser": "^6.7.0",
-  "@typescript-eslint/eslint-plugin": "^6.7.0",
-  "eslint-config-prettier": "^9.1.0",
-  "prettier": "^2.8.8"
   },
   "scripts": {
     "build": "npm run -ws build",
     "merge:md": "node ./tools/merge-md.cjs --root ./ ./.doc-bundles/",
+    "docs:update": "node ./tools/update-readme.cjs",
     "lint": "eslint --ext .ts,.js packages examples",
     "lint:fix": "eslint --ext .ts,.js packages examples --fix",
     "changeset": "changeset",
@@ -38,6 +38,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "rebuild:test": "rm -f package-lock.json && npm install && npm run build -ws && npm run test:coverage",
     "ex:anthropic:hello": "TRACE_HTML=1 npm run dev -w examples/anthropic-hello -- --trace",
     "ex:anthropic:control": "TRACE_HTML=1 npm run dev -w examples/anthropic-control-flow -- --trace --trace-style=light -- \"Weather in Malmö and suggest a fika plan.\"",
     "ex:anthropic:weather": "TRACE_HTML=1 npm run dev -w examples/anthropic-weather -- --trace --trace-style=dark -- \"Weather in Malmö and plan a fika.\"",
@@ -59,6 +60,10 @@
     "ex:ollama:web-search": "TRACE_HTML=1 npm run dev -w examples/ollama-web-search -- --trace -- \"Tallest mountain in Europe?\"",
     "ex:openai:wikipedia": "TRACE_HTML=1 npm run dev -w examples/openai-wikipedia -- --trace -- \"Tell me about the Hubble Space Telescope using Wikipedia.\"",
     "ex:openai:web-fetch": "TRACE_HTML=1 npm run dev -w examples/openai-web-fetch -- --trace -- \"https://en.wikipedia.org/wiki/Hubble_Space_Telescope\"",
-    "ex:openai:github-projects": "TRACE_HTML=1 npm run dev -w examples/openai-github-projects -- --trace -- \"List next 3 open issues, then fetch their full details.\""
+    "ex:openai:github-projects": "TRACE_HTML=1 npm run dev -w examples/openai-github-projects -- --trace -- \"List next 3 open issues, then fetch their full details.\"",
+    "ex:openai:openai-rag-chroma": "TRACE_HTML=1 npm run dev -w examples/openai-rag-chroma -- --trace -- \"Best fika in Malmö?\"",
+    "ex:openai:openai-azure-blob": "TRACE_HTML=1 npm run dev -w examples/openai-azure-blob -- --trace",
+    "ex:openai:extract-urls": "TRACE_HTML=1 npm run dev -w examples/openai-extract-urls -- --trace -- \"Extract URLs from: 'Check out https://www.google.com and also https://example.com'\"",
+    "ex:openai:aws-s3": "TRACE_HTML=1 npm run dev -w examples/openai-aws-s3 -- --trace"
   }
 }
