@@ -1,4 +1,8 @@
 # @sisu-ai/tool-extract-urls
+[![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Ftool-extract-urls)](https://www.npmjs.com/package/@sisu-ai/tool-extract-urls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
 Extract unique `http`/`https` URLs from text snippets. Small, deterministic, and zero I/O — great as a first pass before fetching, classifying, or summarizing pages.
 

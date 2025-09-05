@@ -1,4 +1,8 @@
 # @sisu-ai/tool-vec-chroma
+[![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Ftool-vec-chroma)](https://www.npmjs.com/package/@sisu-ai/tool-vec-chroma)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
 ChromaDB adapter tools for Sisu vectors. Provides three tools:
 

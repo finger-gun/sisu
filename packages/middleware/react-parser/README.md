@@ -1,4 +1,8 @@
 # @sisu-ai/mw-react-parser
+[![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fmw-react-parser)](https://www.npmjs.com/package/@sisu-ai/mw-react-parser)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
 Lightweight ReAct-style tool loop. Lets the model decide an action in natural language, you parse it, execute, and then the model reflects and answers.
 
