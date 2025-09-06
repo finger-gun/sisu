@@ -18,20 +18,6 @@
 
   // --- Global state & logo ---
   window.SISU_TRACES = window.SISU_TRACES || { runs: [], logo: '' };
-  (function () {
-    var img = document.getElementById('brandImg');
-    var fallback = document.getElementById('brandFallback');
-    function showImg() { if (img) { img.classList.remove('hidden'); } if (fallback) { fallback.classList.add('hidden'); } }
-    if (window.SISU_LOGO_DATA) {
-      img.onload = showImg;
-      img.onerror = function () { };
-      img.src = window.SISU_LOGO_DATA;
-    } else {
-      img.onload = showImg;
-      img.onerror = function () { if (img) { img.classList.add('hidden'); } if (fallback) { fallback.classList.remove('hidden'); } };
-      img.src = 'sisu-logo.jpg';
-    }
-  })();
 
   // --- Utils: normalize a run object from .json or .js shapes ---
   function normalizeAndPushRun(obj) {
@@ -230,11 +216,18 @@
       var l = document.createElement('td'); l.textContent = ev.level || '';
       var a = document.createElement('td'); var code = document.createElement('pre');
       var args = ev && typeof ev.args !== 'undefined' ? ev.args : '';
+      function fmtArg(x){
+        if (typeof x === 'string') return x; // print strings as-is
+        try { return JSON.stringify(x, null, 2); } catch (e) { return String(x); }
+      }
       var text;
       if (Array.isArray(args)) {
-        try { text = args.map(function (x) { try { return JSON.stringify(x, null, 2); } catch (e) { return String(x); } }).join('\\n'); }
-        catch (e) { text = String(args); }
-      } else { text = (typeof args === 'object' ? JSON.stringify(args, null, 2) : String(args)); }
+        try {
+          text = args.map(fmtArg).join('\n'); // real newline between elements
+        } catch (e) { text = String(args); }
+      } else {
+        text = fmtArg(args);
+      }
       code.innerHTML = withLineNumbers(syntaxHighlight(escapeHTML(text)));
       a.appendChild(code);
       tr.appendChild(t); tr.appendChild(l); tr.appendChild(a); tbody.appendChild(tr);
@@ -251,14 +244,24 @@
     }
   });
 
-  // Theme with persistence
+  // Theme with persistence (works on file:// as well; guarded for privacy modes)
   var root = document.documentElement;
-  function applyTheme(theme) { if (theme === 'light') { root.setAttribute('data-theme', 'light'); } else { root.removeAttribute('data-theme'); } localStorage.setItem('trace_theme', theme); }
-  var saved = localStorage.getItem('trace_theme') || 'dark';
-  if (saved === 'light') { applyTheme('light'); $('#lightBtn').classList.add('active'); $('#darkBtn').classList.remove('active'); }
-  else { applyTheme('dark'); $('#darkBtn').classList.add('active'); $('#lightBtn').classList.remove('active'); }
-  $('#lightBtn').onclick = function () { applyTheme('light'); this.classList.add('active'); $('#darkBtn').classList.remove('active'); };
-  $('#darkBtn').onclick = function () { applyTheme('dark'); this.classList.add('active'); $('#lightBtn').classList.remove('active'); };
+  function lsGet(k){ try { return window.localStorage && localStorage.getItem(k); } catch(_) { return null; } }
+  function lsSet(k,v){ try { return window.localStorage && localStorage.setItem(k,v); } catch(_) { return null; } }
+  function applyTheme(theme, persist){
+    if (theme === 'light') { root.setAttribute('data-theme','light'); }
+    else { root.removeAttribute('data-theme'); }
+    if (persist) lsSet('trace_theme', theme);
+  }
+  var saved = lsGet('trace_theme');
+  var prefersDark = false;
+  try { prefersDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch(_) {}
+  var initialTheme = saved || (prefersDark ? 'dark' : 'light');
+  applyTheme(initialTheme, false);
+  if (initialTheme === 'light') { $('#lightBtn').classList.add('active'); $('#darkBtn').classList.remove('active'); }
+  else { $('#darkBtn').classList.add('active'); $('#lightBtn').classList.remove('active'); }
+  $('#lightBtn').onclick = function(){ applyTheme('light', true); this.classList.add('active'); $('#darkBtn').classList.remove('active'); };
+  $('#darkBtn').onclick = function(){ applyTheme('dark', true); this.classList.add('active'); $('#lightBtn').classList.remove('active'); };
 
   // Search + shortcuts
   $('#runSearch').addEventListener('input', function (e) {
