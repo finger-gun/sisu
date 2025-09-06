@@ -17,9 +17,9 @@ module.exports = {
   '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
   '@typescript-eslint/explicit-module-boundary-types': 'off',
   '@typescript-eslint/no-explicit-any': 'warn'
-  }
-  ,
+  },
   overrides: [
-  ]
+  ],
+  "exclude": ["packages/middleware/trace-viewer/assets"]  
 };
 

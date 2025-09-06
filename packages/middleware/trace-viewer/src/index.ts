@@ -40,8 +40,9 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
     const traceArgPath = argFlag && argFlag.includes('=') ? argFlag.split('=')[1] : '';
     const explicitPath = Boolean(opts.path || traceArgPath);
     const defaultDir = opts.dir || 'traces';
-    const path = opts.path || traceArgPath || 'trace.json';
-    const wantHtml = opts.html ?? true;
+  const path = opts.path || traceArgPath || 'trace.json';
+  // Default to not writing per-run HTML. Explicit .html path still respected.
+  const wantHtml = opts.html ?? false;
     const wantJson = opts.json ?? true;
     const cliStyle = argv.find(a => a.startsWith('--trace-style='))?.split('=')[1] as TraceStyle | undefined;
     const envStyle = (process.env.TRACE_STYLE as TraceStyle | undefined);
@@ -77,7 +78,8 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
 
       const fs = await import('node:fs');
       const pathMod = await import('node:path');
-      const html = (typeof opts.template === 'function') ? opts.template(out, style) : renderTraceHtml(out, style);
+      const logo = findLogoDataUrl(fs, pathMod, process.cwd());
+      const html = (typeof opts.template === 'function') ? opts.template(out, style) : renderTraceHtml(out, style, logo);
 
       // Choose output location. If no explicit path, write to traces/<ts>.{json,html}
       let targetPath = path;
@@ -95,29 +97,41 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
         if (wantHtml) { fs.writeFileSync(targetPath, html, 'utf8'); }
       } else if (lower.endsWith('.json')) {
         if (wantJson) { fs.writeFileSync(targetPath, JSON.stringify(out, null, 2), 'utf8'); }
-        if (wantHtml) { const hp = targetPath.replace(/\.json$/i, '.html'); fs.writeFileSync(hp, html, 'utf8'); }
+        // no per-run HTML generation by default
       } else {
         if (wantJson) { fs.writeFileSync(targetPath, JSON.stringify(out, null, 2), 'utf8'); }
-        if (wantHtml) { fs.writeFileSync(targetPath + '.html', html, 'utf8'); }
+        // no per-run HTML generation by default
       }
 
       // If writing into a traces dir, maintain an index listing and link to latest
       try {
         const dir = explicitPath ? pathMod.dirname(targetPath) : tracesDir;
-        writeIndex(fs, pathMod, dir, style);
+        writeIndexAssets(fs, pathMod, dir, style);
       } catch {}
     }
   };
 }
 
-function renderTraceHtml(out: TraceDoc, style: TraceStyle = 'light'): string {
+function renderTraceHtml(out: TraceDoc, style: TraceStyle = 'light', logoDataUrl = ''): string {
   const esc = (s: string) => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
   const palette = getPalette(style);
   const css = `
   :root{--bg:${palette.bg};--fg:${palette.fg};--muted:${palette.muted};--card:${palette.card};--border:${palette.border};--accent:${palette.accent}}
   *{box-sizing:border-box}
-  body{font-family:system-ui,Arial,sans-serif;margin:20px;background:var(--bg);color:var(--fg)}
-  h1{font-size:20px;margin:0 0 10px}
+  body{font-family:system-ui,Arial,sans-serif;margin:20px;background:
+      radial-gradient(1200px 600px at -10% -20%, rgba(99,102,241,0.10), rgba(99,102,241,0) 60%),
+      radial-gradient(800px 500px at 110% -10%, rgba(59,130,246,0.08), rgba(59,130,246,0) 55%),
+      var(--bg);color:var(--fg)}
+  @media (prefers-color-scheme: dark){
+    body{background:
+      radial-gradient(1200px 600px at -10% -20%, rgba(124,58,237,0.18), rgba(124,58,237,0) 60%),
+      radial-gradient(800px 500px at 110% -10%, rgba(59,130,246,0.14), rgba(59,130,246,0) 55%),
+      var(--bg);
+    }
+  }
+  .brand{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+  .brand img{height:20px;width:auto;opacity:.9;border-radius:4px}
+  h1{font-size:18px;margin:0}
   .section{margin:16px 0}
   .grid{display:grid;grid-template-columns:140px 1fr;gap:8px;align-items:start}
   pre{background:var(--card);padding:8px;border-radius:6px;overflow:auto;border:1px solid var(--border)}
@@ -127,13 +141,13 @@ function renderTraceHtml(out: TraceDoc, style: TraceStyle = 'light'): string {
   th,td{border:1px solid var(--border);padding:6px;font-size:12px;vertical-align:top}
   th{background:var(--card);text-align:left}
   code{font-family:ui-monospace,Consolas,monospace}
-  .chip{display:inline-block;padding:2px 6px;border-radius:999px;color:#fff;font-size:11px;margin-right:6px}
+  .chip{display:inline-flex;justify-content:center;align-items:center;padding:2px 6px;border-radius:999px;color:#fff;font-size:11px;margin-right:6px;width:84px}
   .role-user{background:#2563eb}
   .role-assistant{background:#10b981}
   .role-system{background:#6b7280}
   .role-tool{background:#d97706}
   .snippet{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .msg-summary{display:flex;align-items:center;gap:6px}
+  .msg-summary{display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:8px}
   .badge{display:inline-block;padding:2px 6px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;margin-left:6px}
   .status-success{background:#16a34a;color:#fff}
   .status-error{background:#dc2626;color:#fff}
@@ -159,7 +173,7 @@ function renderTraceHtml(out: TraceDoc, style: TraceStyle = 'light'): string {
 
   return `<!doctype html><html><head><meta charset="utf-8"/><title>Trace</title><style>${css}</style></head>
   <body>
-    <h1>Trace</h1>
+    <div class="brand">${logoDataUrl ? `<img src="${logoDataUrl}" alt="Sisu"/>` : ''}<h1>Trace</h1></div>
     <div class="section card">
       <details><summary><b>Input</b> <span class="snippet">${esc(snippet(String(out.input || '')))}</span></summary><pre>${esc(String(out.input || ''))}</pre></details>
       <details><summary><b>Final</b> <span class="snippet">${esc(snippet(String(out.final || '')))}</span></summary><pre>${esc(String(out.final || ''))}</pre></details>
@@ -209,103 +223,484 @@ function timestamp(d = new Date()) {
   return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-function writeIndex(fs: any, pathMod: any, dir: string, style: TraceStyle) {
-  const esc = (s: string) => s.replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
-  const files: string[] = fs.readdirSync(dir).filter((f: string) => f.endsWith('.html') && f.startsWith('run-'));
-  files.sort();
-  const latest = files[files.length - 1];
-  const paletteAll = { light: getPalette('light'), dark: getPalette('dark') } as any;
-  const css = `:root{--bg:${paletteAll[style].bg};--fg:${paletteAll[style].fg};--muted:${paletteAll[style].muted};--card:${paletteAll[style].card};--border:${paletteAll[style].border};--accent:${paletteAll[style].accent}}
-  *{box-sizing:border-box} body{margin:0;display:grid;grid-template-columns:280px 1fr;grid-template-rows:auto 1fr;height:100vh;font-family:system-ui,Arial,sans-serif;background:var(--bg);color:var(--fg)}
-  header{grid-column:1/3;padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center}
-  header h1{font-size:16px;margin:0 8px 0 0}
-  header select{background:var(--card);color:var(--fg);border:1px solid var(--border);padding:4px;border-radius:6px}
-  aside{border-right:1px solid var(--border);overflow:auto;padding:12px;background:var(--card)}
-  main{overflow:hidden}
-  ul{list-style:none;padding:0;margin:0}
-  li{padding:6px 8px;border-bottom:1px solid var(--border);}
-  a{color:var(--fg);text-decoration:none;display:block}
-  a:hover{text-decoration:underline}
-  .latest{color:var(--accent);font-weight:600}
-  .status{padding:0 4px;border-radius:4px;font-size:10px;color:#fff;margin-left:4px}
-  .status.success{background:#16a34a}
-  .status.error{background:#dc2626}
-  iframe{border:0;width:100%;height:100%}
-  .muted{color:var(--muted)}
-  `;
-
-  const runs = files.slice().reverse().map(f => {
-    const jp = pathMod.join(dir, f.replace(/\.html$/, '.json'));
-    let doc: any = {};
-    try { if (fs.existsSync(jp)) doc = JSON.parse(fs.readFileSync(jp, 'utf8')); } catch {}
-    const snippet = (doc.input || '').slice(0, 50);
-    const meta = doc.meta || {};
-    return { file: f, snippet, meta };
+// New: asset-based index writer that separates HTML/CSS/JS and data
+function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle) {
+  const logo = findLogoDataUrl(fs, pathMod, dir);
+  const jsonFiles: string[] = fs.readdirSync(dir).filter((f: string) => f.endsWith('.json') && f.startsWith('run-'));
+  // Generate one JS file per run that appends to window.SISU_TRACES.runs
+  const runScriptFiles: string[] = [];
+  jsonFiles.forEach((f: string) => {
+    try {
+      const p = pathMod.join(dir, f);
+      const doc = JSON.parse(fs.readFileSync(p, 'utf8')) as any;
+      const meta = doc.meta || {};
+      const input = doc.input || '';
+      const final = (doc.final == null) ? '' : String(doc.final);
+      const title = input ? (String(input).slice(0, 80)) : f.replace(/\.json$/, '');
+      const status = (meta.status === 'error') ? 'failed' : (meta.status || 'success');
+      const duration = Number(meta.durationMs || 0);
+      const messages = Array.isArray(doc.messages) ? doc.messages : [];
+      const events = Array.isArray(doc.events) ? doc.events.map((e: any) => ({ time: e.ts || e.time || '', level: e.level || '', args: (typeof e.args !== 'undefined' ? e.args : (e.message ?? e)) })) : [];
+      const progress = (final && status === 'success') ? 100 : 0;
+      const runObj = { id: f.replace(/\.json$/, ''), file: f, title, time: meta.start || '', status, duration, model: meta.model || 'unknown', input, final, start: meta.start || '', end: meta.end || '', progress, messages, events };
+      const jsName = f.replace(/\.json$/i, '.js');
+      const code = 'window.SISU_TRACES = window.SISU_TRACES || { runs: [], logo: "" };\n' +
+                   'window.SISU_TRACES.runs.push(' + JSON.stringify(runObj).replace(/<\/script/g, '<\\/script') + ');\n';
+      fs.writeFileSync(pathMod.join(dir, jsName), code, 'utf8');
+      runScriptFiles.push(jsName);
+    } catch {}
   });
-  const runsList = runs.map(r => {
-    const dur = r.meta.durationMs ? (r.meta.durationMs / 1000).toFixed(2) + 's' : '';
-    const status = r.meta.status || 'success';
-    return `<li><a href="#" data-file="${encodeURI(r.file)}"><div>${esc(r.snippet || r.file)} <span class="status ${status}">${status}</span>${r.file===latest ? ' <span class=\"latest\">(latest)</span>' : ''}</div><div class="muted">${esc(r.meta.start || '')} ${dur ? '· '+dur : ''}</div></a></li>`;
-  }).join('\n');
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Traces</title><style>${css}</style></head>
-  <body>
-    <header>
-      <h1>Traces</h1>
-      <div class="muted">${files.length} run${files.length === 1 ? '' : 's'}</div>
-      <div style="flex:1"></div>
-      <label for="theme" class="muted">Theme:</label>
-      <select id="theme">
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-      ${latest ? `<a id="open-latest" href="#" data-file="${encodeURI(latest)}" style="margin-left:12px;color:var(--accent)"><b>Open latest</b></a>` : ''}
-    </header>
-    <aside>
-      <ul id="runs">${runsList || '<li class="muted">No traces yet</li>'}</ul>
+  // runs.js: a list of run script filenames
+  const runsJs = 'window.SISU_RUN_SCRIPTS = ' + JSON.stringify(runScriptFiles.sort().reverse()) + ';\n';
+  fs.writeFileSync(pathMod.join(dir, 'runs.js'), runsJs, 'utf8');
+
+  // Copy static assets
+  let assetsDir = '';
+  try {
+    // ESM-friendly resolution using import.meta.url; falls back to __dirname if available
+    // @ts-ignore
+    const modUrl = (import.meta && import.meta.url) ? import.meta.url : '';
+    const here = modUrl ? pathMod.dirname(new URL(modUrl).pathname) : (typeof __dirname !== 'undefined' ? __dirname : '');
+    if (here) assetsDir = pathMod.resolve(here, '..', 'assets');
+  } catch { /* ignore */ }
+  if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
+    try { assetsDir = pathMod.resolve(__dirname as any, '..', 'assets'); } catch { /* ignore */ }
+  }
+  if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
+    // Last-resort guess for monorepo execution from example cwd
+    const guess = pathMod.resolve(process.cwd(), '..', '..', 'packages', 'middleware', 'trace-viewer', 'assets');
+    if (fs.existsSync(pathMod.join(guess, 'viewer.html'))) assetsDir = guess;
+  }
+  try {
+    fs.writeFileSync(pathMod.join(dir, 'trace.html'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.html'), 'utf8'), 'utf8');
+    fs.writeFileSync(pathMod.join(dir, 'viewer.css'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.css'), 'utf8'), 'utf8');
+    fs.writeFileSync(pathMod.join(dir, 'viewer.js'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.js'), 'utf8'), 'utf8');
+  } catch (err) {
+    try { console.warn('Trace viewer: failed to copy assets', err); } catch {}
+  }
+}
+
+function writeIndex(fs: any, pathMod: any, dir: string, style: TraceStyle) {
+  const esc = (s: string) => String(s).replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+  const logo = findLogoDataUrl(fs, pathMod, dir);
+
+  // Collect runs from JSON files
+  const jsonFiles: string[] = fs.readdirSync(dir).filter((f: string) => f.endsWith('.json') && f.startsWith('run-'));
+  const runs = jsonFiles.map(f => {
+    const p = pathMod.join(dir, f);
+    let doc: any = {};
+    try { doc = JSON.parse(fs.readFileSync(p, 'utf8')); } catch {}
+    const meta = doc.meta || {};
+    const input = doc.input || '';
+    const final = (doc.final == null) ? '' : String(doc.final);
+    const title = input ? (String(input).slice(0, 80)) : f.replace(/\.json$/, '');
+    const status = (meta.status === 'error') ? 'failed' : (meta.status || 'success');
+    const duration = Number(meta.durationMs || 0);
+    const messages = Array.isArray(doc.messages) ? doc.messages : [];
+    const events = Array.isArray(doc.events) ? doc.events.map((e: any) => ({ time: e.ts || e.time || '', level: e.level || '', args: (typeof e.args !== 'undefined' ? e.args : (e.message ?? e)) })) : [];
+    const progress = (final && status === 'success') ? 100 : 0;
+    return {
+      id: f.replace(/\.json$/, ''),
+      file: f,
+      title,
+      time: meta.start || '',
+      status,
+      duration,
+      model: meta.model || 'unknown',
+      input,
+      final,
+      start: meta.start || '',
+      end: meta.end || '',
+      progress,
+      messages,
+      events,
+    };
+  }).sort((a, b) => String(b.time).localeCompare(String(a.time)));
+
+  // Build the unified viewer HTML (based on provided design)
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sisu Trace Visualizer</title>
+  <style>
+    :root{ --bg:#0b0b10; --panel:rgba(255,255,255,.06); --panel-strong:rgba(255,255,255,.12); --text:#e8e8ef; --muted:#a5a6b5; --brand:#6d6af7; --brand-2:#9b5cf6; --surface-blur:12px; --radius-xl:16px; --shadow-1:0 6px 30px rgba(0,0,0,.35); --code:#0f1220; --code-text:#e5e7ff; --code-key:#a78bfa; --code-str:#6ee7b7; --code-num:#93c5fd; --code-comm:#8b8b9c; }
+    [data-theme="light"]{ --bg:#f6f7fb; --panel:rgba(255,255,255,.95); --panel-strong:#ffffff; --text:#0e1222; --muted:#4b5563; --code:#f3f5fb; --code-text:#0e1222; --code-key:#4338ca; --code-str:#047857; --code-num:#1d4ed8; --code-comm:#6b7280; --shadow-1:0 8px 30px rgba(10,14,35,.06); }
+    body{ margin:0; color:var(--text); font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:radial-gradient(1200px 600px at 10% -10%, rgba(109,106,247,.25), transparent 60%), radial-gradient(1200px 800px at 120% 20%, rgba(155,92,246,.20), transparent 60%), var(--bg); min-height:100vh; }
+    .topbar{ position:sticky; top:0; z-index:10; display:flex; gap:12px; align-items:center; justify-content:space-between; padding:14px 20px; backdrop-filter:saturate(160%) blur(var(--surface-blur)); background:linear-gradient(180deg, rgba(12,12,20,.65), rgba(12,12,20,.25)); border-bottom:1px solid rgba(255,255,255,.07); }
+    [data-theme="light"] .topbar{ background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.85)); border-bottom:1px solid rgba(0,0,0,.06); }
+    .brand{ display:flex; align-items:center; gap:10px; }
+    .brand h1{ font-size:16px; margin:0; font-weight:700; letter-spacing:.3px; }
+    .brand-img{ width:120px; height:28px; display:block; object-fit:contain; }
+    .brand-fallback{ width:28px; height:28px; border-radius:6px; background:conic-gradient(from 120deg, var(--brand), var(--brand-2)); box-shadow: inset 0 0 18px rgba(255,255,255,.25), 0 4px 18px rgba(109,106,247,.45); }
+    .toolbar{ display:flex; gap:8px; align-items:center; }
+    .btn{ border:1px solid rgba(255,255,255,.1); background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)); color:var(--text); padding:8px 12px; border-radius:12px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; transition:all .18s ease; box-shadow:var(--shadow-1); }
+    [data-theme="light"] .btn{ border-color:rgba(0,0,0,.1); background:linear-gradient(180deg,#fff,#f3f4f6); }
+    .btn:hover{ transform:translateY(-1px); }
+    .btn.primary{ background:linear-gradient(135deg,var(--brand),var(--brand-2)); border:none; color:#fff; }
+    .seg{ display:flex; background:var(--panel); border:1px solid rgba(255,255,255,.1); border-radius:12px; overflow:hidden; }
+    [data-theme="light"] .seg{ border-color:rgba(0,0,0,.06); }
+    .seg button{ background:transparent; border:0; color:var(--muted); padding:8px 12px; cursor:pointer; }
+    .seg button.active{ color:var(--text); background:linear-gradient(135deg, rgba(109,106,247,.25), rgba(155,92,246,.2)); }
+    .app{ display:grid; grid-template-columns:320px 1fr; gap:16px; padding:16px; }
+    @media(max-width:1100px){ .app{ grid-template-columns:1fr; } }
+    .sidebar{ backdrop-filter: blur(var(--surface-blur)); background: var(--panel); border: 1px solid rgba(255,255,255,.08); border-radius: var(--radius-xl); box-shadow: var(--shadow-1); overflow:hidden; }
+    [data-theme="light"] .sidebar{ border-color:rgba(0,0,0,.06); }
+    .sidebar .head{ display:flex; align-items:center; justify-content:space-between; padding:14px 14px 8px; border-bottom:1px solid rgba(255,255,255,.06); }
+    [data-theme="light"] .sidebar .head{ border-bottom-color:rgba(0,0,0,.06); }
+    .sidebar .search{ padding:10px 12px 16px; }
+    .input{ position:relative; }
+    .input input{ width:100%; padding:10px 12px 10px 34px; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:var(--text); outline:none; }
+    [data-theme="light"] .input input{ background:#fff; border-color:rgba(0,0,0,.08); }
+    .input svg{ position:absolute; left:10px; top:9px; opacity:.7 }
+    .run-list{ max-height: calc(100vh - 220px); overflow:auto; padding:8px; }
+    .run{ padding:10px 10px; margin:6px 4px; border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)); border:1px solid rgba(255,255,255,.07); cursor:pointer; transition: transform .16s ease, background .2s ease; }
+    [data-theme="light"] .run{ background:linear-gradient(180deg, rgba(0,0,0,.03), rgba(0,0,0,.015)); border-color:rgba(0,0,0,.06); }
+    .run:hover{ transform:translateY(-1px); }
+    .run.active{ outline:2px solid rgba(109,106,247,.55); background:linear-gradient(135deg, rgba(109,106,247,.18), rgba(155,92,246,.12)); }
+    [data-theme="light"] .run.active{ outline-color:rgba(109,106,247,.45); background:linear-gradient(135deg, rgba(109,106,247,.12), rgba(155,92,246,.10)); }
+    .run .title{ font-weight:600; font-size:13px; margin-bottom:4px; }
+    .run .meta{ display:flex; gap:10px; color:var(--muted); font-size:12px; align-items:center; }
+    .status{ padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; }
+    .status.success{ background:rgba(54,211,153,.15); color:#66f1c0; }
+    .status.failed{ background:rgba(251,113,133,.12); color:#ff9fb0; }
+    .main{ display:flex; flex-direction:column; gap:16px; }
+    .panel{ background:var(--panel); border:1px solid rgba(255,255,255,.08); border-radius:var(--radius-xl); box-shadow:var(--shadow-1); overflow:hidden; }
+    [data-theme="light"] .panel{ border-color:rgba(0,0,0,.06); }
+    .trace-header{ padding:16px; border-bottom:1px solid rgba(255,255,255,.06); display:grid; grid-template-columns:1fr; gap:10px; align-items:center; }
+    @media(min-width:900px){ .trace-header{ grid-template-columns:1fr auto; } }
+    [data-theme="light"] .trace-header{ border-bottom-color:rgba(0,0,0,.06); }
+    .titlebar{ display:flex; gap:12px; align-items:center; }
+    .chip{ font-weight:600; font-size:12px; color:var(--muted); border:1px solid rgba(255,255,255,.08); padding:6px 10px; border-radius:999px; backdrop-filter: blur(6px); background:rgba(255,255,255,.06); }
+    [data-theme="light"] .chip{ border-color:rgba(0,0,0,.08); background:rgba(255,255,255,.85); }
+    .metrics{ display:flex; gap:16px; flex-wrap:wrap; }
+    .metric{ background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03)); border:1px solid rgba(255,255,255,.06); padding:10px 12px; border-radius:12px; min-width:130px; }
+    [data-theme="light"] .metric{ background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.85)); border-color:rgba(0,0,0,.06); }
+    .metric b{ display:block; font-size:12px; color:var(--muted); font-weight:600; }
+    .metric span{ font-size:16px; font-weight:700; }
+    .progress{ height:10px; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; position:relative; }
+    [data-theme="light"] .progress{ background:rgba(0,0,0,.08); }
+    .progress > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--brand),var(--brand-2)); box-shadow:0 0 12px rgba(109,106,247,.5) inset; }
+    .accordion{ border-top:1px solid rgba(255,255,255,.06); }
+    [data-theme="light"] .accordion{ border-top-color:rgba(0,0,0,.06); }
+    .acc{ border-bottom:1px solid rgba(255,255,255,.06); }
+    [data-theme="light"] .acc{ border-bottom-color:rgba(0,0,0,.06); }
+    .acc > button{ width:100%; background:transparent; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; color:var(--text); border:0; font-weight:700; letter-spacing:.2px; cursor:pointer; }
+    .acc > button:hover{ background:rgba(255,255,255,.05); }
+    [data-theme="light"] .acc>button:hover{ background:rgba(0,0,0,.03); }
+    .acc .content{ padding:0 16px 16px; display:none; }
+    .acc.open .content{ display:block; animation:drop .18s ease; }
+    @keyframes drop{ from{ opacity:0; transform:translateY(-6px);} to{ opacity:1; transform:none; } }
+    .tags{ display:flex; gap:8px; flex-wrap:wrap; margin:0 16px 12px; }
+    .tag{ padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.1); color:var(--muted); cursor:pointer; user-select:none; }
+    [data-theme="light"] .tag{ border-color:rgba(0,0,0,.1); }
+    .tag.active{ background:linear-gradient(135deg, rgba(109,106,247,.25), rgba(155,92,246,.2)); color:var(--text); }
+    .msg-list{ padding:0 16px 12px; max-height:48vh; overflow:auto; }
+    .msg{ border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03)); border-radius:12px; padding:10px; margin:10px 0; }
+    [data-theme="light"] .msg{ border-color:rgba(0,0,0,.08); background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.85)); }
+    .msg .head{ display:flex; align-items:center; gap:10px; justify-content:space-between; }
+    .role{ font-weight:700; font-size:12px; padding:5px 8px; border-radius:8px; background: rgba(96,165,250,.14); color:#bcd6ff; }
+    .role.user{ background: rgba(155,92,246,.18); color:#5b21b6; }
+    .role.system{ background: rgba(148,163,184,.22); color:#334155; }
+    .role.tool{ background: rgba(54,211,153,.18); color:#047857; }
+    .msg pre{ background:var(--code); color:var(--code-text); border-radius:10px; padding:10px; overflow:auto; border:1px solid rgba(255,255,255,.08); }
+    [data-theme="light"] .msg pre{ border-color:rgba(0,0,0,.06); }
+    .json-key{ color:var(--code-key); }
+    .json-str{ color:var(--code-str); }
+    .json-num{ color:var(--code-num); }
+    .json-comm{ color:var(--code-comm); }
+    .events{ padding:0 16px 16px; }
+    .events pre{ background:var(--code); color:var(--code-text); border-radius:10px; padding:10px; overflow:auto; border:1px solid rgba(255,255,255,.08); }
+    [data-theme="light"] .events pre{ border-color:rgba(0,0,0,.06); }
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ text-align:left; padding:10px; border-bottom:1px dashed rgba(255,255,255,.08); }
+    [data-theme="light"] th,[data-theme="light"] td{ border-bottom-color:rgba(0,0,0,.08); }
+    th{ position:sticky; top:0; backdrop-filter:blur(8px); background:rgba(12,12,20,.55); }
+    [data-theme="light"] th{ background:rgba(255,255,255,.95); }
+    .footer{ padding:12px 16px; display:flex; justify-content:space-between; color:var(--muted); font-size:12px; }
+    .hidden{ display:none !important; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-img" id="brandImg" src="${logo || 'sisu-logo.jpg'}" alt="Sisu logo" onerror="this.classList.add('hidden'); document.getElementById('brandFallback').classList.remove('hidden');">
+      <div id="brandFallback" class="brand-fallback hidden" aria-hidden="true"></div>
+      <h1>Sisu Trace Visualizer</h1>
+      <span class="chip" id="betaChip">beta</span>
+    </div>
+    <div class="toolbar">
+      <div class="seg" role="tablist" aria-label="Theme">
+        <button id="lightBtn" role="tab">Light</button>
+        <button id="darkBtn" class="active" role="tab">Dark</button>
+      </div>
+      <button class="btn" id="exportJson">Export JSON</button>
+      <button class="btn primary" id="refreshBtn">Refresh</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <aside class="sidebar" aria-label="Runs">
+      <div class="head">
+        <strong style="letter-spacing:.3px">Traces</strong>
+        <span class="chip" id="runsCount">0 runs</span>
+      </div>
+      <div class="search">
+        <div class="input">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="2"/></svg>
+          <input id="runSearch" placeholder="Search traces, e.g. s3 list...">
+        </div>
+      </div>
+      <div class="run-list" id="runList" role="listbox" aria-label="Trace runs"></div>
     </aside>
-    <main>
-      <iframe id="viewer" src="${latest ? encodeURI(latest) : ''}"></iframe>
-    </main>
-    <script>
-      (function(){
-        var palettes = ${JSON.stringify({ light: getPalette('light'), dark: getPalette('dark') })};
-        function setTheme(theme){
-          var p = palettes[theme] || palettes.light;
-          var st = document.getElementById('trace-index-theme');
-          if (!st) { st = document.createElement('style'); st.id = 'trace-index-theme'; document.head.appendChild(st); }
-          st.textContent = ":root{--bg:"+p.bg+";--fg:"+p.fg+";--muted:"+p.muted+";--card:"+p.card+";--border:"+p.border+";--accent:"+p.accent+"}";
+
+    <section class="main">
+      <section class="panel" id="tracePanel" aria-live="polite">
+        <div class="trace-header">
+          <div class="titlebar">
+            <h2 style="margin:0; font-size:18px;">Trace</h2>
+            <span class="chip" id="modelChip">model: unknown</span>
+            <span class="chip" id="statusChip">status: —</span>
+          </div>
+          <div class="metrics">
+            <div class="metric"><b>Duration</b><span id="duration">—</span></div>
+            <div class="metric"><b>Start</b><span id="startTime">—</span></div>
+            <div class="metric"><b>End</b><span id="endTime">—</span></div>
+            <div class="metric" style="min-width:220px;">
+              <b>Progress</b>
+              <div class="progress" aria-label="Progress"><i id="progBar"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion" id="accordion">
+          <div class="acc open">
+            <button type="button" aria-expanded="true"><span>Input</span><span>▼</span></button>
+            <div class="content"><pre id="inputPre"></pre></div>
+          </div>
+          <div class="acc open">
+            <button type="button" aria-expanded="true"><span>Final</span><span>▼</span></button>
+            <div class="content"><pre id="finalPre"></pre></div>
+          </div>
+          <div class="acc open">
+            <button type="button" aria-expanded="true"><span>Messages</span><span>▼</span></button>
+            <div class="content">
+              <div class="tags" id="roleTags"></div>
+              <div class="msg-list" id="msgList"></div>
+            </div>
+          </div>
+          <div class="acc open">
+            <button type="button" aria-expanded="true"><span>Events</span><span>▼</span></button>
+            <div class="content">
+              <div class="events">
+                <table id="eventsTable">
+                  <thead><tr><th style="width:160px">time</th><th>level</th><th>args</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <div>Tip: Press <b>/</b> to focus search • <b>F</b> to filter by role • <b>E</b> to expand/collapse all</div>
+          <div id="selectionInfo"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <template id="msgTpl">
+    <div class="msg">
+      <div class="head">
+        <span class="role">role</span>
+        <div style="display:flex; gap:8px">
+          <button class="btn" data-copy>Copy</button>
+          <button class="btn" data-collapse>Collapse</button>
+        </div>
+      </div>
+      <pre class="code"></pre>
+    </div>
+  </template>
+
+  <script>
+    // Embedded data from trace JSON files
+    var data = { runs: ${JSON.stringify(runs)} };
+
+    var $ = function(sel){ return document.querySelector(sel); };
+    var $$ = function(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); };
+    var fmt = function(ms){ return (ms/1000).toFixed(2) + 's'; };
+    function prettyJson(obj){
+      if (obj === null || obj === undefined) return '';
+      var json;
+      if (typeof obj === 'string') { json = obj; }
+      else { try { json = JSON.stringify(obj, null, 2); } catch(e) { json = String(obj); } }
+      json = String(json).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      json = json.replace(/(".*?":)/g,'<span class="json-key">$1<\/span>')
+                 .replace(/(".*?")(?!\s*:)/g,'<span class="json-str">$1<\/span>')
+                 .replace(/\b(-?\d+(?:\.\d+)?)\b/g,'<span class="json-num">$1<\/span>');
+      return json;
+    }
+    function copy(txt){ if(navigator.clipboard){ navigator.clipboard.writeText(txt); } }
+
+    var runListEl = $('#runList');
+    var runsCount = $('#runsCount');
+    function renderRuns(list){
+      runListEl.innerHTML = '';
+      list.forEach(function(r){
+        var el = document.createElement('div');
+        el.className = 'run'; el.setAttribute('role','option'); el.tabIndex = 0; el.dataset.id = r.id;
+        el.innerHTML = '<div class="title">'+(r.title||r.id)+'</div>' +
+          '<div class="meta">' +
+            '<span>'+ (r.time ? new Date(r.time).toLocaleString() : '') +'</span>' +
+            '<span class="status '+ r.status +'">'+ r.status +'</span>' +
+            '<span>'+ (r.duration?fmt(r.duration):'') +'</span>' +
+          '</div>';
+        el.addEventListener('click', function(){ selectRun(r.id); });
+        el.addEventListener('keydown', function(e){ if(e.key==='Enter') selectRun(r.id); });
+        runListEl.appendChild(el);
+      });
+      runsCount.textContent = list.length + ' run' + (list.length===1?'':'s');
+    }
+
+    var currentRun = null;
+    function selectRun(id){
+      currentRun = data.runs.find(function(r){ return r.id===id; }) || data.runs[0];
+      $$('.run').forEach(function(el){ el.classList.toggle('active', el.dataset.id===id); });
+      updateTracePanel();
+    }
+
+    function updateTracePanel(){
+      if(!currentRun) return;
+      $('#modelChip').textContent = 'model: ' + (currentRun.model||'unknown');
+      var statusChip = $('#statusChip');
+      statusChip.textContent = 'status: ' + currentRun.status;
+      statusChip.className = 'chip';
+      if(currentRun.status==='success') statusChip.style.borderColor='rgba(54,211,153,.35)';
+      if(currentRun.status==='failed') statusChip.style.borderColor='rgba(251,113,133,.35)';
+      $('#duration').textContent = currentRun.duration?fmt(currentRun.duration):'—';
+      $('#startTime').textContent = currentRun.start ? new Date(currentRun.start).toLocaleString() : '—';
+      $('#endTime').textContent = currentRun.end ? new Date(currentRun.end).toLocaleString() : '—';
+      $('#progBar').style.width = (currentRun.progress||0) + '%';
+      $('#inputPre').innerHTML = prettyJson(currentRun.input||'');
+      $('#finalPre').innerHTML = prettyJson(currentRun.final||'');
+      renderRoleTags();
+      renderMessages(currentRun.messages||[]);
+      renderEvents(currentRun.events||[]);
+    }
+
+    function renderRoleTags(){
+      var roles = []; (currentRun.messages||[]).forEach(function(m){ if(roles.indexOf(m.role)<0) roles.push(m.role); });
+      var box = $('#roleTags'); box.innerHTML='';
+      roles.forEach(function(role,i){
+        var t = document.createElement('button'); t.className='tag'; t.textContent=role; t.dataset.role=role;
+        t.addEventListener('click', function(){ $$('.tag').forEach(function(x){x.classList.remove('active');}); t.classList.add('active'); filterMessages(role); });
+        box.appendChild(t);
+      });
+      var all = document.createElement('button'); all.className='tag active'; all.textContent='All'; all.dataset.role='*';
+      all.addEventListener('click', function(){ $$('.tag').forEach(function(x){x.classList.remove('active');}); all.classList.add('active'); filterMessages('*'); });
+      box.prepend(all);
+    }
+    function renderMessages(msgs){
+      var list = $('#msgList'); list.innerHTML='';
+      var tpl = $('#msgTpl');
+      msgs.forEach(function(m){
+        var node = tpl.content.cloneNode(true);
+        var roleEl = node.querySelector('.role'); roleEl.textContent = m.role; roleEl.classList.add(m.role||'');
+        var pre = node.querySelector('pre.code');
+        pre.innerHTML = prettyJson(m.content);
+        node.querySelector('[data-copy]').addEventListener('click', function(){ copy(typeof m.content==='string'? m.content : JSON.stringify(m.content,null,2)); });
+        node.querySelector('[data-collapse]').addEventListener('click', function(e){ pre.classList.toggle('hidden'); e.target.textContent = pre.classList.contains('hidden')? 'Expand' : 'Collapse'; });
+        list.appendChild(node);
+      });
+      $('#selectionInfo').textContent = msgs.length + ' message' + (msgs.length===1?'':'s');
+    }
+    function filterMessages(role){ var msgs = role==='*' ? (currentRun.messages||[]) : (currentRun.messages||[]).filter(function(m){return m.role===role;}); renderMessages(msgs); }
+    function renderEvents(events){
+      var tbody = $('#eventsTable tbody'); tbody.innerHTML='';
+      (events||[]).forEach(function(ev){
+        var tr = document.createElement('tr');
+        var t = document.createElement('td'); t.textContent = ev.time ? new Date(ev.time).toLocaleString() : '';
+        var l = document.createElement('td'); l.textContent = ev.level || '';
+        var a = document.createElement('td'); var code = document.createElement('pre');
+        var args = ev && typeof ev.args !== 'undefined' ? ev.args : '';
+        var text;
+        if (Array.isArray(args)) {
+          try {
+            text = args.map(function(x){
+              try { return JSON.stringify(x, null, 2); } catch(e) { return String(x); }
+            }).join('\n');
+          } catch(e) { text = String(args); }
+        } else {
+          text = args;
         }
-        function currentTheme(){ var sel = document.getElementById('theme'); return (sel && sel.value) || localStorage.getItem('trace_theme') || '${style}'; }
-        function saveTheme(t){ try{ localStorage.setItem('trace_theme', t); }catch(e){} }
-        function sendTheme(){ var v = document.getElementById('viewer'); try{ if (v && v.contentWindow) v.contentWindow.postMessage({ type:'TRACE_THEME', theme: currentTheme() }, '*'); }catch(err){} }
-        function openFile(f){ var v = document.getElementById('viewer'); if(f && v){ v.setAttribute('src', f); v.addEventListener('load', function onl(){ v.removeEventListener('load', onl); sendTheme(); }); } }
+        code.innerHTML = prettyJson(text);
+        a.appendChild(code);
+        tr.appendChild(t); tr.appendChild(l); tr.appendChild(a); tbody.appendChild(tr);
+      });
+    }
 
-        // Init theme selector
-        var sel = document.getElementById('theme');
-        if (sel) {
-          sel.value = currentTheme();
-          sel.addEventListener('change', function(){ setTheme(sel.value); saveTheme(sel.value); sendTheme(); });
-        }
-        setTheme(currentTheme());
+    document.getElementById('accordion').addEventListener('click', function(e){
+      var btn = e.target.closest('button');
+      var acc = btn ? btn.closest('.acc') : null;
+      if (btn && acc && btn.parentElement === acc) {
+        var isOpen = acc.classList.toggle('open');
+        btn.setAttribute('aria-expanded', isOpen);
+      }
+    });
+    var root = document.documentElement;
+    function applyTheme(theme){ if(theme==='light'){ root.setAttribute('data-theme','light'); } else { root.removeAttribute('data-theme'); } localStorage.setItem('trace_theme', theme); }
+    var saved = localStorage.getItem('trace_theme') || '${style}';
+    if(saved==='light'){ applyTheme('light'); document.getElementById('lightBtn').classList.add('active'); document.getElementById('darkBtn').classList.remove('active'); }
+    else { applyTheme('dark'); document.getElementById('darkBtn').classList.add('active'); document.getElementById('lightBtn').classList.remove('active'); }
+    document.getElementById('lightBtn').onclick = function(){ applyTheme('light'); this.classList.add('active'); document.getElementById('darkBtn').classList.remove('active'); };
+    document.getElementById('darkBtn').onclick = function(){ applyTheme('dark'); this.classList.add('active'); document.getElementById('lightBtn').classList.remove('active'); };
+    document.getElementById('runSearch').addEventListener('input', function(e){ var q=e.target.value.toLowerCase(); var filtered=data.runs.filter(function(r){return (r.title||'').toLowerCase().includes(q);}); renderRuns(filtered); });
+    document.addEventListener('keydown', function(e){ if(e.key === '/') { e.preventDefault(); document.getElementById('runSearch').focus(); } if(e.key.toLowerCase()==='f'){ var first=document.querySelector('#roleTags .tag'); if(first) first.click(); } if(e.key.toLowerCase()==='e'){ $$('.acc > button').forEach(function(btn){ btn.click(); }); } });
+    document.getElementById('exportJson').addEventListener('click', function(){ var blob=new Blob([JSON.stringify(currentRun||data.runs[0],null,2)],{type:'application/json'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='trace.json'; a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000); });
+    document.getElementById('refreshBtn').addEventListener('click', function(){ var bar=document.getElementById('progBar'); bar.style.transition='width .6s ease'; bar.style.width='0%'; setTimeout(function(){ bar.style.width='100%'; }, 60); });
+    renderRuns(data.runs); if(data.runs.length){ selectRun(data.runs[0].id); }
+  </script>
+</body>
+</html>`;
 
-        // Click handlers
-        var runsEl = document.getElementById('runs');
-        if (runsEl) runsEl.addEventListener('click', function(e){
-          var t = e.target;
-          while (t && t.tagName && t.tagName.toLowerCase() !== 'a') { t = t.parentNode; }
-          if (t && t.tagName && t.tagName.toLowerCase() === 'a') { e.preventDefault(); openFile(t.getAttribute('data-file')); }
-        });
-        var latestEl = document.getElementById('open-latest');
-        if (latestEl) latestEl.addEventListener('click', function(e){ e.preventDefault(); openFile(latestEl.getAttribute('data-file')); });
-
-        // Push theme to current iframe if already loaded
-        var v = document.getElementById('viewer');
-        if (v && v.getAttribute('src')) { sendTheme(); }
-      })();
-    </script>
-  </body></html>`;
   fs.writeFileSync(pathMod.join(dir, 'trace.html'), html, 'utf8');
+}
+
+function findLogoDataUrl(fs: any, pathMod: any, startDir: string): string {
+  const candidates = ['sisu-logo.jpg', 'sisu-logo.png', 'sisu-logo.svg'];
+  function tryRead(p: string) {
+    try {
+      if (!fs.existsSync(p)) return '';
+      const ext = p.toLowerCase().split('.').pop();
+      if (ext === 'svg') {
+        const svg = fs.readFileSync(p, 'utf8');
+        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+      }
+      const buf = fs.readFileSync(p);
+      const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+      return `data:${mime};base64,` + buf.toString('base64');
+    } catch { return ''; }
+  }
+  // Walk up to 6 directories looking for the logo
+  let dir = startDir;
+  for (let i = 0; i < 6; i++) {
+    for (const name of candidates) {
+      const p = pathMod.join(dir, name);
+      const data = tryRead(p);
+      if (data) return data;
+    }
+    const parent = pathMod.dirname(dir);
+    if (!parent || parent === dir) break;
+    dir = parent;
+  }
+  // Lastly, try CWD explicitly
+  for (const name of candidates) {
+    const data = tryRead(pathMod.join(process.cwd(), name));
+    if (data) return data;
+  }
+  return '';
 }
 
 function getPalette(style: TraceStyle) {
