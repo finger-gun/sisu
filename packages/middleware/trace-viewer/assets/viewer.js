@@ -81,7 +81,13 @@
   // Locale-aware datetime (24h, local ordering)
   function formatDateTime(ts){
     if (!ts) return '';
-    var loc = (navigator && navigator.language) || 'sv-SE';
+    var stored = (function(){ try { return localStorage.getItem('trace_locale'); } catch(_) { return null; } })();
+    var override = (stored && stored !== 'auto') ? stored : '';
+    var loc = override
+           || (navigator.languages && navigator.languages[0])
+           || (Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions && Intl.DateTimeFormat().resolvedOptions().locale)
+           || (navigator && navigator.language)
+           || 'sv-SE';
     var d = (ts instanceof Date) ? ts : new Date(ts);
     var date = d.toLocaleDateString(loc);
     var time = d.toLocaleTimeString(loc);
@@ -308,6 +314,60 @@
   else { $('#darkBtn').classList.add('active'); $('#lightBtn').classList.remove('active'); }
   $('#lightBtn').onclick = function(){ applyTheme('light', true); this.classList.add('active'); $('#darkBtn').classList.remove('active'); };
   $('#darkBtn').onclick = function(){ applyTheme('dark', true); this.classList.add('active'); $('#lightBtn').classList.remove('active'); };
+
+  // Locale selector persistence
+  (function(){
+    var sel = document.getElementById('localeSelect');
+    if (!sel) return;
+    var stored = (function(){ try { return localStorage.getItem('trace_locale'); } catch(_) { return null; } })();
+
+    function addOption(value, text){
+      if (!value) return; var exists = Array.prototype.some.call(sel.options, function(o){ return o.value===value; });
+      if (exists) return; var opt = document.createElement('option'); opt.value = value; opt.textContent = text || value; sel.appendChild(opt);
+    }
+    // Build dynamic options from browser preferences, with fallback
+    var preferred = (navigator.languages && navigator.languages.slice(0,6)) || (navigator.language ? [navigator.language] : []);
+    // Lightweight extras in case prefs are too sparse
+    var extras = ['sv-SE','en-SE','en-GB','en-US'];
+    var seen = new Set();
+    preferred.concat(extras).forEach(function(loc){ if (!loc) return; var k=String(loc); if (seen.has(k)) return; seen.add(k); addOption(k, k); });
+    // Add "Other…" choice at end
+    addOption('other', 'Other…');
+
+    // If stored override exists and isn't in list, add it
+    if (stored && stored !== 'auto' && stored !== 'other') addOption(stored, stored + ' (saved)');
+    sel.value = stored || 'auto';
+
+    sel.addEventListener('change', function(){
+      var val = sel.value;
+      if (val === 'other') {
+        var current = (function(){ try { return localStorage.getItem('trace_locale') || ''; } catch(_) { return ''; } })();
+        var input = (window.prompt && window.prompt('Enter BCP‑47 locale (e.g., sv-SE, en-SE, nb-NO):', current)) || '';
+        input = input.trim();
+        if (input) {
+          // Basic validation: try constructing a formatter
+          var ok = true;
+          try { new Intl.DateTimeFormat(input).format(new Date()); } catch(_) { ok = false; }
+          if (!ok) { alert('Invalid locale tag.'); sel.value = stored || 'auto'; return; }
+          try { localStorage.setItem('trace_locale', input); } catch(_) {}
+          addOption(input, input + ' (saved)');
+          sel.value = input;
+        } else {
+          // keep prior value
+          sel.value = stored || 'auto';
+          return;
+        }
+      } else {
+        try {
+          if (val === 'auto') localStorage.removeItem('trace_locale');
+          else localStorage.setItem('trace_locale', val);
+        } catch(_) {}
+      }
+      // Re-render lists and current panel with new locale
+      applyFilters();
+      if (currentRun) updateTracePanel();
+    });
+  })();
 
   // Search + shortcuts
   $('#runSearch').addEventListener('input', function (e) {
