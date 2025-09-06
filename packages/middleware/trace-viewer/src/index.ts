@@ -9,6 +9,14 @@ export interface TraceMeta {
   durationMs: number;
   status: 'success' | 'error';
   model?: string;
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    costUSD?: number;
+    imageTokens?: number;
+    imageCount?: number;
+  };
 }
 
 export interface TraceDoc {
@@ -73,6 +81,7 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
           durationMs: end - start,
           status,
           model: ctx.model?.name,
+          usage: (ctx.state as any)?.usage,
         },
       };
 
@@ -242,7 +251,29 @@ function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle
       const messages = Array.isArray(doc.messages) ? doc.messages : [];
       const events = Array.isArray(doc.events) ? doc.events.map((e: any) => ({ time: e.ts || e.time || '', level: e.level || '', args: (typeof e.args !== 'undefined' ? e.args : (e.message ?? e)) })) : [];
       const progress = (final && status === 'success') ? 100 : 0;
+      let usage = meta.usage || (doc as any).usage || undefined;
+      if (!usage && Array.isArray(doc.events)) {
+        // Fallback: derive from the last "[usage] call" event if present
+        for (let i = doc.events.length - 1; i >= 0; i--) {
+          const ev = doc.events[i];
+          const args = (ev && ev.args) as any[] | undefined;
+          if (Array.isArray(args) && args.length) {
+            const label = typeof args[0] === 'string' ? args[0] : '';
+            const obj = args.find(a => a && typeof a === 'object');
+            if (label && label.includes('[usage]') && obj) {
+              usage = {
+                promptTokens: typeof obj.promptTokens === 'number' ? obj.promptTokens : undefined,
+                completionTokens: typeof obj.completionTokens === 'number' ? obj.completionTokens : undefined,
+                totalTokens: typeof obj.totalTokens === 'number' ? obj.totalTokens : undefined,
+                costUSD: typeof obj.estCostUSD === 'number' ? obj.estCostUSD : (typeof obj.costUSD === 'number' ? obj.costUSD : undefined),
+              } as any;
+              break;
+            }
+          }
+        }
+      }
       const runObj = { id: f.replace(/\.json$/, ''), file: f, title, time: meta.start || '', status, duration, model: meta.model || 'unknown', input, final, start: meta.start || '', end: meta.end || '', progress, messages, events };
+      if (usage) (runObj as any).usage = usage;
       const jsName = f.replace(/\.json$/i, '.js');
       const code = 'window.SISU_TRACES = window.SISU_TRACES || { runs: [], logo: "" };\n' +
                    'window.SISU_TRACES.runs.push(' + JSON.stringify(runObj).replace(/<\/script/g, '<\\/script') + ');\n';

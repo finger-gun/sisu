@@ -133,6 +133,9 @@
     $('#duration').textContent = currentRun.duration ? fmt(currentRun.duration) : '—';
     $('#startTime').textContent = currentRun.start ? formatDateTime(currentRun.start) : '—';
     $('#endTime').textContent = currentRun.end ? formatDateTime(currentRun.end) : '—';
+
+    // Usage metrics (if present)
+    renderUsageMetrics(currentRun.usage || {});
     renderCodeInto($('#inputPre'), currentRun.input, { lines: true });
     renderCodeInto($('#finalPre'), currentRun.final, { lines: true });
     renderRoleTags();
@@ -141,6 +144,41 @@
     currentLevel = '*';
     renderLevelTags();
     applyEventFilter();
+  }
+
+  function renderUsageMetrics(usage){
+    var wrap = document.querySelector('.metrics');
+    if (!wrap) return;
+    // Helper to create/update a tile
+    function setTile(id, label, value){
+      var el = document.getElementById(id);
+      if (!value && value !== 0) { if (el) el.remove(); return; }
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'metric';
+        el.id = id;
+        el.innerHTML = '<b></b><span></span>';
+        wrap.appendChild(el);
+      }
+      el.querySelector('b').textContent = label;
+      el.querySelector('span').textContent = value;
+    }
+    var nf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+    var cf2 = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    var cfSmall = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 4, maximumFractionDigits: 6 });
+    setTile('metricPrompt', 'Prompt tokens', usage.promptTokens != null ? nf.format(usage.promptTokens) : undefined);
+    setTile('metricCompletion', 'Completion tokens', usage.completionTokens != null ? nf.format(usage.completionTokens) : undefined);
+    setTile('metricTotal', 'Total tokens', usage.totalTokens != null ? nf.format(usage.totalTokens) : undefined);
+    if (usage.costUSD != null) {
+      var c = Number(usage.costUSD);
+      var costStr = (c > 0 && c < 0.01) ? cfSmall.format(c) : cf2.format(c);
+      setTile('metricCost', 'Cost (est.)', costStr);
+    } else {
+      setTile('metricCost', 'Cost (est.)', undefined);
+    }
+    // Optional image-related metrics (shown only if present)
+    setTile('metricImgTokens', 'Image tokens', usage.imageTokens != null ? nf.format(usage.imageTokens) : undefined);
+    setTile('metricImgCount', 'Images', usage.imageCount != null ? nf.format(usage.imageCount) : undefined);
   }
 
   function renderRoleTags() {
