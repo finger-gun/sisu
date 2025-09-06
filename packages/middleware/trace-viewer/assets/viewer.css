@@ -253,6 +253,7 @@ body{
 .json-key{ color:var(--code-key); }
 .json-str{ color:var(--code-str); }
 .json-num{ color:var(--code-num); }
+.json-bool{ color:var(--code-num); }
 .json-comm{ color:var(--code-comm); }
 
 [data-theme="light"] .msg{ background:#ffffff; border-color:#e6e9f3; }

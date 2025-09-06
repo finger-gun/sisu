@@ -417,13 +417,13 @@
   function syntaxHighlight(s){
   return s
     // keys: capture quoted string before colon
-    .replace(/("(?:\\.|[^"\\])*?")\s*:/g, '<span class="json-key">$1</span>:')
+    .replace(/("(?:\\.|[^"\\])*?")\s*:/g, "<span class='json-key'>$1</span>:")
     // strings (not keys)
-    .replace(/("(?:\\.|[^"\\])*")(?!\s*:)/g, '<span class="json-str">$1</span>')
+    .replace(/("(?:\\.|[^"\\])*")(?!\s*:)/g, "<span class='json-str'>$1</span>")
     // numbers
-    .replace(/\b(-?\d+(?:\.\d+)?)\b/g, '<span class="json-num">$1</span>')
+    .replace(/\b(-?\d+(?:\.\d+)?)\b/g, "<span class='json-num'>$1</span>")
     // booleans/null
-    .replace(/\b(true|false|null)\b/g, '<span class="json-bool">$1</span>');
+    .replace(/\b(true|false|null)\b/g, "<span class='json-bool'>$1</span>");
 }
 
   function detectJSON(value) {
