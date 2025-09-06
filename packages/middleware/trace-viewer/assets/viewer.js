@@ -78,6 +78,16 @@
   var runListEl = $('#runList');
   var runsCount = $('#runsCount');
 
+  // Locale-aware datetime (24h, local ordering)
+  function formatDateTime(ts){
+    if (!ts) return '';
+    var loc = (navigator && navigator.language) || 'sv-SE';
+    var d = (ts instanceof Date) ? ts : new Date(ts);
+    var date = d.toLocaleDateString(loc);
+    var time = d.toLocaleTimeString(loc);
+    return date + ' ' + time;
+  }
+
   function renderRuns(list) {
     runListEl.innerHTML = '';
     (list || []).forEach(function (r) {
@@ -86,7 +96,7 @@
       el.innerHTML =
         '<div class="title">' + (r.title || r.id) + '</div>' +
         '<div class="meta">' +
-        '<span>' + (r.time ? new Date(r.time).toLocaleString() : '') + '</span>' +
+        '<span>' + (r.time ? formatDateTime(r.time) : '') + '</span>' +
         '<span class="status ' + (r.status || '') + '">' + (r.status || '') + '</span>' +
         '<span>' + (r.duration ? fmt(r.duration) : '') + '</span>' +
         '</div>';
@@ -115,13 +125,16 @@
     if (currentRun.status === 'success') statusChip.style.borderColor = 'rgba(54,211,153,.35)';
     if (currentRun.status === 'failed') statusChip.style.borderColor = 'rgba(251,113,133,.35)';
     $('#duration').textContent = currentRun.duration ? fmt(currentRun.duration) : '—';
-    $('#startTime').textContent = currentRun.start ? new Date(currentRun.start).toLocaleString() : '—';
-    $('#endTime').textContent = currentRun.end ? new Date(currentRun.end).toLocaleString() : '—';
+    $('#startTime').textContent = currentRun.start ? formatDateTime(currentRun.start) : '—';
+    $('#endTime').textContent = currentRun.end ? formatDateTime(currentRun.end) : '—';
     renderCodeInto($('#inputPre'), currentRun.input, { lines: true });
     renderCodeInto($('#finalPre'), currentRun.final, { lines: true });
     renderRoleTags();
     renderMessages(currentRun.messages || []);
-    renderEvents(currentRun.events || []);
+    // Events: render level tags + apply level filter
+    currentLevel = '*';
+    renderLevelTags();
+    applyEventFilter();
   }
 
   function renderRoleTags() {
@@ -212,7 +225,7 @@
     var tbody = $('#eventsTable tbody'); tbody.innerHTML = '';
     (events || []).forEach(function (ev) {
       var tr = document.createElement('tr');
-      var t = document.createElement('td'); t.textContent = (ev.time ? new Date(ev.time).toLocaleString() : '');  // also works for .json → ts mapped above
+      var t = document.createElement('td'); t.textContent = (ev.time ? formatDateTime(ev.time) : '');  // also works for .json → ts mapped above
       var l = document.createElement('td'); l.textContent = ev.level || '';
       var a = document.createElement('td'); var code = document.createElement('pre');
       var args = ev && typeof ev.args !== 'undefined' ? ev.args : '';
@@ -233,6 +246,38 @@
       a.appendChild(code);
       tr.appendChild(t); tr.appendChild(l); tr.appendChild(a); tbody.appendChild(tr);
     });
+  }
+
+  // --- Event level filtering ---
+  var currentLevel = '*';
+  function renderLevelTags(){
+    var box = $('#levelTags'); if (!box) return;
+    box.innerHTML = '';
+    var levels = [];
+    (currentRun.events || []).forEach(function(ev){ var lv = String(ev.level||'').toLowerCase(); if (lv && levels.indexOf(lv) < 0) levels.push(lv); });
+    // Ensure a stable order if present
+    var order = ['debug','info','warn','error','span'];
+    levels.sort(function(a,b){ var ia = order.indexOf(a); var ib = order.indexOf(b); if(ia<0&&ib<0) return a.localeCompare(b); if(ia<0) return 1; if(ib<0) return -1; return ia-ib; });
+
+    // All tag first
+    var all = document.createElement('button'); all.className='tag active'; all.textContent='All'; all.dataset.level='*';
+    all.addEventListener('click', function(){ $$('#levelTags .tag').forEach(function(x){x.classList.remove('active');}); all.classList.add('active'); currentLevel='*'; applyEventFilter(); });
+    box.appendChild(all);
+
+    // Individual levels
+    levels.forEach(function(lv){
+      var t = document.createElement('button'); t.className='tag'; t.textContent=lv; t.dataset.level=lv;
+      t.addEventListener('click', function(){ $$('#levelTags .tag').forEach(function(x){x.classList.remove('active');}); t.classList.add('active'); currentLevel=lv; applyEventFilter(); });
+      box.appendChild(t);
+    });
+  }
+
+  function applyEventFilter(){
+    var evs = (currentRun.events || []);
+    if (currentLevel && currentLevel !== '*') {
+      evs = evs.filter(function(ev){ return String(ev.level||'').toLowerCase() === currentLevel; });
+    }
+    renderEvents(evs);
   }
 
   // Accordion: only toggle when header button is clicked
