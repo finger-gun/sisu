@@ -264,11 +264,12 @@ body{
 
 /* ---------- Events table ---------- */
 .events{ padding:0 16px 16px; }
-table{ width:100%; border-collapse:collapse; }
-th,td{ text-align:left; padding:10px; border-bottom:1px dashed rgba(255,255,255,.12); }
-th{ position:sticky; top:0; background:var(--panel-strong); z-index:1; }
-[data-theme="light"] th{ background:#f5f7fd; border-bottom-color:#e6e9f3; }
-[data-theme="light"] td{ border-bottom-color:#e9ecf5; }
+/* Scope table styles to the Events table to avoid side effects */
+#eventsTable{ border-collapse:separate; border-spacing:0; table-layout:fixed; }
+#eventsTable th, #eventsTable td{ text-align:left; padding:10px; border-bottom:1px dashed rgba(255,255,255,.12); vertical-align:top; }
+#eventsTable th{ position:sticky; top:0; background:var(--panel-strong); z-index:1; }
+[data-theme="light"] #eventsTable th{ background:#f5f7fd; border-bottom-color:#e6e9f3; }
+[data-theme="light"] #eventsTable td{ border-bottom-color:#e9ecf5; }
 
 /* ---------- Footer ---------- */
 .footer{ padding:12px 16px; display:flex; justify-content:space-between; color:var(--muted); font-size:12px; }

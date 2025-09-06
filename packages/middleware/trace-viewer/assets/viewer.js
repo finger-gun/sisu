@@ -228,7 +228,8 @@
       } else {
         text = fmtArg(args);
       }
-      code.innerHTML = withLineNumbers(syntaxHighlight(escapeHTML(text)));
+      // Render like message code blocks (with line numbers and wrapping)
+      renderCodeInto(code, text, { pretty: true });
       a.appendChild(code);
       tr.appendChild(t); tr.appendChild(l); tr.appendChild(a); tbody.appendChild(tr);
     });
