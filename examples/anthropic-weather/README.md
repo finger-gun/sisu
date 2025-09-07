@@ -10,7 +10,7 @@ Config Flags (CLI overrides env)
 - `--anthropic-api-key`, `--api-key`
 - `--anthropic-base-url`, `--base-url`
 - `--anthropic-model`
-- Tracing: `--trace` and `--trace-style=light|dark|modern`
+- Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
 - `ANTHROPIC_API_KEY` or `API_KEY`

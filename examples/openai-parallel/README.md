@@ -4,13 +4,13 @@ Demonstrates parallel actions with OpenAI.
 
 Usage
 - Quick start: `npm run ex:openai:parallel`
-- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-parallel -- --trace --trace-style=modern -- "Explain sisu in two sentences and provide 5 concise hashtags."`
+- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-parallel -- --trace --trace-style=dark -- "Explain sisu in two sentences and provide 5 concise hashtags."`
 
 Config Flags (CLI overrides env)
 - `--openai-api-key`, `--api-key`
 - `--openai-base-url`, `--base-url`
 - `--openai-model`
-- Tracing: `--trace` and `--trace-style=light|dark|modern`
+- Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
 - `OPENAI_API_KEY` or `API_KEY`

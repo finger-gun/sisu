@@ -30,6 +30,11 @@ test('traceViewer writes json and html to path', async () => {
     await compose([writer, runner as any])(makeCtx());
     expect(fs.existsSync(jsonPath)).toBe(true);
     expect(fs.existsSync(jsonPath.replace(/\.json$/, '.html'))).toBe(true);
+    const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    expect(doc.meta.status).toBe('success');
+    expect(typeof doc.meta.start).toBe('string');
+    expect(typeof doc.meta.end).toBe('string');
+    expect(typeof doc.meta.durationMs).toBe('number');
   } finally {
     try { fs.rmSync(outDir, { recursive: true, force: true }); } catch {}
   }

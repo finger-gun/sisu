@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sisu Trace Visualizer</title>
+  <link rel="stylesheet" href="viewer.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Sisu Trace Visualizer</h1>
+    </div>
+    <div class="toolbar">
+      <div class="seg" role="tablist" aria-label="Theme">
+        <button id="lightBtn" role="tab">Light</button>
+        <button id="darkBtn" class="active" role="tab">Dark</button>
+      </div>
+      <select id="localeSelect" title="Locale" aria-label="Locale" style="padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--panel-strong);color:var(--text);">
+        <option value="auto">Auto</option>
+      </select>
+      <button class="btn" id="exportJson">Export JSON</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <!-- Sidebar: Runs -->
+    <aside class="sidebar" aria-label="Runs">
+      <div class="side-head">
+        <strong>Traces</strong>
+        <span class="chip" id="runsCount">0 runs</span>
+      </div>
+
+      <div class="search">
+        <div class="input">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <input id="runSearch" placeholder="Search traces..." />
+        </div>
+      </div>
+
+      <div class="date-filter" aria-label="Date range">
+        <div class="row">
+          <label for="dateFrom">From</label>
+          <input id="dateFrom" type="date">
+          <label for="dateTo" style="margin-left:8px">To</label>
+          <input id="dateTo" type="date">
+        </div>
+        <div class="presets" role="group" aria-label="Quick ranges">
+          <button class="chip sm" data-range="all">All</button>
+          <button class="chip sm" data-range="today">Today</button>
+          <button class="chip sm" data-range="7d">7d</button>
+          <button class="chip sm" data-range="30d">30d</button>
+        </div>
+      </div>
+
+      <div class="run-list" id="runList" role="listbox" aria-label="Trace runs"></div>
+    </aside>
+
+    <!-- Main: Current Trace -->
+    <section class="main">
+      <section class="panel" id="tracePanel" aria-live="polite">
+        <div class="trace-header">
+          <div class="titlebar">
+            <h2>Trace</h2>
+            <div class="chips">
+              <span class="chip" id="modelChip">model: unknown</span>
+              <span class="chip" id="statusChip">status: —</span>
+            </div>
+          </div>
+
+          <div class="metrics">
+            <div class="metric"><b>Duration</b><span id="duration">—</span></div>
+            <div class="metric"><b>Start</b><span id="startTime">—</span></div>
+            <div class="metric"><b>End</b><span id="endTime">—</span></div>
+          </div>
+        </div>
+
+        <div class="accordion" id="accordion">
+          <div class="acc open">
+            <button type="button" aria-expanded="true"><span>Input</span><span class="caret">▼</span></button>
+            <div class="content">
+              <pre id="inputPre"></pre>
+            </div>
+          </div>
+          <div class="acc open">
+            <button type="button" aria-expanded="true"><span>Final</span><span class="caret">▼</span></button>
+            <div class="content">
+              <pre id="finalPre"></pre>
+            </div>
+          </div>
+          <div class="acc open">
+            <button type="button" aria-expanded="true"><span>Messages</span><span class="caret">▼</span></button>
+            <div class="content">
+              <div class="tags" id="roleTags"></div>
+              <div class="msg-list" id="msgList"></div>
+            </div>
+          </div>
+          <div class="acc open">
+            <button type="button" aria-expanded="true"><span>Events</span><span class="caret">▼</span></button>
+            <div class="content">
+              <div class="events">
+                <div class="tags" id="levelTags"></div>
+                <table id="eventsTable">
+                  <thead>
+                    <tr>
+                      <th style="width:160px">time</th>
+                      <th>level</th>
+                      <th>args</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div>Tip: Press <b>/</b> to focus search • <b>E</b> to expand/collapse all</div>
+          <div id="selectionInfo"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Message template (used by viewer.js) -->
+  <template id="msgTpl">
+    <div class="msg">
+      <div class="side-head">
+        <span class="role">role</span>
+        <div class="actions">
+          <button class="btn" data-copy>Copy</button>
+          <button class="btn" data-collapse>Collapse</button>
+        </div>
+      </div>
+      <pre class="code"></pre>
+    </div>
+  </template>
+
+  <script src="runs.js"></script>
+  <script src="viewer.js"></script>
+</body>
+
+</html>

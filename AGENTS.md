@@ -16,12 +16,10 @@
 - Fix any test or type errors until the whole suite is green.
 - Add or update tests for the code you change, even if nobody asked.
 
-## Code guidelines
-here’s a concise **Code Guidelines** section you can drop into `AGENTS.md`.
-
----
-
 ## Code Guidelines (TypeScript)
+
+**Always keep runnable code**. Always build and test the code base when changes has been make.
+**Never edit dist/ files**. Work on the source code, build the dist/.
 
 **Philosophy:** small, explicit, composable. Favor simple, testable building blocks (middleware, tools, adapters) over monoliths.
 

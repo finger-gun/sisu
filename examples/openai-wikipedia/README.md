@@ -4,12 +4,12 @@ Runs an agent with the OpenAI adapter and a Wikipedia lookup tool using the REST
 
 Usage
 - Quick start: `npm run ex:openai:wikipedia`
-- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-wikipedia -- --trace --trace-style=modern -- "Tell me about the Hubble Space Telescope using Wikipedia."`
+- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-wikipedia -- --trace --trace-style=dark -- "Tell me about the Hubble Space Telescope using Wikipedia."`
 
 Config Flags (CLI overrides env)
 - OpenAI: `--openai-api-key`, `--api-key`, `--openai-base-url`, `--base-url`, `--openai-model`
 - Wikipedia: `--wikipedia-lang`, `--wiki-lang`, `--wikipedia-base-url`, `--wiki-base-url`
-- Tracing: `--trace` and `--trace-style=light|dark|modern`
+- Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
 - `OPENAI_API_KEY` or `API_KEY`

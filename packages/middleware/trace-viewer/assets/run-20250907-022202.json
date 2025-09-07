@@ -1,0 +1,240 @@
+{
+  "input": "Read the latest file in s3://sisu-sadkjsad7817378/.",
+  "final": "Here’s the contents of the most recent file in that bucket (`README 21.md`):\n\n```\n# @sisu-ai/tool-github-projects\n\nUtilities for integrating with GitHub Projects (Projects v2) via GraphQL. Exposes tools to list issues, fetch issue details, list status columns, move issues between columns, and update issue title/body.\n\n## Tools\n\n- `listGitHubIssues`: List issues in the configured project (via `GITHUB_PROJECT_ID`).\n- `getGitHubIssueDetails`: Fetch details for a specific issue by its node ID (e.g., `I_123`).\n- `listGitHubProjectColumns`: List the Status field options (columns) and their IDs.\n- `moveGitHubIssueToColumn`: Move an issue to a specific Status option (column).\n- `updateGitHubIssue`: Update an issue title and/or body.\n\n## Configuration\n\nEnvironment variables (CLI flags of the same name but kebab‑cased also work, e.g., `--github-access-token`):\n\n- `GITHUB_ACCESS_TOKEN` or `GITHUB_TOKEN`: Personal access token.\n- `GITHUB_PROJECT_ID`: ProjectV2 node ID (e.g., `PVT_xxx`).\n- `GITHUB_GRAPHQL_URL` (optional): Full GraphQL endpoint. Defaults to `https://api.github.com/graphql`.\n- `GITHUB_ENTERPRISE_HOSTNAME` (optional): Base host for Enterprise (e.g., `https://github.mycorp.com`). Used if `GITHUB_GRAPHQL_URL` not set.\n\n## Notes\n\n- Column IDs refer to Status field option IDs, suitable for `moveGitHubIssueToColumn`.\n- Issue IDs are GitHub node IDs (e.g., `I_123`) returned by `listGitHubIssues`.\n```\n\nLet me know if you’d like a deeper dive into any section or need help using these tools!",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant.",
+      "ts": "2025-09-07T00:21:53.138Z"
+    },
+    {
+      "role": "user",
+      "content": "Read the latest file in s3://sisu-sadkjsad7817378/.",
+      "ts": "2025-09-07T00:21:53.139Z"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "654966211",
+          "name": "s3ListObjectsDetailed",
+          "arguments": {
+            "bucket": "sisu-sadkjsad7817378"
+          }
+        }
+      ],
+      "ts": "2025-09-07T00:21:54.225Z"
+    },
+    {
+      "role": "tool",
+      "content": "[{\"key\":\"README 10.md\",\"lastModified\":\"2025-09-04T22:54:32.000Z\",\"size\":263},{\"key\":\"README 11.md\",\"lastModified\":\"2025-09-04T22:54:32.000Z\",\"size\":908},{\"key\":\"README 12.md\",\"lastModified\":\"2025-09-04T22:54:33.000Z\",\"size\":613},{\"key\":\"README 13.md\",\"lastModified\":\"2025-09-04T22:54:34.000Z\",\"size\":3871},{\"key\":\"README 14.md\",\"lastModified\":\"2025-09-04T22:54:33.000Z\",\"size\":406},{\"key\":\"README 15.md\",\"lastModified\":\"2025-09-04T22:54:34.000Z\",\"size\":658},{\"key\":\"README 16.md\",\"lastModified\":\"2025-09-04T22:54:34.000Z\",\"size\":2441},{\"key\":\"README 17.md\",\"lastModified\":\"2025-09-04T22:54:33.000Z\",\"size\":889},{\"key\":\"README 18.md\",\"lastModified\":\"2025-09-04T22:54:34.000Z\",\"size\":1250},{\"key\":\"README 19.md\",\"lastModified\":\"2025-09-04T22:54:34.000Z\",\"size\":721},{\"key\":\"README 2.md\",\"lastModified\":\"2025-09-04T22:54:33.000Z\",\"size\":499},{\"key\":\"README 20.md\",\"lastModified\":\"2025-09-04T22:54:34.000Z\",\"size\":662},{\"key\":\"README 21.md\",\"lastModified\":\"2025-09-04T22:54:35.000Z\",\"size\":1334},{\"key\":\"README 22.md\",\"lastModified\":\"2025-09-04T22:54:35.000Z\",\"size\":1306},{\"key\":\"README 23.md\",\"lastModified\":\"2025-09-04T22:54:33.000Z\",\"size\":2355},{\"key\":\"README 24.md\",\"lastModified\":\"2025-09-04T22:54:35.000Z\",\"size\":706},{\"key\":\"README 25.md\",\"lastModified\":\"2025-09-04T22:54:35.000Z\",\"size\":1210},{\"key\":\"README 3.md\",\"lastModified\":\"2025-09-04T22:54:33.000Z\",\"size\":653},{\"key\":\"README 4.md\",\"lastModified\":\"2025-09-04T22:54:32.000Z\",\"size\":899},{\"key\":\"README 5.md\",\"lastModified\":\"2025-09-04T22:54:32.000Z\",\"size\":233},{\"key\":\"README 6.md\",\"lastModified\":\"2025-09-04T22:54:33.000Z\",\"size\":1791},{\"key\":\"README 7.md\",\"lastModified\":\"2025-09-04T22:54:33.000Z\",\"size\":2102},{\"key\":\"README 8.md\",\"lastModified\":\"2025-09-04T22:54:34.000Z\",\"size\":3313},{\"key\":\"README 9.md\",\"lastModified\":\"2025-09-04T22:54:34.000Z\",\"size\":1235},{\"key\":\"README.md\",\"lastModified\":\"2025-09-04T22:54:35.000Z\",\"size\":1445}]",
+      "tool_call_id": "654966211",
+      "ts": "2025-09-07T00:21:54.570Z"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "654371234",
+          "name": "s3GetObject",
+          "arguments": {
+            "bucket": "sisu-sadkjsad7817378",
+            "key": "README 21.md"
+          }
+        }
+      ],
+      "ts": "2025-09-07T00:21:56.387Z"
+    },
+    {
+      "role": "tool",
+      "content": "{\"content\":\"# @sisu-ai/tool-github-projects\\n\\nUtilities for integrating with GitHub Projects (Projects v2) via GraphQL. Exposes tools to list issues, fetch issue details, list status columns, move issues between columns, and update issue title/body.\\n\\n## Tools\\n\\n- `listGitHubIssues`: List issues in the configured project (via `GITHUB_PROJECT_ID`).\\n- `getGitHubIssueDetails`: Fetch details for a specific issue by its node ID (e.g., `I_123`).\\n- `listGitHubProjectColumns`: List the Status field options (columns) and their IDs.\\n- `moveGitHubIssueToColumn`: Move an issue to a specific Status option (column).\\n- `updateGitHubIssue`: Update an issue title and/or body.\\n\\n## Configuration\\n\\nEnvironment variables (CLI flags of the same name but kebab-cased also work, e.g., `--github-access-token`):\\n\\n- `GITHUB_ACCESS_TOKEN` or `GITHUB_TOKEN`: Personal access token.\\n- `GITHUB_PROJECT_ID`: ProjectV2 node ID (e.g., `PVT_xxx`).\\n- `GITHUB_GRAPHQL_URL` (optional): Full GraphQL endpoint. Defaults to `https://api.github.com/graphql`.\\n- `GITHUB_ENTERPRISE_HOSTNAME` (optional): Base host for Enterprise (e.g., `https://github.mycorp.com`). Used if `GITHUB_GRAPHQL_URL` not set.\\n\\n## Notes\\n\\n- Column IDs refer to Status field option IDs, suitable for `moveGitHubIssueToColumn`.\\n- Issue IDs are GitHub node IDs (e.g., `I_123`) returned by `listGitHubIssues`.\\n\\n\"}",
+      "tool_call_id": "654371234",
+      "ts": "2025-09-07T00:21:56.503Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Here’s the contents of the most recent file in that bucket (`README 21.md`):\n\n```\n# @sisu-ai/tool-github-projects\n\nUtilities for integrating with GitHub Projects (Projects v2) via GraphQL. Exposes tools to list issues, fetch issue details, list status columns, move issues between columns, and update issue title/body.\n\n## Tools\n\n- `listGitHubIssues`: List issues in the configured project (via `GITHUB_PROJECT_ID`).\n- `getGitHubIssueDetails`: Fetch details for a specific issue by its node ID (e.g., `I_123`).\n- `listGitHubProjectColumns`: List the Status field options (columns) and their IDs.\n- `moveGitHubIssueToColumn`: Move an issue to a specific Status option (column).\n- `updateGitHubIssue`: Update an issue title and/or body.\n\n## Configuration\n\nEnvironment variables (CLI flags of the same name but kebab‑cased also work, e.g., `--github-access-token`):\n\n- `GITHUB_ACCESS_TOKEN` or `GITHUB_TOKEN`: Personal access token.\n- `GITHUB_PROJECT_ID`: ProjectV2 node ID (e.g., `PVT_xxx`).\n- `GITHUB_GRAPHQL_URL` (optional): Full GraphQL endpoint. Defaults to `https://api.github.com/graphql`.\n- `GITHUB_ENTERPRISE_HOSTNAME` (optional): Base host for Enterprise (e.g., `https://github.mycorp.com`). Used if `GITHUB_GRAPHQL_URL` not set.\n\n## Notes\n\n- Column IDs refer to Status field option IDs, suitable for `moveGitHubIssueToColumn`.\n- Issue IDs are GitHub node IDs (e.g., `I_123`) returned by `listGitHubIssues`.\n```\n\nLet me know if you’d like a deeper dive into any section or need help using these tools!",
+      "ts": "2025-09-07T00:22:02.119Z"
+    }
+  ],
+  "events": [
+    {
+      "level": "debug",
+      "ts": "2025-09-07T00:21:53.139Z",
+      "args": [
+        "Registering tool: s3ListObjectsDetailed",
+        {
+          "tool": "s3ListObjectsDetailed",
+          "description": "List objects with details (LastModified ISO)."
+        }
+      ]
+    },
+    {
+      "level": "debug",
+      "ts": "2025-09-07T00:21:53.139Z",
+      "args": [
+        "Registering tool: s3GetObject",
+        {
+          "tool": "s3GetObject",
+          "description": "Fetch an object from S3 as UTF-8 text."
+        }
+      ]
+    },
+    {
+      "level": "debug",
+      "ts": "2025-09-07T00:21:53.139Z",
+      "args": [
+        "Registering tool: s3DeleteObject",
+        {
+          "tool": "s3DeleteObject",
+          "description": "Delete an object in S3."
+        }
+      ]
+    },
+    {
+      "level": "debug",
+      "ts": "2025-09-07T00:21:53.139Z",
+      "args": [
+        "[iterative-tool-calling] iteration start",
+        {
+          "i": 0,
+          "messages": 2
+        }
+      ]
+    },
+    {
+      "level": "info",
+      "ts": "2025-09-07T00:21:54.225Z",
+      "args": [
+        "[usage] call",
+        {
+          "promptTokens": 218,
+          "completionTokens": 54,
+          "totalTokens": 272,
+          "estCostUSD": 0.000065
+        }
+      ]
+    },
+    {
+      "level": "info",
+      "ts": "2025-09-07T00:21:54.225Z",
+      "args": [
+        "[iterative-tool-calling] model requested tools",
+        [
+          {
+            "id": "654966211",
+            "name": "s3ListObjectsDetailed",
+            "hasArgs": true
+          }
+        ]
+      ]
+    },
+    {
+      "level": "debug",
+      "ts": "2025-09-07T00:21:54.226Z",
+      "args": [
+        "[iterative-tool-calling] invoking tool",
+        {
+          "name": "s3ListObjectsDetailed",
+          "id": "654966211",
+          "args": {
+            "bucket": "sisu-sadkjsad7817378"
+          }
+        }
+      ]
+    },
+    {
+      "level": "debug",
+      "ts": "2025-09-07T00:21:54.570Z",
+      "args": [
+        "[iterative-tool-calling] iteration start",
+        {
+          "i": 1,
+          "messages": 4
+        }
+      ]
+    },
+    {
+      "level": "info",
+      "ts": "2025-09-07T00:21:56.386Z",
+      "args": [
+        "[usage] call",
+        {
+          "promptTokens": 1025,
+          "completionTokens": 95,
+          "totalTokens": 1120,
+          "estCostUSD": 0.000211
+        }
+      ]
+    },
+    {
+      "level": "info",
+      "ts": "2025-09-07T00:21:56.387Z",
+      "args": [
+        "[iterative-tool-calling] model requested tools",
+        [
+          {
+            "id": "654371234",
+            "name": "s3GetObject",
+            "hasArgs": true
+          }
+        ]
+      ]
+    },
+    {
+      "level": "debug",
+      "ts": "2025-09-07T00:21:56.387Z",
+      "args": [
+        "[iterative-tool-calling] invoking tool",
+        {
+          "name": "s3GetObject",
+          "id": "654371234",
+          "args": {
+            "bucket": "sisu-sadkjsad7817378",
+            "key": "README 21.md"
+          }
+        }
+      ]
+    },
+    {
+      "level": "debug",
+      "ts": "2025-09-07T00:21:56.503Z",
+      "args": [
+        "[iterative-tool-calling] iteration start",
+        {
+          "i": 2,
+          "messages": 6
+        }
+      ]
+    },
+    {
+      "level": "info",
+      "ts": "2025-09-07T00:22:02.118Z",
+      "args": [
+        "[usage] call",
+        {
+          "promptTokens": 1450,
+          "completionTokens": 413,
+          "totalTokens": 1863,
+          "estCostUSD": 0.000465
+        }
+      ]
+    },
+    {
+      "level": "info",
+      "ts": "2025-09-07T00:22:02.119Z",
+      "args": [
+        "[iterative-tool-calling] no tool calls; appending assistant message"
+      ]
+    }
+  ],
+  "meta": {
+    "start": "2025-09-07T00:21:53.139Z",
+    "end": "2025-09-07T00:22:02.119Z",
+    "durationMs": 8980,
+    "status": "success",
+    "model": "openai:openai/gpt-oss-20b"
+  }
+}

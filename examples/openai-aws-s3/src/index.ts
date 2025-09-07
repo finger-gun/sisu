@@ -7,6 +7,7 @@ import { iterativeToolCalling } from '@sisu-ai/mw-tool-calling';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { s3GetObject, s3ListObjectsDetailed, s3DeleteObject } from '@sisu-ai/tool-aws-s3';
+import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
@@ -14,7 +15,7 @@ const bucket = process.env.AWS_S3_BUCKET || 'my-bucket';
 const prefix = process.env.AWS_S3_PREFIX || '';
 
 const ctx: Ctx = {
-  input: `Read the latest file in s3://${bucket}/${prefix}.`,
+  input: `List 3 largest files in s3://${bucket}/${prefix}.`,
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
   model,
   tools: new SimpleTools(),
@@ -33,6 +34,21 @@ if (!ctx.state) ctx.state = {} as any;
 
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
+  .use(usageTracker({
+    'openai:gpt-4o-mini': {
+      // Preferred: prices per 1M tokens (matches provider docs)
+      inputPer1M: 0.15,
+      outputPer1M: 0.60,
+      // Optional vision pricing (choose one):
+      // a) Per 1K images (e.g., $0.217/K images)
+      imagePer1K: 0.217,
+      // b) Approximate per-1K "image tokens"
+      // imageInputPer1K: 0.217,
+      // imageTokenPerImage: 1000,
+    },
+    // Fallback default for other models
+    '*': { inputPer1M: 0.15, outputPer1M: 0.60 },
+  }, { logPerCall: true }))
   .use(traceViewer())
   .use(registerTools([s3ListObjectsDetailed, s3GetObject, s3DeleteObject]))
   .use(inputToMessage)

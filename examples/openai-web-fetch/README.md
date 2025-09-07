@@ -4,12 +4,12 @@ Fetches a web page via the `webFetch` tool, then asks OpenAI to summarize it.
 
 Usage
 - Quick start: `npm run ex:openai:web-fetch`
-- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-web-fetch -- --trace --trace-style=modern -- "https://en.wikipedia.org/wiki/Hubble_Space_Telescope"`
+- Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/openai-web-fetch -- --trace --trace-style=dark -- "https://en.wikipedia.org/wiki/Hubble_Space_Telescope"`
 
 Config Flags (CLI overrides env)
 - OpenAI: `--openai-api-key`, `--api-key`, `--openai-base-url`, `--base-url`, `--openai-model`
 - Web fetch: `--web-fetch-user-agent`, `--web-fetch-max-bytes`
-- Tracing: `--trace` and `--trace-style=light|dark|modern`
+- Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
 - `OPENAI_API_KEY` or `API_KEY`

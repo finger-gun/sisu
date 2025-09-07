@@ -7,3 +7,4 @@ coverage
 *.tsbuildinfo
 packages/*/node_modules
 .eslintrc.cjs
+packages/middleware/trace-viewer/assets/**
