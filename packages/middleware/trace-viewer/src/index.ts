@@ -60,8 +60,11 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
     const explicitPath = Boolean(opts.path || traceArgPath);
     const defaultDir = opts.dir || 'traces';
     const path = opts.path || traceArgPath || 'trace.json';
-    const wantHtml = opts.html ?? true;
-    const wantJson = opts.json ?? true;
+    // Defaults: write both HTML and JSON (back-compat with tests and prior behavior)
+    const wantHtmlDefault = true;
+    const wantJsonDefault = true;
+    const wantHtml = opts.html ?? wantHtmlDefault;
+    const wantJson = opts.json ?? wantJsonDefault;
     const cliStyle = argv.find(a => a.startsWith('--trace-style='))?.split('=')[1] as TraceStyle | undefined;
     const envStyle = (process.env.TRACE_STYLE as TraceStyle | undefined);
     const style: TraceStyle = (opts.style || cliStyle || envStyle || 'light');
@@ -112,20 +115,70 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
       }
 
       const lower = targetPath.toLowerCase();
-      if (lower.endsWith('.html')) {
-        if (wantHtml) { fs.writeFileSync(targetPath, html, 'utf8'); }
-      } else if (lower.endsWith('.json')) {
+      const toHtmlPath = (p: string) => p.replace(/\.json$/i, '.html');
+      const toJsonPath = (p: string) => p.replace(/\.html$/i, '.json');
+      if (lower.endsWith('.json')) {
+        // When a .json path is provided, always pair an .html next to it (regardless of wantHtml flag)
         if (wantJson) { fs.writeFileSync(targetPath, JSON.stringify(out, null, 2), 'utf8'); }
-        if (wantHtml) { const hp = targetPath.replace(/\.json$/i, '.html'); fs.writeFileSync(hp, html, 'utf8'); }
+        const htmlPath = toHtmlPath(targetPath);
+        fs.writeFileSync(htmlPath, html, 'utf8');
+      } else if (lower.endsWith('.html')) {
+        // Only write HTML; write JSON alongside only if explicitly requested
+        if (wantHtml) { fs.writeFileSync(targetPath, html, 'utf8'); }
+        if (wantJson) {
+          const jsonPath = toJsonPath(targetPath);
+          fs.writeFileSync(jsonPath, JSON.stringify(out, null, 2), 'utf8');
+        }
       } else {
+        // No extension provided; write JSON to target and HTML with same base name
         if (wantJson) { fs.writeFileSync(targetPath, JSON.stringify(out, null, 2), 'utf8'); }
         if (wantHtml) { fs.writeFileSync(targetPath + '.html', html, 'utf8'); }
       }
 
-      // If writing into a traces dir, maintain an index listing and link to latest
+      // Write per-run JS used by SPA viewer (run-*.js) only when HTML viewer is enabled
       try {
-        const dir = explicitPath ? pathMod.dirname(targetPath) : tracesDir;
-        writeIndexAssets(fs, pathMod, dir, style);
+        if (wantHtml) {
+          const id = (lower.endsWith('.json') || lower.endsWith('.html'))
+            ? pathMod.basename(targetPath).replace(/\.(json|html)$/i, '')
+            : `run-${timestamp(new Date(out.meta.start))}`;
+          // Normalize events for SPA: ensure `time` is present for timestamps
+          const normalizedEvents = (out.events || []).map((e: any) => ({
+            time: (e && (e.time || e.ts)) || '',
+            level: e?.level || '',
+            args: (typeof e?.args !== 'undefined') ? e.args : (e?.message ?? e)
+          }));
+
+          const runObj: any = {
+            id,
+          file: id + '.json',
+          title: (out.input ? String(out.input).slice(0, 80) : id),
+          time: out.meta.start || '',
+          status: (out.meta.status === 'error') ? 'failed' : out.meta.status,
+          duration: out.meta.durationMs || 0,
+          model: out.meta.model || 'unknown',
+          input: out.input || '',
+          final: out.final || '',
+          start: out.meta.start || '',
+          end: out.meta.end || '',
+          progress: out.final ? 100 : 0,
+          messages: out.messages || [],
+          events: normalizedEvents,
+        };
+        if ((out.meta as any).usage) (runObj as any).usage = (out.meta as any).usage;
+          const jsName = id + '.js';
+          const code = 'window.SISU_TRACES = window.SISU_TRACES || { runs: [], logo: "" };\n'
+            + 'window.SISU_TRACES.runs.push(' + JSON.stringify(runObj).replace(/<\/script/g, '<\\/script') + ');\n';
+          const dirForJs = explicitPath ? pathMod.dirname(targetPath) : tracesDir;
+          fs.writeFileSync(pathMod.join(dirForJs, jsName), code, 'utf8');
+        }
+      } catch {}
+
+      // If writing into a traces dir, maintain SPA index and assets only when HTML viewer is enabled
+      try {
+        if (wantHtml) {
+          const dir = explicitPath ? pathMod.dirname(targetPath) : tracesDir;
+          writeIndexAssets(fs, pathMod, dir, style);
+        }
       } catch { }
     }
   };
@@ -242,85 +295,39 @@ function timestamp(d = new Date()) {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-// New: asset-based index writer that separates HTML/CSS/JS and data
+// New: asset-based index writer that prepares only runs.js (SPA consumes run-*.js)
 function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle) {
   const logo = findLogoDataUrl(fs, pathMod, dir);
-  const jsonFiles: string[] = fs.readdirSync(dir).filter((f: string) => f.endsWith('.json') && f.startsWith('run-'));
-  // Generate one JS file per run that appends to window.SISU_TRACES.runs
-  const runScriptFiles: string[] = [];
-  jsonFiles.forEach((f: string) => {
-    try {
-      const p = pathMod.join(dir, f);
-      const doc = JSON.parse(fs.readFileSync(p, 'utf8')) as any;
-      const meta = doc.meta || {};
-      const input = doc.input || '';
-      const final = (doc.final == null) ? '' : String(doc.final);
-      const title = input ? (String(input).slice(0, 80)) : f.replace(/\.json$/, '');
-      const status = (meta.status === 'error') ? 'failed' : (meta.status || 'success');
-      const duration = Number(meta.durationMs || 0);
-      const messages = Array.isArray(doc.messages) ? doc.messages : [];
-      const events = Array.isArray(doc.events) ? doc.events.map((e: any) => ({ time: e.ts || e.time || '', level: e.level || '', args: (typeof e.args !== 'undefined' ? e.args : (e.message ?? e)) })) : [];
-      const progress = (final && status === 'success') ? 100 : 0;
-      let usage = meta.usage || (doc as any).usage || undefined;
-      if (!usage && Array.isArray(doc.events)) {
-        // Fallback: derive from the last "[usage] call" event if present
-        for (let i = doc.events.length - 1; i >= 0; i--) {
-          const ev = doc.events[i];
-          const args = (ev && ev.args) as any[] | undefined;
-          if (Array.isArray(args) && args.length) {
-            const label = typeof args[0] === 'string' ? args[0] : '';
-            const obj = args.find(a => a && typeof a === 'object');
-            if (label && label.includes('[usage]') && obj) {
-              usage = {
-                promptTokens: typeof obj.promptTokens === 'number' ? obj.promptTokens : undefined,
-                completionTokens: typeof obj.completionTokens === 'number' ? obj.completionTokens : undefined,
-                totalTokens: typeof obj.totalTokens === 'number' ? obj.totalTokens : undefined,
-                costUSD: typeof obj.estCostUSD === 'number' ? obj.estCostUSD : (typeof obj.costUSD === 'number' ? obj.costUSD : undefined),
-              } as any;
-              break;
-            }
-          }
-        }
-      }
-      const runObj = { id: f.replace(/\.json$/, ''), file: f, title, time: meta.start || '', status, duration, model: meta.model || 'unknown', input, final, start: meta.start || '', end: meta.end || '', progress, messages, events };
-      if (usage) (runObj as any).usage = usage;
-      const jsName = f.replace(/\.json$/i, '.js');
-      const code = 'window.SISU_TRACES = window.SISU_TRACES || { runs: [], logo: "" };\n' +
-        'window.SISU_TRACES.runs.push(' + JSON.stringify(runObj).replace(/<\/script/g, '<\\/script') + ');\n';
-      fs.writeFileSync(pathMod.join(dir, jsName), code, 'utf8');
-      runScriptFiles.push(jsName);
-    } catch { }
-  });
-
-  // runs.js: a list of run script filenames + logo (kept for compatibility)
-  const runsJs = 'window.SISU_RUN_SCRIPTS = ' + JSON.stringify(runScriptFiles.sort().reverse()) + ';\n'
+  // runs.js: build from existing run-*.js files and include logo
+  const jsFiles: string[] = fs.readdirSync(dir).filter((f: string) => f.endsWith('.js') && f.startsWith('run-'));
+  const runsJs = 'window.SISU_RUN_SCRIPTS = ' + JSON.stringify(jsFiles.sort().reverse()) + ';\n'
     + 'window.SISU_LOGO_DATA = ' + JSON.stringify(logo || '') + ';\n';
   fs.writeFileSync(pathMod.join(dir, 'runs.js'), runsJs, 'utf8');
 
-  // Copy static assets
-  let assetsDir = '';
+  // Copy SPA viewer assets (viewer.html/css/js) into target dir
   try {
-    // ESM-friendly resolution using import.meta.url; falls back to __dirname if available
-    // @ts-ignore
-    const modUrl = (import.meta && import.meta.url) ? import.meta.url : '';
-    const here = modUrl ? pathMod.dirname(new URL(modUrl).pathname) : (typeof __dirname !== 'undefined' ? __dirname : '');
-    if (here) assetsDir = pathMod.resolve(here, '..', 'assets');
-  } catch { /* ignore */ }
-  if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
-    try { assetsDir = pathMod.resolve(__dirname as any, '..', 'assets'); } catch { /* ignore */ }
-  }
-  if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
-    // Last-resort guess for monorepo execution from example cwd
-    const guess = pathMod.resolve(process.cwd(), '..', '..', 'packages', 'middleware', 'trace-viewer', 'assets');
-    if (fs.existsSync(pathMod.join(guess, 'viewer.html'))) assetsDir = guess;
-  }
-  try {
-    fs.writeFileSync(pathMod.join(dir, 'trace.html'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.html'), 'utf8'), 'utf8');
-    fs.writeFileSync(pathMod.join(dir, 'viewer.css'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.css'), 'utf8'), 'utf8');
-    fs.writeFileSync(pathMod.join(dir, 'viewer.js'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.js'), 'utf8'), 'utf8');
-  } catch (err) {
-    try { console.warn('Trace viewer: failed to copy assets', err); } catch { }
-  }
+    let assetsDir = '';
+    try {
+      // ESM-friendly resolution using import.meta.url; falls back to __dirname if available
+      // @ts-ignore
+      const modUrl = (import.meta && import.meta.url) ? import.meta.url : '';
+      const here = modUrl ? pathMod.dirname(new URL(modUrl).pathname) : (typeof __dirname !== 'undefined' ? __dirname : '');
+      if (here) assetsDir = pathMod.resolve(here, '..', 'assets');
+    } catch {}
+    if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
+      try { assetsDir = pathMod.resolve(__dirname as any, '..', 'assets'); } catch {}
+    }
+    if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
+      // Last-resort guess for monorepo execution from example cwd
+      const guess = pathMod.resolve(process.cwd(), '..', '..', 'packages', 'middleware', 'trace-viewer', 'assets');
+      if (fs.existsSync(pathMod.join(guess, 'viewer.html'))) assetsDir = guess;
+    }
+    if (assetsDir) {
+      fs.writeFileSync(pathMod.join(dir, 'viewer.html'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.html'), 'utf8'), 'utf8');
+      fs.writeFileSync(pathMod.join(dir, 'viewer.css'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.css'), 'utf8'), 'utf8');
+      fs.writeFileSync(pathMod.join(dir, 'viewer.js'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.js'), 'utf8'), 'utf8');
+    }
+  } catch {}
 }
 
 function writeIndex(fs: any, pathMod: any, dir: string, style: TraceStyle) {

@@ -19,6 +19,7 @@
 ## Code Guidelines (TypeScript)
 
 **Always keep runnable code**. Always build and test the code base when changes has been make.
+**Never edit dist/ files**. Work on the source code, build the dist/.
 
 **Philosophy:** small, explicit, composable. Favor simple, testable building blocks (middleware, tools, adapters) over monoliths.
 
