@@ -1,13 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { promises as fs } from 'node:fs';
+import { promises as fs, realpathSync } from 'node:fs';
 import path from 'node:path';
-import { exec as cpExec } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawn } from 'node:child_process';
 import { minimatch } from 'minimatch';
 import type { Tool, Ctx } from '@sisu-ai/core';
 import { z } from 'zod';
-
-const exec = promisify(cpExec);
 
 export interface TerminalToolConfig {
   roots: string[];
@@ -20,20 +17,28 @@ export interface TerminalToolConfig {
   };
   commands: {
     allow: string[];
-    deny: string[];
   };
   execution: {
     timeoutMs: number;
     maxStdoutBytes: number;
     maxStderrBytes: number;
-    shell: 'sh' | 'bash' | 'powershell' | 'cmd' | 'direct';
+    pathDirs: string[]; // PATH search dirs for spawned processes
   };
+  // Preferred booleans for opt-in operators
+  allowPipe?: boolean;      // enable shell-free pipelines with '|'
+  allowSequence?: boolean;  // enable sequencing with ';', '&&', '||'
   sessions: {
     enabled: boolean;
     ttlMs: number;
     maxPerAgent: number;
   };
 }
+
+const DEFAULT_PATH_DIRS: string[] = (() => {
+  const base = ['/usr/bin', '/bin', '/usr/local/bin'];
+  if (process.platform === 'darwin') base.push('/opt/homebrew/bin');
+  return base;
+})();
 
 export const DEFAULT_CONFIG: TerminalToolConfig = {
   roots: [process.cwd()],
@@ -42,55 +47,30 @@ export const DEFAULT_CONFIG: TerminalToolConfig = {
     allow: [
       'pwd',
       'ls',
-      'cat',
-      'head',
-      'tail',
       'stat',
       'wc',
-      'grep',
-      'find',
-      'echo',
-      'sed',
-      'awk',
+      'head',
+      'tail',
+      'cat',
       'cut',
       'sort',
       'uniq',
-      'xargs',
-      'node',
-      'npm',
-      'pnpm',
-      'yarn'
+      'grep'
     ],
-    deny: [
-      'sudo',
-      'chmod',
-      'chown',
-      'mount',
-      'umount',
-      'shutdown',
-      'reboot',
-      'dd',
-      'mkfs*',
-      'service',
-      'systemctl',
-      'iptables',
-      'firewall*',
-      'curl *',
-      'wget *'
-    ]
   },
   execution: {
     timeoutMs: 10_000,
     maxStdoutBytes: 1_000_000,
     maxStderrBytes: 250_000,
-    shell: 'direct'
+    pathDirs: DEFAULT_PATH_DIRS,
   },
+  allowPipe: false,
+  allowSequence: false,
   sessions: { enabled: true, ttlMs: 120_000, maxPerAgent: 4 }
 };
 
 // Reusable exports for consumers who want to surface or extend policy
 export const TERMINAL_COMMANDS_ALLOW: ReadonlyArray<string> = Object.freeze([...DEFAULT_CONFIG.commands.allow]);
-export const TERMINAL_COMMANDS_DENY: ReadonlyArray<string> = Object.freeze([...DEFAULT_CONFIG.commands.deny]);
 
 export function defaultTerminalConfig(overrides?: Partial<TerminalToolConfig>): TerminalToolConfig {
   return {
@@ -99,9 +79,10 @@ export function defaultTerminalConfig(overrides?: Partial<TerminalToolConfig>): 
     capabilities: { ...DEFAULT_CONFIG.capabilities, ...(overrides?.capabilities ?? {}) },
     commands: {
       allow: overrides?.commands?.allow ?? DEFAULT_CONFIG.commands.allow,
-      deny: overrides?.commands?.deny ?? DEFAULT_CONFIG.commands.deny,
     },
     execution: { ...DEFAULT_CONFIG.execution, ...(overrides?.execution ?? {}) },
+    allowPipe: overrides?.allowPipe ?? DEFAULT_CONFIG.allowPipe,
+    allowSequence: overrides?.allowSequence ?? DEFAULT_CONFIG.allowSequence,
     sessions: { ...DEFAULT_CONFIG.sessions, ...(overrides?.sessions ?? {}) },
   };
 }
@@ -112,44 +93,197 @@ interface Session {
   expiresAt: number;
 }
 
-function isCommandAllowed(cmd: string, policy: TerminalToolConfig['commands']): boolean {
-  const normalized = cmd.trim().replace(/\s+/g, ' ');
-  const verb = normalized.split(' ')[0] ?? '';
-  const candidates = [normalized, verb];
-  const opts = { nocase: true, matchBase: true } as const;
-  const denyHit = policy.deny.some(p => candidates.some(c => minimatch(c, p, opts)));
-  if (denyHit) return false;
-  return policy.allow.some(p => candidates.some(c => minimatch(c, p, opts)));
+function isCommandAllowed(verb: string, policy: TerminalToolConfig['commands']): boolean {
+  const opts = { nocase: true } as const;
+  return policy.allow.some(p => minimatch(verb, p, opts));
+}
+
+function canonicalize(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    const dir = realpathSync(path.dirname(p));
+    return path.join(dir, path.basename(p));
+  }
 }
 
 function isPathAllowed(absPath: string, cfg: TerminalToolConfig, mode: 'read' | 'write' | 'delete' | 'exec'): boolean {
-  const real = path.resolve(absPath);
-  const roots = cfg.roots.map(r => path.resolve(r));
+  const real = canonicalize(absPath);
+  const roots = cfg.roots.map(r => canonicalize(r));
   const inside = roots.some(r => real === r || real.startsWith(r + path.sep));
   if (!inside) return false;
   if (mode !== 'read' && cfg.readOnlyRoots) {
-    const ro = cfg.readOnlyRoots.map(r => path.resolve(r));
+    const ro = cfg.readOnlyRoots.map(r => canonicalize(r));
     const inRo = ro.some(r => real === r || real.startsWith(r + path.sep));
     if (inRo) return false;
   }
   return true;
 }
 
-function extractAbsolutePaths(cmd: string): string[] {
-  // Very simple token scan: find whitespace-delimited tokens that start with '/'
-  const matches = cmd.match(/(?:^|\s)(\/[\w\-./]+)(?=\s|$)/g) || [];
-  return matches.map(m => m.trim());
+function looksLikePath(arg: string): boolean {
+  return arg.startsWith('.') || arg.includes('/') || /^(?:[A-Za-z]:[\\/]|\\\\)/.test(arg);
+}
+
+function parseArgs(cmd: string): string[] {
+  const out: string[] = [];
+  let current = '';
+  let single = false;
+  let double = false;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (ch === "'" && !double) { single = !single; continue; }
+    if (ch === '"' && !single) { double = !double; continue; }
+    if (!single && !double && /\s/.test(ch)) {
+      if (current) { out.push(current); current = ''; }
+      continue;
+    }
+    current += ch;
+  }
+  if (single || double) throw new Error('unbalanced quotes');
+  if (current) out.push(current);
+  return out;
+}
+
+function splitPipeline(cmd: string): string[] {
+  // Split on '|' outside quotes
+  const out: string[] = [];
+  let current = '';
+  let single = false;
+  let double = false;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (ch === "'" && !double) { single = !single; current += ch; continue; }
+    if (ch === '"' && !single) { double = !double; current += ch; continue; }
+    if (ch === '|' && !single && !double) {
+      const seg = current.trim();
+      if (seg) out.push(seg);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  const seg = current.trim();
+  if (seg) out.push(seg);
+  return out;
+}
+
+type SeqOp = '&&' | '||' | ';';
+function splitSequence(cmd: string): Array<{ cmd: string; op: SeqOp | null }>{
+  const out: Array<{ cmd: string; op: SeqOp | null }> = [];
+  let current = '';
+  let single = false;
+  let double = false;
+  let nextOp: SeqOp | null = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    const nxt = cmd[i + 1];
+    if (ch === "'" && !double) { single = !single; current += ch; continue; }
+    if (ch === '"' && !single) { double = !double; current += ch; continue; }
+    if (!single && !double) {
+      if (ch === ';') {
+        const seg = current.trim();
+        if (seg) out.push({ cmd: seg, op: nextOp });
+        current = '';
+        nextOp = ';';
+        continue;
+      }
+      if (ch === '&' && nxt === '&') {
+        const seg = current.trim();
+        if (seg) out.push({ cmd: seg, op: nextOp });
+        current = '';
+        nextOp = '&&';
+        i++;
+        continue;
+      }
+      if (ch === '|' && nxt === '|') {
+        const seg = current.trim();
+        if (seg) out.push({ cmd: seg, op: nextOp });
+        current = '';
+        nextOp = '||';
+        i++;
+        continue;
+      }
+    }
+    current += ch;
+  }
+  const tail = current.trim();
+  if (tail) out.push({ cmd: tail, op: nextOp });
+  return out;
 }
 
 function commandPolicyCheck(args: { command: string; cwd: string }, cfg: TerminalToolConfig): { allowed: boolean; reason?: string } {
   if (!cfg.capabilities.exec) return { allowed: false, reason: 'exec disabled' };
   if (!isPathAllowed(args.cwd, cfg, 'exec')) return { allowed: false, reason: 'cwd outside roots' };
-  if (!isCommandAllowed(args.command, cfg.commands)) return { allowed: false, reason: 'command denied' };
-  // Guard against absolute path escapes: deny any absolute path outside roots
-  const abs = extractAbsolutePaths(args.command);
-  for (const p of abs) {
-    if (!isPathAllowed(p, cfg, 'read')) {
-      return { allowed: false, reason: `absolute path outside roots: ${p}` };
+  let parsed: string[];
+  try {
+    parsed = parseArgs(args.command);
+  } catch {
+    return { allowed: false, reason: 'invalid quoting' };
+  }
+  if (parsed.length === 0) return { allowed: false, reason: 'empty command' };
+  // Detect shell/control operators; allow only configured ones
+  const found: string[] = [];
+  const cmdStr = args.command;
+  if (/&&/.test(cmdStr)) found.push('&&');
+  const hasOrOr = /\|\|/.test(cmdStr);
+  if (hasOrOr) found.push('||');
+  // Consider single '|' only after removing '||'
+  if (/\|/.test(cmdStr.replace(/\|\|/g, ''))) found.push('|');
+  if (/;/.test(cmdStr)) found.push(';');
+  if (/\$\(/.test(cmdStr)) found.push('$(...)');
+  if (/`/.test(cmdStr)) found.push('`...`');
+  if (/>/.test(cmdStr)) found.push('>');
+  if (/<\<?/.test(cmdStr)) found.push('<');
+  if (/(^|\s)&(\s|$)/.test(cmdStr)) found.push('&');
+  const allowPipe = cfg.allowPipe ?? false;
+  const allowSequence = cfg.allowSequence ?? false;
+  const unallowed = found.filter(op => {
+    if (op === '|' && allowPipe) return false;
+    if ((op === '&&' || op === '||' || op === ';') && allowSequence) return false;
+    return true;
+  });
+  if (unallowed.length > 0) {
+    const unique = Array.from(new Set(unallowed)).join(', ');
+    return { allowed: false, reason: `shell operators not allowed (${unique}). Enable allowPipe and/or allowSequence in config to opt in.` };
+  }
+  const [verb, ...rest] = parsed;
+  if (!isCommandAllowed(verb, cfg.commands)) return { allowed: false, reason: 'command denied' };
+  for (const a of rest) {
+    if (looksLikePath(a)) {
+      const abs = path.isAbsolute(a) || /^(?:[A-Za-z]:\\|\\)/.test(a) ? a : path.join(args.cwd, a);
+      if (!isPathAllowed(abs, cfg, 'read')) {
+        return { allowed: false, reason: `path outside roots: ${a}` };
+      }
+    }
+  }
+  // If a pipeline is present and allowed, validate each segment
+  if (allowPipe && /\|/.test(args.command)) {
+    const segments = splitPipeline(args.command);
+    if (segments.length < 2) return { allowed: false, reason: 'invalid pipeline' };
+    for (const seg of segments) {
+      let segArgs: string[];
+      try {
+        segArgs = parseArgs(seg);
+      } catch {
+        return { allowed: false, reason: 'invalid quoting in pipeline segment' };
+      }
+      if (segArgs.length === 0) return { allowed: false, reason: 'empty pipeline segment' };
+      const [v, ...r] = segArgs;
+      if (!isCommandAllowed(v, cfg.commands)) return { allowed: false, reason: `command denied in pipeline: ${v}` };
+      for (const a of r) {
+        if (looksLikePath(a)) {
+          const abs = path.isAbsolute(a) || /^(?:[A-Za-z]:\\|\\)/.test(a) ? a : path.join(args.cwd, a);
+          if (!isPathAllowed(abs, cfg, 'read')) return { allowed: false, reason: `path outside roots in pipeline: ${a}` };
+        }
+      }
+    }
+  }
+  if (allowSequence && /(?:&&|\|\||;)/.test(args.command)) {
+    const seq = splitSequence(args.command);
+    if (seq.length === 0) return { allowed: false, reason: 'invalid sequence' };
+    for (const part of seq) {
+      const res = commandPolicyCheck({ command: part.cmd, cwd: args.cwd }, cfg);
+      if (!res.allowed) return res;
     }
   }
   return { allowed: true };
@@ -171,8 +305,24 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     return s;
   }
 
+  function buildEnv(extra: Record<string, string>): Record<string, string> {
+    const allowed = new Set(['PATH', 'HOME', 'LANG', 'TERM']);
+    const env: Record<string, string> = {};
+    for (const key of allowed) {
+      const v = process.env[key];
+      if (v !== undefined) env[key] = v;
+    }
+    for (const [k, v] of Object.entries(extra)) {
+      if (allowed.has(k)) env[k] = v;
+    }
+    // Enforce a controlled PATH from config (ignores provided PATH to avoid hijack)
+    env.PATH = cfg.execution.pathDirs.join(':');
+    return env;
+  }
+
   function start_session(args?: { cwd?: string; env?: Record<string, string> }) {
-    const cwd = args?.cwd ? path.resolve(args.cwd) : cfg.roots[0];
+    if (!cfg.sessions.enabled) throw new Error('sessions disabled');
+    const cwd = canonicalize(args?.cwd ? path.resolve(args.cwd) : cfg.roots[0]);
     if (!isPathAllowed(cwd, cfg, 'exec')) {
       throw new Error('cwd outside allowed roots');
     }
@@ -184,53 +334,133 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
 
   async function run_command(args: { command: string; cwd?: string; env?: Record<string, string>; stdin?: string; sessionId?: string }) {
     const session = getSession(args.sessionId);
-    const cwd = path.resolve(args.cwd ?? session?.cwd ?? cfg.roots[0]);
-    const commandStr = args.command;
-    const pre = commandPolicyCheck({ command: commandStr, cwd }, cfg);
+    const cwd = canonicalize(path.resolve(args.cwd ?? session?.cwd ?? cfg.roots[0]));
+    const pre = commandPolicyCheck({ command: args.command, cwd }, cfg);
     if (!pre.allowed) {
       return { exitCode: -1, stdout: '', stderr: '', durationMs: 0, policy: pre, cwd };
     }
-    const start = Date.now();
-    try {
-      const { stdout: s, stderr: e } = await exec(commandStr, {
-        cwd,
-        env: { ...(session?.env ?? {}), ...(args.env ?? {}) },
-        timeout: cfg.execution.timeoutMs,
-        input: args.stdin
-      } as any);
-      const dur = Date.now() - start;
-      let stdout = s ?? '';
-      let stderr = e ?? '';
-      if (Buffer.byteLength(stdout) > cfg.execution.maxStdoutBytes) {
-        stdout = stdout.slice(-cfg.execution.maxStdoutBytes);
+    const pipelinesAllowed = cfg.allowPipe ?? false;
+    const sequencesAllowed = cfg.allowSequence ?? false;
+    const hasPipe = pipelinesAllowed && /\|/.test(args.command);
+    const hasSeq = sequencesAllowed && /(?:&&|\|\||;)/.test(args.command);
+    // Execute sequences (if enabled) without a shell by running segments serially
+    if (hasSeq) {
+      const seq = splitSequence(args.command);
+      let lastExit = 0;
+      let out = '';
+      let err = '';
+      let durTotal = 0;
+      for (let i = 0; i < seq.length; i++) {
+        const { cmd: subCmd, op } = seq[i];
+        const shouldRun = i === 0 ? true : (op === ';' ? true : (op === '&&' ? lastExit === 0 : lastExit !== 0));
+        if (!shouldRun) continue;
+        const res = await run_command({ ...args, command: subCmd, cwd });
+        out += res.stdout || '';
+        err += res.stderr || '';
+        durTotal += res.durationMs || 0;
+        lastExit = res.exitCode;
       }
-      if (Buffer.byteLength(stderr) > cfg.execution.maxStderrBytes) {
-        stderr = stderr.slice(-cfg.execution.maxStderrBytes);
+      if (session) {
+        session.cwd = cwd;
+        session.expiresAt = Date.now() + cfg.sessions.ttlMs;
       }
-      if (session) session.cwd = cwd;
-      return { exitCode: 0, stdout, stderr, durationMs: dur, policy: { allowed: true }, cwd };
-    } catch (err: any) {
-      const dur = Date.now() - start;
-      const stdout = String(err.stdout ?? '');
-      const stderr = String(err.stderr ?? err.message ?? '');
-      const code = typeof err.code === 'number' ? err.code : -1;
-      return { exitCode: code, stdout, stderr, durationMs: dur, policy: { allowed: true }, cwd };
+      return { exitCode: lastExit, stdout: out, stderr: err, durationMs: durTotal, policy: { allowed: true }, cwd };
     }
+    const argv = parseArgs(args.command);
+    const [cmd, ...cmdArgs] = argv;
+    const env = buildEnv({ ...(session?.env ?? {}), ...(args.env ?? {}) });
+    const start = Date.now();
+    return await new Promise<{
+      exitCode: number;
+      stdout: string;
+      stderr: string;
+      durationMs: number;
+      policy: { allowed: boolean; reason?: string };
+      cwd: string;
+    }>((resolve) => {
+      let stdout = '', stderr = '';
+      let outBytes = 0, errBytes = 0;
+      const children: Array<import('node:child_process').ChildProcess> = [];
+      const killAll = () => { for (const c of children) { try { c.kill('SIGKILL'); } catch {} } };
+      const onStdout = (d: Buffer) => { outBytes += d.length; if (outBytes <= cfg.execution.maxStdoutBytes) stdout += d.toString(); else killAll(); };
+      const onStderr = (d: Buffer) => { errBytes += d.length; if (errBytes <= cfg.execution.maxStderrBytes) stderr += d.toString(); else killAll(); };
+      const timeout = setTimeout(() => killAll(), cfg.execution.timeoutMs);
+
+      if (hasPipe) {
+        const segments = splitPipeline(args.command);
+        const argvList = segments.map(seg => parseArgs(seg));
+        let prev: import('node:child_process').ChildProcess | undefined;
+        let finished = false;
+        const finish = (exitCode: number, errMsg?: string) => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timeout);
+          const dur = Date.now() - start;
+          if (session) { session.cwd = cwd; session.expiresAt = Date.now() + cfg.sessions.ttlMs; }
+          if (errMsg) { stderr += (stderr ? "\n" : "") + errMsg; }
+          resolve({ exitCode, stdout, stderr, durationMs: dur, policy: { allowed: true }, cwd });
+        };
+        for (let i = 0; i < argvList.length; i++) {
+          const [pcmd, ...pargs] = argvList[i];
+          const proc = spawn(pcmd, pargs, { cwd, env, shell: false });
+          children.push(proc);
+          proc.on('error', (err) => {
+            killAll();
+            finish(-1, String(err?.message ?? err));
+          });
+          if (i === 0) {
+            if (args.stdin) proc.stdin.write(args.stdin);
+          }
+          if (prev && prev.stdout) {
+            prev.stdout.pipe(proc.stdin);
+          }
+          if (i === argvList.length - 1 && proc.stdout) {
+            proc.stdout.on('data', onStdout);
+          }
+          if (proc.stderr) proc.stderr.on('data', onStderr);
+          // Close stdin of previous once piped
+          if (prev && prev.stdin) {
+            prev.stdin.end();
+          }
+          prev = proc;
+        }
+        const last = children[children.length - 1];
+        last.on('close', (code) => finish(code ?? -1));
+        last.on('error', (err) => finish(-1, String(err?.message ?? err)));
+      } else {
+        const child = spawn(cmd, cmdArgs, { cwd, env, shell: false });
+        children.push(child);
+        if (args.stdin) child.stdin.write(args.stdin);
+        child.stdin.end();
+        child.stdout.on('data', onStdout);
+        child.stderr.on('data', onStderr);
+        child.on('close', (code) => {
+          clearTimeout(timeout);
+          const dur = Date.now() - start;
+          if (session) { session.cwd = cwd; session.expiresAt = Date.now() + cfg.sessions.ttlMs; }
+          resolve({ exitCode: code ?? -1, stdout, stderr, durationMs: dur, policy: { allowed: true }, cwd });
+        });
+        child.on('error', (err) => {
+          clearTimeout(timeout);
+          const dur = Date.now() - start;
+          resolve({ exitCode: -1, stdout, stderr: String(err.message), durationMs: dur, policy: { allowed: true }, cwd });
+        });
+      }
+    });
   }
 
   function cd(args: { path: string; sessionId?: string }) {
     let session = getSession(args.sessionId);
     // If no valid session is provided, create one anchored at the first root
     if (!session) {
-      const cwd = cfg.roots[0];
+      const cwd = canonicalize(cfg.roots[0]);
       const sessionId = randomUUID();
       const expiresAt = Date.now() + cfg.sessions.ttlMs;
       session = { cwd, env: {}, expiresAt };
       sessions.set(sessionId, session);
-      // attach generated id on args for return below
       (args as any)._createdSessionId = sessionId;
     }
-    const newPath = path.resolve(session.cwd, args.path);
+    const newPath = canonicalize(path.resolve(session.cwd, args.path));
     if (!isPathAllowed(newPath, cfg, 'exec')) {
       throw new Error('path outside allowed roots');
     }
@@ -243,7 +473,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     if (!cfg.capabilities.read) throw new Error('read disabled');
     const session = getSession(args.sessionId);
     const cwd = session?.cwd ?? cfg.roots[0];
-    const abs = path.resolve(cwd, args.path);
+    const abs = canonicalize(path.resolve(cwd, args.path));
     if (!isPathAllowed(abs, cfg, 'read')) throw new Error('path outside allowed roots');
     const buf = await fs.readFile(abs);
     const encoding = args.encoding ?? 'utf8';
@@ -255,9 +485,10 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     name: 'terminalRun',
     description:
       [
-        `Run a non-interactive, sandboxed terminal command within allowed roots (${cfg.roots}).`,
-        `Use for listing files (ls), printing files (cat), simple text processing etc. Allowed commands are ${cfg.commands.allow.join(', ')}).`,
-        'Always prefer passing a safe single command. Network and destructive commands are denied by policy.',
+        `Run a non-interactive command within allowed roots (${cfg.roots}).`,
+        `Use for listing files (ls), printing files (cat), simple text processing etc. Allowed commands are ${cfg.commands.allow.join(', ')}.`,
+        'Shell operators are rejected and the environment is sanitized before execution.',
+        'Always prefer passing a safe single command.',
         'Tips: pass cwd to run in a specific folder; use terminalCd first to set a working directory for subsequent calls; prefer terminalReadFile when you only need file contents.'
       ].join(' '),
     schema: z.object({

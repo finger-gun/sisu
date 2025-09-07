@@ -5,7 +5,7 @@
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Ftool-terminal)](https://www.npmjs.com/package/@sisu-ai/tool-terminal)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
-A secure terminal execution tool for Sisu agents. Provides sandboxed shell command execution with session support, command allow/deny lists, path scoping, timeouts and basic file helpers.
+A secure terminal execution tool for Sisu agents. Provides sandboxed command execution with session support, a strict allow list, realpath-based path scoping, timeouts and basic file helpers. Commands run without a shell and reject control operators by default; optional shell-free pipelines (`|`) and sequences (`;`, `&&`, `||`) can be enabled via config.
 
 ## API
 
@@ -16,8 +16,7 @@ A secure terminal execution tool for Sisu agents. Provides sandboxed shell comma
 ### Defaults & Reuse
 - Importable defaults to help you build policies/UI:
   - `DEFAULT_CONFIG` — full default config object
-  - `TERMINAL_COMMANDS_ALLOW` — default allowlist array
-  - `TERMINAL_COMMANDS_DENY` — default denylist array
+  - `TERMINAL_COMMANDS_ALLOW` — default allow list array
   - `defaultTerminalConfig(partial)` — helper to merge your overrides with sensible defaults
 
 ## Quick Start
@@ -73,13 +72,23 @@ type TerminalToolConfig = {
   roots: string[];                // allowed path roots (required)
   readOnlyRoots?: string[];
   capabilities: { read: boolean; write: boolean; delete: boolean; exec: boolean };
-  commands: { allow: string[]; deny: string[] };
-  execution: { timeoutMs: number; maxStdoutBytes: number; maxStderrBytes: number; shell: 'direct'|'sh'|'bash'|'powershell'|'cmd' };
+  commands: { allow: string[] };
+  execution: { timeoutMs: number; maxStdoutBytes: number; maxStderrBytes: number; pathDirs: string[] };
+  allowPipe?: boolean;      // enable '|'
+  allowSequence?: boolean;  // enable ';', '&&', '||'
   sessions: { enabled: boolean; ttlMs: number; maxPerAgent: number };
 }
 ```
 
-Sensible defaults: `read: true`, `exec: true`, `write/delete: false`, timeout 10s, `roots: [process.cwd()]`, and a conservative allow/deny command policy. See `DEFAULT_CONFIG` in `src/index.ts` for full details.
+Sensible defaults: `read: true`, `exec: true`, `write/delete: false`, timeout 10s, `roots: [process.cwd()]`, `execution.pathDirs` includes common system bins (`/usr/bin:/bin:/usr/local/bin` and `/opt/homebrew/bin` on macOS), and a conservative allow-only command policy. Shell operators are denied by default. You can opt-in to pipelines (`|`) which are executed without a shell, validating each segment.
+
+### PATH Policy
+- Fixed PATH: The tool constructs `PATH` from `execution.pathDirs` and ignores any provided `PATH` to prevent PATH hijack (malicious binaries earlier in the search path).
+- Recommended dirs:
+  - Linux: `/usr/bin`, `/bin`, `/usr/local/bin`.
+  - macOS: add `/opt/homebrew/bin` if using Homebrew on Apple Silicon.
+- Customize per app: Extend `execution.pathDirs` if your allowed commands live elsewhere (e.g., custom install prefixes). Prefer adding exact directories over inheriting the ambient PATH.
+- Environment hygiene: Only `PATH`, `HOME`, `LANG`, and `TERM` are passed through (sanitized). Consider adding absolute paths (e.g., `/usr/bin/grep`) in policies if you want even stronger guarantees.
 
 ## Tool Schemas
 
@@ -88,6 +97,26 @@ Sensible defaults: `read: true`, `exec: true`, `write/delete: false`, timeout 10
 - `terminalReadFile({ path, encoding?, sessionId? }) → { contents }`
 
 Each tool is validated with zod and registered through the instance’s `tools` array. `start_session` is available as a method for advanced use but is not exposed as a tool by default.
+
+### Allowing Operators (Optional)
+By default, shell operators are denied. If you need simple operators, enable them explicitly:
+
+```ts
+const terminal = createTerminalTool({
+  roots: [process.cwd()],
+  allowPipe: true,       // allow shell-free pipelines
+  allowSequence: true,   // allow ;, &&, || sequencing
+});
+
+// Now these work securely without a shell:
+await terminal.run_command({ command: "cat README.md | wc -l" });
+await terminal.run_command({ command: "ls missing && echo will-not-run; ls || echo ran-on-error" });
+```
+
+Notes:
+- Each segment must be an allowed verb and passes path checks.
+- Redirection (`>`, `<`), command substitution (`$()`/backticks), and backgrounding (`&`) remain blocked.
+- Pipelines are executed by wiring processes directly; sequences run segments sequentially with correct semantics.
 
 ### When To Use `start_session`
 - Persistent cwd across multiple calls: when you plan a sequence like “cd → run → read → run” and want a stable working directory without passing `cwd` every time.
@@ -107,9 +136,11 @@ const file = await term.read_file({ sessionId, path: 'README.md' });
 ## Notes
 
 - Non-interactive commands only.
-- Network-accessing commands are denied by default via patterns (e.g., `curl *`, `wget *`).
-- All paths are resolved and constrained to configured `roots`; write/delete under read-only roots are denied.
-- Absolute path arguments outside `roots` are denied (e.g., `grep -r /`). Prefer setting `cwd` (via `terminalCd`) and using relative paths.
+- Network-accessing commands are not in the allow list by default (e.g., `curl`, `wget`).
+- Default allowlist includes read-only tools: `pwd`, `ls`, `stat`, `wc`, `head`, `tail`, `cat`, `cut`, `sort`, `uniq`, `grep`.
+- All paths are resolved via `realpath` and constrained to configured `roots`; write/delete under read-only roots are denied.
+- Absolute or relative path arguments outside `roots` are denied (e.g., `grep -r /`). Prefer setting `cwd` (via `terminalCd`) and using relative paths.
+- Commands run without an intermediate shell; tokens like `&&`, `|`, `;`, `$()` and redirections are rejected.
 
 # Community & Support
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
