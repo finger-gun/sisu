@@ -99,29 +99,27 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
       // Fallback: if usage not populated yet (e.g., usageTracker runs outside/after us),
       // derive simple totals from logged usage events.
       if (!out.meta.usage) {
-        try {
-          const totals = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUSD: 0, imageTokens: 0, imageCount: 0 } as any;
-          for (const ev of out.events || []) {
-            const a0 = (ev?.args ?? [])[0];
-            const a1 = (ev?.args ?? [])[1];
-            if (typeof a0 === 'string' && a0.indexOf('[usage]') >= 0 && a1 && typeof a1 === 'object') {
-              const u = a1 as any;
-              if (typeof u.promptTokens === 'number') totals.promptTokens += u.promptTokens;
-              if (typeof u.completionTokens === 'number') totals.completionTokens += u.completionTokens;
-              if (typeof u.totalTokens === 'number') totals.totalTokens += u.totalTokens;
-              if (typeof u.estCostUSD === 'number') totals.costUSD += u.estCostUSD;
-              if (typeof u.imageTokens === 'number') totals.imageTokens += u.imageTokens;
-              if (typeof u.imageCount === 'number') totals.imageCount += u.imageCount;
-            }
+        const totals = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUSD: 0, imageTokens: 0, imageCount: 0 } as any;
+        for (const ev of out.events || []) {
+          const a0 = (ev?.args ?? [])[0];
+          const a1 = (ev?.args ?? [])[1];
+          if (typeof a0 === 'string' && a0.indexOf('[usage]') >= 0 && a1 && typeof a1 === 'object') {
+            const u = a1 as any;
+            if (typeof u.promptTokens === 'number') totals.promptTokens += u.promptTokens;
+            if (typeof u.completionTokens === 'number') totals.completionTokens += u.completionTokens;
+            if (typeof u.totalTokens === 'number') totals.totalTokens += u.totalTokens;
+            if (typeof u.estCostUSD === 'number') totals.costUSD += u.estCostUSD;
+            if (typeof u.imageTokens === 'number') totals.imageTokens += u.imageTokens;
+            if (typeof u.imageCount === 'number') totals.imageCount += u.imageCount;
           }
-          // Only set if we actually observed usage
-          const seen = totals.promptTokens > 0 || totals.completionTokens > 0 || totals.totalTokens > 0;
-          if (seen) {
-            if (!(totals.imageTokens > 0)) delete totals.imageTokens;
-            if (!(totals.imageCount > 0)) delete totals.imageCount;
-            out.meta.usage = totals;
-          }
-        } catch {}
+        }
+        // Only set if we actually observed usage
+        const seen = totals.promptTokens > 0 || totals.completionTokens > 0 || totals.totalTokens > 0;
+        if (seen) {
+          if (!(totals.imageTokens > 0)) delete totals.imageTokens;
+          if (!(totals.imageCount > 0)) delete totals.imageCount;
+          out.meta.usage = totals;
+        }
       }
 
       const fs = await import('node:fs');
@@ -218,24 +216,24 @@ function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle
   fs.writeFileSync(pathMod.join(dir, 'runs.js'), runsJs, 'utf8');
 
   // Copy SPA viewer assets (viewer.html/css/js) into target dir
-    let assetsDir = '';
-      // ESM-friendly resolution using import.meta.url; falls back to __dirname if available
-      const modUrl = (import.meta && import.meta.url) ? import.meta.url : '';
-      const here = modUrl ? pathMod.dirname(new URL(modUrl).pathname) : (typeof __dirname !== 'undefined' ? __dirname : '');
-      if (here) assetsDir = pathMod.resolve(here, '..', 'assets');
-    if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
-      assetsDir = pathMod.resolve(__dirname as any, '..', 'assets');
-    }
-    if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
-      // Last-resort guess for monorepo execution from example cwd
-      const guess = pathMod.resolve(process.cwd(), '..', '..', 'packages', 'middleware', 'trace-viewer', 'assets');
-      if (fs.existsSync(pathMod.join(guess, 'viewer.html'))) assetsDir = guess;
-    }
-    if (assetsDir) {
-      fs.writeFileSync(pathMod.join(dir, 'viewer.html'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.html'), 'utf8'), 'utf8');
-      fs.writeFileSync(pathMod.join(dir, 'viewer.css'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.css'), 'utf8'), 'utf8');
-      fs.writeFileSync(pathMod.join(dir, 'viewer.js'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.js'), 'utf8'), 'utf8');
-    }
+  let assetsDir = '';
+  // ESM-friendly resolution using import.meta.url; falls back to __dirname if available
+  const modUrl = (import.meta && import.meta.url) ? import.meta.url : '';
+  const here = modUrl ? pathMod.dirname(new URL(modUrl).pathname) : (typeof __dirname !== 'undefined' ? __dirname : '');
+  if (here) assetsDir = pathMod.resolve(here, '..', 'assets');
+  if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
+    assetsDir = pathMod.resolve(__dirname as any, '..', 'assets');
+  }
+  if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
+    // Last-resort guess for monorepo execution from example cwd
+    const guess = pathMod.resolve(process.cwd(), '..', '..', 'packages', 'middleware', 'trace-viewer', 'assets');
+    if (fs.existsSync(pathMod.join(guess, 'viewer.html'))) assetsDir = guess;
+  }
+  if (assetsDir) {
+    fs.writeFileSync(pathMod.join(dir, 'viewer.html'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.html'), 'utf8'), 'utf8');
+    fs.writeFileSync(pathMod.join(dir, 'viewer.css'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.css'), 'utf8'), 'utf8');
+    fs.writeFileSync(pathMod.join(dir, 'viewer.js'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.js'), 'utf8'), 'utf8');
+  }
 
 }
 
@@ -249,9 +247,9 @@ function renderTraceHtml(out: TraceDoc, _style: TraceStyle = 'light', _logoDataU
     <style>body{font-family:system-ui,Arial,sans-serif;margin:16px;color:#111} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ddd;padding:6px;vertical-align:top} th{background:#f6f6f6} pre{white-space:pre-wrap}</style>
   </head><body>
     <h1>Trace</h1>
-    <div><b>Status:</b> ${esc(out.meta.status)} • <b>Model:</b> ${esc(out.meta.model || '')} • <b>Duration:</b> ${(out.meta.durationMs/1000).toFixed(2)}s</div>
+    <div><b>Status:</b> ${esc(out.meta.status)} • <b>Model:</b> ${esc(out.meta.model || '')} • <b>Duration:</b> ${(out.meta.durationMs / 1000).toFixed(2)}s</div>
     <div><b>Start:</b> ${esc(out.meta.start)} • <b>End:</b> ${esc(out.meta.end)}</div>
-    ${usage && (usage.promptTokens || usage.totalTokens) ? `<div><b>Usage:</b> prompt=${usage.promptTokens ?? 0}, completion=${usage.completionTokens ?? 0}, total=${usage.totalTokens ?? 0}${usage.costUSD!=null?`, cost=$${usage.costUSD}`:''}</div>` : ''}
+    ${usage && (usage.promptTokens || usage.totalTokens) ? `<div><b>Usage:</b> prompt=${usage.promptTokens ?? 0}, completion=${usage.completionTokens ?? 0}, total=${usage.totalTokens ?? 0}${usage.costUSD != null ? `, cost=$${usage.costUSD}` : ''}</div>` : ''}
     <h2>Input</h2><pre>${esc(String(out.input || ''))}</pre>
     <h2>Final</h2><pre>${esc(String(out.final || ''))}</pre>
     <h2>Messages</h2><table><thead><tr><th>role</th><th>content</th></tr></thead><tbody>${messages}</tbody></table>
