@@ -19,7 +19,6 @@ module.exports = {
   '@typescript-eslint/no-explicit-any': 'warn'
   },
   overrides: [
-  ],
-  "exclude": ["packages/middleware/trace-viewer/assets"]  
+  ]
 };
 

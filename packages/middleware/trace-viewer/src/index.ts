@@ -54,13 +54,12 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
         const origPush = arr.push.bind(arr);
         (arr as any).push = (...args: any[]) => { args.forEach(stamp); return origPush(...args); };
       }
-    } catch {}
+    } catch { }
 
     const traceArgPath = argFlag && argFlag.includes('=') ? argFlag.split('=')[1] : '';
     const explicitPath = Boolean(opts.path || traceArgPath);
     const defaultDir = opts.dir || 'traces';
-  const path = opts.path || traceArgPath || 'trace.json';
-  // Default to not writing per-run HTML. Explicit .html path still respected.
+    const path = opts.path || traceArgPath || 'trace.json';
     const wantHtml = opts.html ?? true;
     const wantJson = opts.json ?? true;
     const cliStyle = argv.find(a => a.startsWith('--trace-style='))?.split('=')[1] as TraceStyle | undefined;
@@ -127,13 +126,13 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
       try {
         const dir = explicitPath ? pathMod.dirname(targetPath) : tracesDir;
         writeIndexAssets(fs, pathMod, dir, style);
-      } catch {}
+      } catch { }
     }
   };
 }
 
 function renderTraceHtml(out: TraceDoc, style: TraceStyle = 'light', logoDataUrl = ''): string {
-  const esc = (s: string) => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+  const esc = (s: string) => s.replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
   const palette = getPalette(style);
   const css = `
   :root{--bg:${palette.bg};--fg:${palette.fg};--muted:${palette.muted};--card:${palette.card};--border:${palette.border};--accent:${palette.accent}}
@@ -235,12 +234,12 @@ function renderTraceHtml(out: TraceDoc, style: TraceStyle = 'light', logoDataUrl
 }
 
 function ensureDir(fs: any, dir: string) {
-  try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+  try { fs.mkdirSync(dir, { recursive: true }); } catch { }
 }
 
 function timestamp(d = new Date()) {
   const pad = (n: number, s = 2) => String(n).padStart(s, '0');
-  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
 // New: asset-based index writer that separates HTML/CSS/JS and data
@@ -287,15 +286,15 @@ function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle
       if (usage) (runObj as any).usage = usage;
       const jsName = f.replace(/\.json$/i, '.js');
       const code = 'window.SISU_TRACES = window.SISU_TRACES || { runs: [], logo: "" };\n' +
-                   'window.SISU_TRACES.runs.push(' + JSON.stringify(runObj).replace(/<\/script/g, '<\\/script') + ');\n';
+        'window.SISU_TRACES.runs.push(' + JSON.stringify(runObj).replace(/<\/script/g, '<\\/script') + ');\n';
       fs.writeFileSync(pathMod.join(dir, jsName), code, 'utf8');
       runScriptFiles.push(jsName);
-    } catch {}
+    } catch { }
   });
 
   // runs.js: a list of run script filenames + logo (kept for compatibility)
   const runsJs = 'window.SISU_RUN_SCRIPTS = ' + JSON.stringify(runScriptFiles.sort().reverse()) + ';\n'
-                + 'window.SISU_LOGO_DATA = ' + JSON.stringify(logo || '') + ';\n';
+    + 'window.SISU_LOGO_DATA = ' + JSON.stringify(logo || '') + ';\n';
   fs.writeFileSync(pathMod.join(dir, 'runs.js'), runsJs, 'utf8');
 
   // Copy static assets
@@ -320,7 +319,7 @@ function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle
     fs.writeFileSync(pathMod.join(dir, 'viewer.css'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.css'), 'utf8'), 'utf8');
     fs.writeFileSync(pathMod.join(dir, 'viewer.js'), fs.readFileSync(pathMod.join(assetsDir, 'viewer.js'), 'utf8'), 'utf8');
   } catch (err) {
-    try { console.warn('Trace viewer: failed to copy assets', err); } catch {}
+    try { console.warn('Trace viewer: failed to copy assets', err); } catch { }
   }
 }
 
@@ -333,7 +332,7 @@ function writeIndex(fs: any, pathMod: any, dir: string, style: TraceStyle) {
   const runs = jsonFiles.map(f => {
     const p = pathMod.join(dir, f);
     let doc: any = {};
-    try { doc = JSON.parse(fs.readFileSync(p, 'utf8')); } catch {}
+    try { doc = JSON.parse(fs.readFileSync(p, 'utf8')); } catch { }
     const meta = doc.meta || {};
     const input = doc.input || '';
     const final = (doc.final == null) ? '' : String(doc.final);
