@@ -14,21 +14,29 @@
 - Typed tools, explicit loops: tool calls and control flow are first‑class and deterministic.
 - Provider‑agnostic, adapter‑friendly: OpenAI, Anthropic, Ollama (local), or your own HTTP client.
 - Built‑in observability: structured logs, redaction, and an HTML trace viewer per run.
-<div align="center">
 
-<img src="html-trace-log.png" alt="Get feedback from your runs in HTML View" width="80%" style="margin-bottom: 0.5em;">
+![Get feedback from your runs in HTML View](html-trace-log.jpg)
 
-**Visual Trace Viewer**  
-Get instant feedback on every run with a beautiful, interactive HTML trace. Inspect every message, tool call, and decision in detail.
+### Trace Viewer
+
+**Understand, debug, and optimize every AI run.**
+
+Sisu Trace Viewer gives you full visibility into your AI workflows — from token usage and costs, to tool calls and debugging details.
+
+✅ **Track performance with precision** – see exactly how tokens and costs are spent.   
+✅ **Debug with confidence** – inspect tool calls and spot issues instantly.   
+✅ **Search & filter across traces** – find the run you need, faster.   
+✅ **Iterate at lightning speed** – optimize workflows and shorten feedback loops.   
+
+Whether you’re building prototypes or scaling production systems, Sisu Trace Viewer makes AI development **transparent, efficient, and reliable.**
 
 ---
 
-<img src="cli-trace-logs.png" alt="Get feedback from your runs in your terminal" width="80%" style="margin-top: 1em;">
+![Get feedback from your runs in your terminal](cli-trace-logs.png)
 
-**CLI Trace Logs**  
+### CLI Trace Logs
 Stay in flow with structured, color-coded logs right in your terminal. Perfect for rapid iteration and debugging.
 
-</div>
 
 ## 90‑Second Example
 Turn intent into action with a clear, inspectable pipeline.
