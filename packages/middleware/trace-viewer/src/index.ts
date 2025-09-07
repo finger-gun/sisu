@@ -61,7 +61,7 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
     const defaultDir = opts.dir || 'traces';
   const path = opts.path || traceArgPath || 'trace.json';
   // Default to not writing per-run HTML. Explicit .html path still respected.
-  const wantHtml = opts.html ?? false;
+    const wantHtml = opts.html ?? true;
     const wantJson = opts.json ?? true;
     const cliStyle = argv.find(a => a.startsWith('--trace-style='))?.split('=')[1] as TraceStyle | undefined;
     const envStyle = (process.env.TRACE_STYLE as TraceStyle | undefined);
@@ -117,10 +117,10 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
         if (wantHtml) { fs.writeFileSync(targetPath, html, 'utf8'); }
       } else if (lower.endsWith('.json')) {
         if (wantJson) { fs.writeFileSync(targetPath, JSON.stringify(out, null, 2), 'utf8'); }
-        // no per-run HTML generation by default
+        if (wantHtml) { const hp = targetPath.replace(/\.json$/i, '.html'); fs.writeFileSync(hp, html, 'utf8'); }
       } else {
         if (wantJson) { fs.writeFileSync(targetPath, JSON.stringify(out, null, 2), 'utf8'); }
-        // no per-run HTML generation by default
+        if (wantHtml) { fs.writeFileSync(targetPath + '.html', html, 'utf8'); }
       }
 
       // If writing into a traces dir, maintain an index listing and link to latest

@@ -248,6 +248,10 @@ body{
 /* Align role + tool chips to the left; keep actions on the right */
 .msg .side-head{ display:flex; align-items:center; gap:10px; justify-content:flex-start; }
 .msg .side-head .actions{ margin-left:auto; }
+
+/* Compact meta lines under header (e.g., tool call + duration) */
+.msg .msg-meta{ margin:4px 0 6px; color:var(--muted); font-size:12px; line-height:1.35; }
+.msg .msg-meta .meta-line{ white-space:normal; word-break:break-word; }
 .actions{ display:flex; gap:8px; }
 .actions .btn{ width: 80px; padding:4px 8px; font-size:12px; }
 .role{ font-weight:700; font-size:12px; padding:5px 8px; border-radius:8px; background: rgba(96,165,250,.14); color:#cfe1ff; }

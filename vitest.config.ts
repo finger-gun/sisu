@@ -25,6 +25,8 @@ export default defineConfig({
         '**/node_modules/**',
         '**/dist/**',
         '**/examples/**',
+        // exclude static viewer assets (not unit-tested JS/HTML/CSS)
+        'packages/middleware/trace-viewer/assets/**',
         '**/*.d.ts',
         '**/test/**',
         '**/*.test.*',

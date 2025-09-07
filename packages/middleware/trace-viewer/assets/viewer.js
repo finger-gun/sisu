@@ -264,37 +264,32 @@
         collapseBtn.setAttribute('aria-expanded', String(!isHidden));
       });
 
-      // Assistant tool-calls: show a chip and surface tool_calls if content is empty
+      // Assistant tool-calls: summarize under header instead of header chips
       var isToolCall = (m.role === 'assistant') && Array.isArray(m.tool_calls) && m.tool_calls.length > 0;
       if (isToolCall) {
-        var head = roleEl.parentElement; // .side-head
-        var chip = document.createElement('span');
         var names = m.tool_calls.map(function(tc){ return tc && tc.name ? String(tc.name) : 'tool'; });
         var ids = m.tool_calls.map(function(tc){ return tc && tc.id ? String(tc.id) : ''; }).filter(Boolean);
-        var label = '';
-        if (names.length === 1) {
-          label = 'Tool call: ' + names[0] + (ids[0] ? ' (id: ' + ids[0] + ')' : '');
-        } else {
-          label = names.length + ' tool calls' + (ids.length ? ' (ids: ' + ids.join(', ') + ')' : '');
-        }
-        chip.className = 'chip';
-        chip.textContent = label;
-        head.insertBefore(chip, head.querySelector('.actions'));
+        var label = (names.length === 1)
+          ? ('Tool call: ' + names[0] + (ids[0] ? ' (id: ' + ids[0] + ')' : ''))
+          : (names.length + ' tool calls' + (ids.length ? ' (ids: ' + ids.join(', ') + ')' : ''));
+        // Create or find meta container and insert line before pre
+        var meta1 = document.createElement('div'); meta1.className = 'msg-meta';
+        var line1 = document.createElement('div'); line1.className = 'meta-line'; line1.textContent = label; meta1.appendChild(line1);
+        // Insert under content
+        pre.parentElement.insertBefore(meta1, pre.nextSibling);
         // If message content was empty, re-render body to show the tool_calls JSON
         if (!m.content || String(m.content).trim() === '') {
           r = renderCodeInto(pre, m.tool_calls, { pretty: true });
         }
       }
 
-      // Tool responses: show the tool_call_id to match with assistant calls
+      // Tool responses: show the tool_call_id + name under header
       if (m.role === 'tool' && m.tool_call_id) {
-        var head2 = roleEl.parentElement;
-        var idChip = document.createElement('span');
-        idChip.className = 'chip';
         var tid = String(m.tool_call_id);
         var tname = toolNameById[tid] || 'tool';
-        idChip.textContent = 'Tool response: ' + tname + ' (id: ' + tid + ')';
-        head2.insertBefore(idChip, head2.querySelector('.actions'));
+        var meta2 = document.createElement('div'); meta2.className = 'msg-meta';
+        var line2 = document.createElement('div'); line2.className = 'meta-line'; line2.textContent = 'Tool response: ' + tname + ' (id: ' + tid + ')'; meta2.appendChild(line2);
+        pre.parentElement.insertBefore(meta2, pre.nextSibling);
       }
 
       // Per-message duration: delta since previous stamped timestamp (if available)
@@ -303,11 +298,9 @@
       if (curTs && (!prevTs || curTs >= prevTs)) {
         var dt = prevTs ? (curTs - prevTs) : 0;
         if (dt > 0) {
-          var durChip = document.createElement('span');
-          durChip.className = 'chip';
-          durChip.textContent = 'Δ ' + (dt/1000).toFixed(2) + 's';
-          var headWrap = roleEl.parentElement;
-          headWrap.insertBefore(durChip, headWrap.querySelector('.actions'));
+          var meta3 = document.createElement('div'); meta3.className = 'msg-meta';
+          var line3 = document.createElement('div'); line3.className = 'meta-line'; line3.textContent = 'Δ ' + (dt/1000).toFixed(2) + 's'; meta3.appendChild(line3);
+          pre.parentElement.insertBefore(meta3, pre.nextSibling);
         }
         prevTs = curTs;
       }
