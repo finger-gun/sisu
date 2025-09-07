@@ -390,10 +390,24 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
         const segments = splitPipeline(args.command);
         const argvList = segments.map(seg => parseArgs(seg));
         let prev: import('node:child_process').ChildProcess | undefined;
+        let finished = false;
+        const finish = (exitCode: number, errMsg?: string) => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timeout);
+          const dur = Date.now() - start;
+          if (session) { session.cwd = cwd; session.expiresAt = Date.now() + cfg.sessions.ttlMs; }
+          if (errMsg) { stderr += (stderr ? "\n" : "") + errMsg; }
+          resolve({ exitCode, stdout, stderr, durationMs: dur, policy: { allowed: true }, cwd });
+        };
         for (let i = 0; i < argvList.length; i++) {
           const [pcmd, ...pargs] = argvList[i];
           const proc = spawn(pcmd, pargs, { cwd, env, shell: false });
           children.push(proc);
+          proc.on('error', (err) => {
+            killAll();
+            finish(-1, String(err?.message ?? err));
+          });
           if (i === 0) {
             if (args.stdin) proc.stdin.write(args.stdin);
           }
@@ -411,17 +425,8 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
           prev = proc;
         }
         const last = children[children.length - 1];
-        last.on('close', (code) => {
-          clearTimeout(timeout);
-          const dur = Date.now() - start;
-          if (session) { session.cwd = cwd; session.expiresAt = Date.now() + cfg.sessions.ttlMs; }
-          resolve({ exitCode: code ?? -1, stdout, stderr, durationMs: dur, policy: { allowed: true }, cwd });
-        });
-        last.on('error', (err) => {
-          clearTimeout(timeout);
-          const dur = Date.now() - start;
-          resolve({ exitCode: -1, stdout, stderr: String(err.message), durationMs: dur, policy: { allowed: true }, cwd });
-        });
+        last.on('close', (code) => finish(code ?? -1));
+        last.on('error', (err) => finish(-1, String(err?.message ?? err)));
       } else {
         const child = spawn(cmd, cmdArgs, { cwd, env, shell: false });
         children.push(child);
