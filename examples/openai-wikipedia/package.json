@@ -1,7 +1,7 @@
 {
   "name": "openai-wikipedia",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.2.4",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -14,7 +14,7 @@
     "@sisu-ai/mw-tool-calling": "3.0.2",
     "@sisu-ai/mw-conversation-buffer": "3.0.2",
     "@sisu-ai/mw-error-boundary": "3.0.2",
-    "@sisu-ai/mw-trace-viewer": "3.0.2",
+    "@sisu-ai/mw-trace-viewer": "3.1.0",
     "@sisu-ai/tool-wikipedia": "2.0.2",
     "dotenv": "^16.4.5"
   }

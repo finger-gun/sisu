@@ -1,7 +1,7 @@
 {
   "name": "ollama-hello",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -11,7 +11,7 @@
     "@sisu-ai/core": "1.0.2",
     "@sisu-ai/adapter-ollama": "3.0.2",
     "@sisu-ai/mw-usage-tracker": "3.0.2",
-    "@sisu-ai/mw-trace-viewer": "3.0.2",
+    "@sisu-ai/mw-trace-viewer": "3.1.0",
     "dotenv": "^16.4.5"
   }
 }

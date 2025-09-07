@@ -1,5 +1,12 @@
 # anthropic-control-flow
 
+## 0.2.4
+
+### Patch Changes
+
+- Updated dependencies [bdb3dbf]
+  - @sisu-ai/mw-trace-viewer@3.1.0
+
 ## 0.2.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @sisu-ai/mw-trace-viewer
 
+## 3.1.0
+
+### Minor Changes
+
+- bdb3dbf: New UI/UX
+
 ## 3.0.2
 
 ### Patch Changes
