@@ -199,6 +199,16 @@
     var list = document.querySelector('#msgList'); list.innerHTML = '';
     var tpl = document.querySelector('#msgTpl');
 
+    // Build a lookup of tool_call_id -> tool name from the full run messages
+    var toolNameById = {};
+    (currentRun.messages || []).forEach(function(mm){
+      if (mm && mm.role === 'assistant' && Array.isArray(mm.tool_calls)) {
+        mm.tool_calls.forEach(function(tc){
+          if (tc && tc.id) toolNameById[String(tc.id)] = tc.name || 'tool';
+        });
+      }
+    });
+
     (msgs || []).forEach(function (m) {
       var node = tpl.content.cloneNode(true);
 
@@ -252,6 +262,39 @@
         collapseBtn.textContent = isHidden ? 'Expand' : 'Collapse';
         collapseBtn.setAttribute('aria-expanded', String(!isHidden));
       });
+
+      // Assistant tool-calls: show a chip and surface tool_calls if content is empty
+      var isToolCall = (m.role === 'assistant') && Array.isArray(m.tool_calls) && m.tool_calls.length > 0;
+      if (isToolCall) {
+        var head = roleEl.parentElement; // .side-head
+        var chip = document.createElement('span');
+        var names = m.tool_calls.map(function(tc){ return tc && tc.name ? String(tc.name) : 'tool'; });
+        var ids = m.tool_calls.map(function(tc){ return tc && tc.id ? String(tc.id) : ''; }).filter(Boolean);
+        var label = '';
+        if (names.length === 1) {
+          label = 'Tool call: ' + names[0] + (ids[0] ? ' (id: ' + ids[0] + ')' : '');
+        } else {
+          label = names.length + ' tool calls' + (ids.length ? ' (ids: ' + ids.join(', ') + ')' : '');
+        }
+        chip.className = 'chip';
+        chip.textContent = label;
+        head.insertBefore(chip, head.querySelector('.actions'));
+        // If message content was empty, re-render body to show the tool_calls JSON
+        if (!m.content || String(m.content).trim() === '') {
+          r = renderCodeInto(pre, m.tool_calls, { pretty: true });
+        }
+      }
+
+      // Tool responses: show the tool_call_id to match with assistant calls
+      if (m.role === 'tool' && m.tool_call_id) {
+        var head2 = roleEl.parentElement;
+        var idChip = document.createElement('span');
+        idChip.className = 'chip';
+        var tid = String(m.tool_call_id);
+        var tname = toolNameById[tid] || 'tool';
+        idChip.textContent = 'Tool response: ' + tname + ' (id: ' + tid + ')';
+        head2.insertBefore(idChip, head2.querySelector('.actions'));
+      }
 
       list.appendChild(node);
     });
