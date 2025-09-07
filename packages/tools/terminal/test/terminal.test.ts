@@ -22,7 +22,7 @@ test('run_command blocks path outside roots', async () => {
 });
 
 test('pipeline with pipe is allowed when enabled and uses only allowed verbs', async () => {
-  const toolWithPipe = createTerminalTool({ roots: [root], operators: { allow: ['|'] } });
+  const toolWithPipe = createTerminalTool({ roots: [root], allowPipe: true });
   const res = await toolWithPipe.run_command({ command: 'cat README.md | wc -l' });
   expect(res.policy.allowed).toBe(true);
   expect(res.exitCode).toBe(0);

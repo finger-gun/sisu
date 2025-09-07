@@ -73,14 +73,22 @@ type TerminalToolConfig = {
   readOnlyRoots?: string[];
   capabilities: { read: boolean; write: boolean; delete: boolean; exec: boolean };
   commands: { allow: string[] };
-  execution: { timeoutMs: number; maxStdoutBytes: number; maxStderrBytes: number };
+  execution: { timeoutMs: number; maxStdoutBytes: number; maxStderrBytes: number; pathDirs: string[] };
   allowPipe?: boolean;      // enable '|'
   allowSequence?: boolean;  // enable ';', '&&', '||'
   sessions: { enabled: boolean; ttlMs: number; maxPerAgent: number };
 }
 ```
 
-Sensible defaults: `read: true`, `exec: true`, `write/delete: false`, timeout 10s, `roots: [process.cwd()]`, and a conservative allow-only command policy. Shell operators are denied by default. You can opt-in to pipelines (`|`) which are executed without a shell, validating each segment.
+Sensible defaults: `read: true`, `exec: true`, `write/delete: false`, timeout 10s, `roots: [process.cwd()]`, `execution.pathDirs` includes common system bins (`/usr/bin:/bin:/usr/local/bin` and `/opt/homebrew/bin` on macOS), and a conservative allow-only command policy. Shell operators are denied by default. You can opt-in to pipelines (`|`) which are executed without a shell, validating each segment.
+
+### PATH Policy
+- Fixed PATH: The tool constructs `PATH` from `execution.pathDirs` and ignores any provided `PATH` to prevent PATH hijack (malicious binaries earlier in the search path).
+- Recommended dirs:
+  - Linux: `/usr/bin`, `/bin`, `/usr/local/bin`.
+  - macOS: add `/opt/homebrew/bin` if using Homebrew on Apple Silicon.
+- Customize per app: Extend `execution.pathDirs` if your allowed commands live elsewhere (e.g., custom install prefixes). Prefer adding exact directories over inheriting the ambient PATH.
+- Environment hygiene: Only `PATH`, `HOME`, `LANG`, and `TERM` are passed through (sanitized). Consider adding absolute paths (e.g., `/usr/bin/grep`) in policies if you want even stronger guarantees.
 
 ## Tool Schemas
 

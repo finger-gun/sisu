@@ -22,10 +22,7 @@ export interface TerminalToolConfig {
     timeoutMs: number;
     maxStdoutBytes: number;
     maxStderrBytes: number;
-  };
-  operators?: {
-    // Operators allowed in structured (shell-free) form. Currently supports only '|'.
-    allow: Array<'|'>;
+    pathDirs: string[]; // PATH search dirs for spawned processes
   };
   // Preferred booleans for opt-in operators
   allowPipe?: boolean;      // enable shell-free pipelines with '|'
@@ -36,6 +33,12 @@ export interface TerminalToolConfig {
     maxPerAgent: number;
   };
 }
+
+const DEFAULT_PATH_DIRS: string[] = (() => {
+  const base = ['/usr/bin', '/bin', '/usr/local/bin'];
+  if (process.platform === 'darwin') base.push('/opt/homebrew/bin');
+  return base;
+})();
 
 export const DEFAULT_CONFIG: TerminalToolConfig = {
   roots: [process.cwd()],
@@ -59,8 +62,8 @@ export const DEFAULT_CONFIG: TerminalToolConfig = {
     timeoutMs: 10_000,
     maxStdoutBytes: 1_000_000,
     maxStderrBytes: 250_000,
+    pathDirs: DEFAULT_PATH_DIRS,
   },
-  operators: { allow: [] },
   allowPipe: false,
   allowSequence: false,
   sessions: { enabled: true, ttlMs: 120_000, maxPerAgent: 4 }
@@ -78,7 +81,6 @@ export function defaultTerminalConfig(overrides?: Partial<TerminalToolConfig>): 
       allow: overrides?.commands?.allow ?? DEFAULT_CONFIG.commands.allow,
     },
     execution: { ...DEFAULT_CONFIG.execution, ...(overrides?.execution ?? {}) },
-    operators: { ...DEFAULT_CONFIG.operators!, ...(overrides?.operators ?? {}) },
     allowPipe: overrides?.allowPipe ?? DEFAULT_CONFIG.allowPipe,
     allowSequence: overrides?.allowSequence ?? DEFAULT_CONFIG.allowSequence,
     sessions: { ...DEFAULT_CONFIG.sessions, ...(overrides?.sessions ?? {}) },
@@ -233,7 +235,7 @@ function commandPolicyCheck(args: { command: string; cwd: string }, cfg: Termina
   if (/>/.test(cmdStr)) found.push('>');
   if (/<\<?/.test(cmdStr)) found.push('<');
   if (/(^|\s)&(\s|$)/.test(cmdStr)) found.push('&');
-  const allowPipe = (cfg.allowPipe ?? false) || (cfg.operators?.allow ?? []).includes('|');
+  const allowPipe = cfg.allowPipe ?? false;
   const allowSequence = cfg.allowSequence ?? false;
   const unallowed = found.filter(op => {
     if (op === '|' && allowPipe) return false;
@@ -313,7 +315,8 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     for (const [k, v] of Object.entries(extra)) {
       if (allowed.has(k)) env[k] = v;
     }
-    env.PATH = '/usr/bin:/bin';
+    // Enforce a controlled PATH from config (ignores provided PATH to avoid hijack)
+    env.PATH = cfg.execution.pathDirs.join(':');
     return env;
   }
 
@@ -336,7 +339,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     if (!pre.allowed) {
       return { exitCode: -1, stdout: '', stderr: '', durationMs: 0, policy: pre, cwd };
     }
-    const pipelinesAllowed = (cfg.allowPipe ?? false) || (cfg.operators?.allow ?? []).includes('|');
+    const pipelinesAllowed = cfg.allowPipe ?? false;
     const sequencesAllowed = cfg.allowSequence ?? false;
     const hasPipe = pipelinesAllowed && /\|/.test(args.command);
     const hasSeq = sequencesAllowed && /(?:&&|\|\||;)/.test(args.command);
