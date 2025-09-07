@@ -45,6 +45,17 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
     const enabled = opts.enable ?? Boolean(argFlag || envFlag);
     if (!enabled) return next();
 
+    // Stamp messages with timestamps so the viewer can compute per-message durations
+    try {
+      const stamp = (m: any) => { if (m && !m.ts) (m as any).ts = new Date().toISOString(); };
+      (ctx.messages || []).forEach(stamp);
+      const arr = ctx.messages as any[];
+      if (arr && typeof (arr as any).push === 'function') {
+        const origPush = arr.push.bind(arr);
+        (arr as any).push = (...args: any[]) => { args.forEach(stamp); return origPush(...args); };
+      }
+    } catch {}
+
     const traceArgPath = argFlag && argFlag.includes('=') ? argFlag.split('=')[1] : '';
     const explicitPath = Boolean(opts.path || traceArgPath);
     const defaultDir = opts.dir || 'traces';
@@ -282,8 +293,9 @@ function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle
     } catch {}
   });
 
-  // runs.js: a list of run script filenames
-  const runsJs = 'window.SISU_RUN_SCRIPTS = ' + JSON.stringify(runScriptFiles.sort().reverse()) + ';\n';
+  // runs.js: a list of run script filenames + logo (kept for compatibility)
+  const runsJs = 'window.SISU_RUN_SCRIPTS = ' + JSON.stringify(runScriptFiles.sort().reverse()) + ';\n'
+                + 'window.SISU_LOGO_DATA = ' + JSON.stringify(logo || '') + ';\n';
   fs.writeFileSync(pathMod.join(dir, 'runs.js'), runsJs, 'utf8');
 
   // Copy static assets

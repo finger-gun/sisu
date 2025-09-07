@@ -209,6 +209,7 @@
       }
     });
 
+    var prevTs = null;
     (msgs || []).forEach(function (m) {
       var node = tpl.content.cloneNode(true);
 
@@ -294,6 +295,21 @@
         var tname = toolNameById[tid] || 'tool';
         idChip.textContent = 'Tool response: ' + tname + ' (id: ' + tid + ')';
         head2.insertBefore(idChip, head2.querySelector('.actions'));
+      }
+
+      // Per-message duration: delta since previous stamped timestamp (if available)
+      var curTs = null;
+      try { if (m.ts) curTs = new Date(m.ts).getTime(); } catch(_) {}
+      if (curTs && (!prevTs || curTs >= prevTs)) {
+        var dt = prevTs ? (curTs - prevTs) : 0;
+        if (dt > 0) {
+          var durChip = document.createElement('span');
+          durChip.className = 'chip';
+          durChip.textContent = 'Δ ' + (dt/1000).toFixed(2) + 's';
+          var headWrap = roleEl.parentElement;
+          headWrap.insertBefore(durChip, headWrap.querySelector('.actions'));
+        }
+        prevTs = curTs;
       }
 
       list.appendChild(node);
