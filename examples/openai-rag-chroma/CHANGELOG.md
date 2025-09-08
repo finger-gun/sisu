@@ -1,5 +1,12 @@
 # @sisu-ai/example-openai-rag-chroma
 
+## 0.1.6
+
+### Patch Changes
+
+- Updated dependencies [f073d08]
+  - @sisu-ai/mw-trace-viewer@4.0.0
+
 ## 0.1.5
 
 ### Patch Changes

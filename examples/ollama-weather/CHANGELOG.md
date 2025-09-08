@@ -1,5 +1,12 @@
 # ollama-weather
 
+## 0.1.8
+
+### Patch Changes
+
+- Updated dependencies [f073d08]
+  - @sisu-ai/mw-trace-viewer@4.0.0
+
 ## 0.1.7
 
 ### Patch Changes

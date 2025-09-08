@@ -1,5 +1,12 @@
 # openai-vision
 
+## 0.2.5
+
+### Patch Changes
+
+- Updated dependencies [f073d08]
+  - @sisu-ai/mw-trace-viewer@4.0.0
+
 ## 0.2.4
 
 ### Patch Changes
