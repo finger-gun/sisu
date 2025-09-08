@@ -210,9 +210,66 @@ function timestamp(d = new Date()) {
 }
 
 function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle) {
-  // runs.js: build from existing run-*.js files and include logo
-  const jsFiles: string[] = fs.readdirSync(dir).filter((f: string) => f.endsWith('.js') && f.startsWith('run-'));
-  const runsJs = 'window.SISU_RUN_SCRIPTS = ' + JSON.stringify(jsFiles.sort().reverse()) + ';\n';
+  // Build lightweight runs index so the viewer can lazy-load details on demand.
+  // Prefer .json if present; fall back to parsing minimal info from .js.
+  const files: string[] = fs.readdirSync(dir);
+  const jsons = new Set(files.filter((f: string) => f.endsWith('.json')));
+  const jss = new Set(files.filter((f: string) => f.endsWith('.js') && f !== 'runs.js' && f !== 'viewer.js'));
+
+  const pickFileForId = (id: string) => {
+    const jsonName = id + '.json';
+    const jsName = id + '.js';
+    // Prefer JS to avoid CORS (script loading)
+    if (jss.has(jsName)) return jsName;
+    if (jsons.has(jsonName)) return jsonName;
+    // Fallback to any json starting with id or any js, if weird names
+    const anyJson = Array.from(jsons).find(f => f.replace(/\.json$/i, '') === id) || Array.from(jsons).find(f => f.includes(id));
+    const anyJs = Array.from(jss).find(f => f.replace(/\.js$/i, '') === id) || Array.from(jss).find(f => f.includes(id));
+    return anyJs || anyJson || '';
+  };
+
+  const ids = new Set<string>();
+  // derive ids from jsons and jss
+  for (const f of Array.from(jsons)) ids.add(f.replace(/\.json$/i, ''));
+  for (const f of Array.from(jss)) ids.add(f.replace(/\.js$/i, ''));
+
+  const parseRunJs = (code: string): any | null => {
+    // Expect: window.SISU_TRACES.runs.push(<json>);
+    const m = code.match(/runs\.push\(([\s\S]*?)\);/);
+    if (!m) return null;
+    try { return JSON.parse(m[1]); } catch { return null; }
+  };
+
+  const toSummary = (id: string) => {
+    const file = pickFileForId(id);
+    let title = id;
+    let time = '';
+    let status: any = 'unknown';
+    let duration = 0;
+    if (file.endsWith('.json')) {
+      const obj = JSON.parse(fs.readFileSync(pathMod.join(dir, file), 'utf8'));
+      title = obj && obj.input ? String(obj.input).slice(0, 120) : id;
+      time = obj && obj.meta && obj.meta.start || '';
+      status = obj && obj.meta && obj.meta.status || 'unknown';
+      duration = obj && obj.meta && obj.meta.durationMs || 0;
+    } else if (file.endsWith('.js')) {
+      const code = fs.readFileSync(pathMod.join(dir, file), 'utf8');
+      const obj = parseRunJs(code);
+      if (obj) {
+        title = obj.title || (obj.input ? String(obj.input).slice(0, 120) : id);
+        time = obj.time || obj.start || '';
+        status = obj.status || 'unknown';
+        duration = obj.duration || 0;
+      }
+    }
+    return { id, file, title, time, status, duration };
+  };
+
+  const index = Array.from(ids).map(toSummary).filter(x => x.file);
+  // Sort newest first based on time
+  index.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
+
+  const runsJs = 'window.SISU_RUN_INDEX = ' + JSON.stringify(index) + ';\n';
   fs.writeFileSync(pathMod.join(dir, 'runs.js'), runsJs, 'utf8');
 
   // Copy SPA viewer assets (viewer.html/css/js) into target dir
