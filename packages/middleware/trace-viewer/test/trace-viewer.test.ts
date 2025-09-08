@@ -107,3 +107,28 @@ test('traceViewer supports html-only and json-only outputs', async () => {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
   }
 });
+
+test('runs index skips malformed JSON traces', async () => {
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-badjson-'));
+  try {
+    // Write a malformed JSON file into traces dir
+    const bad = path.join(outDir, 'run-20000101-000000.json');
+    fs.writeFileSync(bad, '{"meta": { "start": "x" ', 'utf8'); // truncated JSON
+
+    // Write a good run into the same dir to trigger index generation
+    const goodJson = path.join(outDir, 'ok.json');
+    await compose([traceViewer({ enable: true, path: goodJson, style: 'light' })])(makeCtx());
+
+    const runsJsPath = path.join(outDir, 'runs.js');
+    expect(fs.existsSync(runsJsPath)).toBe(true);
+    const js = fs.readFileSync(runsJsPath, 'utf8');
+    const m = js.match(/SISU_RUN_INDEX\s*=\s*(\[[\s\S]*?\]);/);
+    expect(m).toBeTruthy();
+    const index = JSON.parse(m![1]);
+    // Ensure the malformed entry was skipped
+    const hasBad = index.some((e: any) => e && typeof e.file === 'string' && e.file.includes('run-20000101-000000.json'));
+    expect(hasBad).toBe(false);
+  } finally {
+    try { fs.rmSync(outDir, { recursive: true, force: true }); } catch {}
+  }
+});

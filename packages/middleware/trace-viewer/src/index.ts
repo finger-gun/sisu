@@ -247,25 +247,32 @@ function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle
     let status: any = 'unknown';
     let duration = 0;
     if (file.endsWith('.json')) {
-      const obj = JSON.parse(fs.readFileSync(pathMod.join(dir, file), 'utf8'));
-      title = obj && obj.input ? String(obj.input).slice(0, 120) : id;
-      time = obj && obj.meta && obj.meta.start || '';
-      status = obj && obj.meta && obj.meta.status || 'unknown';
-      duration = obj && obj.meta && obj.meta.durationMs || 0;
-    } else if (file.endsWith('.js')) {
-      const code = fs.readFileSync(pathMod.join(dir, file), 'utf8');
-      const obj = parseRunJs(code);
-      if (obj) {
-        title = obj.title || (obj.input ? String(obj.input).slice(0, 120) : id);
-        time = obj.time || obj.start || '';
-        status = obj.status || 'unknown';
-        duration = obj.duration || 0;
+      try {
+        const obj = JSON.parse(fs.readFileSync(pathMod.join(dir, file), 'utf8'));
+        title = obj && obj.input ? String(obj.input).slice(0, 120) : id;
+        time = obj && obj.meta && obj.meta.start || '';
+        status = obj && obj.meta && obj.meta.status || 'unknown';
+        duration = obj && obj.meta && obj.meta.durationMs || 0;
+      } catch {
+        // Skip malformed JSON entries to avoid breaking runs index
+        return null as any;
       }
+    } else if (file.endsWith('.js')) {
+      try {
+        const code = fs.readFileSync(pathMod.join(dir, file), 'utf8');
+        const obj = parseRunJs(code);
+        if (obj) {
+          title = obj.title || (obj.input ? String(obj.input).slice(0, 120) : id);
+          time = obj.time || obj.start || '';
+          status = obj.status || 'unknown';
+          duration = obj.duration || 0;
+        }
+      } catch {}
     }
     return { id, file, title, time, status, duration };
   };
 
-  const index = Array.from(ids).map(toSummary).filter(x => x.file);
+  const index = Array.from(ids).map(toSummary).filter((x: any) => x && x.file);
   // Sort newest first based on time
   index.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
 
