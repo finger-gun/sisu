@@ -52,6 +52,7 @@
   }
 
   // --- Loader: supports both .js (self-registering) and .json (fetch) ---
+  var RUN_INDEX = window.SISU_RUN_INDEX || null; // lightweight summaries written in runs.js
   function loadRunScripts(list, done) {
     var unique = Array.from(new Set(list || []));              // de-dupe
     var remaining = unique.length;                             // FIX: count unique, not original
@@ -114,7 +115,43 @@
   }
 
   var currentRun = null;
+  function ensureRunLoaded(id, cb) {
+    var runs = (window.SISU_TRACES && window.SISU_TRACES.runs) || [];
+    var found = runs.find(function (r) { return r.id === id; });
+    if (found) { cb && cb(found); return; }
+    if (!RUN_INDEX) { cb && cb(null); return; }
+    var idx = (RUN_INDEX || []).find(function (r) { return r.id === id; });
+    if (!idx || !idx.file) { cb && cb(null); return; }
+    // Always prefer JS script loading to avoid CORS
+    // Derive a .js url from index entry in a readable way
+    var src = idx && idx.file ? idx.file : '';
+    if (!/\.js$/i.test(src)) {
+      if (idx && idx.id && typeof idx.id === 'string') {
+        src = idx.id + '.js';
+      } else {
+        src = String(src || '').replace(/\.json$/i, '.js');
+      }
+    }
+    var s = document.createElement('script');
+    function onScriptEvent() {
+      var foundRun = (window.SISU_TRACES.runs || []).find(function (r) { return r.id === id; });
+      if (cb) cb(foundRun);
+    }
+    s.onload = onScriptEvent;
+    s.onerror = onScriptEvent;
+    s.src = src;
+    document.head.appendChild(s);
+  }
   function selectRun(id) {
+    if (RUN_INDEX) {
+      $$('.run').forEach(function (el) { el.classList.toggle('active', el.dataset.id === id); });
+      ensureRunLoaded(id, function(run){
+        var runs = (window.SISU_TRACES && window.SISU_TRACES.runs) || [];
+        currentRun = run || runs.find(function (r) { return r.id === id; }) || runs[0] || null;
+        updateTracePanel();
+      });
+      return;
+    }
     var runs = (window.SISU_TRACES && window.SISU_TRACES.runs) || [];
     currentRun = runs.find(function (r) { return r.id === id; }) || runs[0] || null;
     $$('.run').forEach(function (el) { el.classList.toggle('active', el.dataset.id === id); });
@@ -489,14 +526,19 @@
     });
   }
 
-  var scriptList = window.SISU_RUN_SCRIPTS || [];   // set in runs.js  :contentReference[oaicite:8]{index=8}
-  loadRunScripts(scriptList, function () {
-    // If the JSON we fetched wasn’t wrapped, also normalize it here
-    // (No-op for .js because run-*.js pushes into window.SISU_TRACES directly.) :contentReference[oaicite:9]{index=9}
-    dedupeSortRuns();
-    renderRuns(window.SISU_TRACES.runs || []);
-    if ((window.SISU_TRACES.runs || []).length) { selectRun(window.SISU_TRACES.runs[0].id); }
-  });
+  if (!RUN_INDEX) {
+    var scriptList = window.SISU_RUN_SCRIPTS || [];
+    loadRunScripts(scriptList, function () {
+      dedupeSortRuns();
+      renderRuns(window.SISU_TRACES.runs || []);
+      if ((window.SISU_TRACES.runs || []).length) { selectRun(window.SISU_TRACES.runs[0].id); }
+    });
+  } else {
+    // Render from lightweight index; load detailed run on selection
+    var list = (RUN_INDEX || []).slice().sort(function(a,b){ return new Date(b.time||0) - new Date(a.time||0); });
+    renderRuns(list);
+    if (list.length) { selectRun(list[0].id); }
+  }
 
   // --- Combined filtering: search + date range -------------------------------
   var stateFilter = { q: '', from: '', to: '' };
@@ -523,8 +565,9 @@
     return `${y}-${m}-${da}`;
   }
 
+  function getRunsForList(){ return RUN_INDEX || (window.SISU_TRACES.runs || []); }
   function applyFilters() {
-    var runs = (window.SISU_TRACES.runs || []);
+    var runs = getRunsForList();
     var q = (stateFilter.q || '').toLowerCase();
     var fromTs = atStartOfDayLocal(stateFilter.from);
     var toTs = atEndOfDayLocal(stateFilter.to);
@@ -603,9 +646,11 @@
     b.addEventListener('click', function () { setPreset(this.dataset.range); });
   });
 
-  dedupeSortRuns();
-  renderRuns(window.SISU_TRACES.runs || []);
-  if ((window.SISU_TRACES.runs || []).length) { selectRun(window.SISU_TRACES.runs[0].id); }
+  if (!RUN_INDEX) {
+    dedupeSortRuns();
+    renderRuns(window.SISU_TRACES.runs || []);
+    if ((window.SISU_TRACES.runs || []).length) { selectRun(window.SISU_TRACES.runs[0].id); }
+  }
 
   // default preset: show everything
   if (document.querySelector('.date-filter')) { setPreset('all'); }
