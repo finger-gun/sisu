@@ -133,7 +133,13 @@
       }
     }
     var s = document.createElement('script');
-    s.src = src; s.onload = s.onerror = function(){ cb && cb((window.SISU_TRACES.runs || []).find(function (r) { return r.id === id; })); };
+    function onScriptEvent() {
+      var foundRun = (window.SISU_TRACES.runs || []).find(function (r) { return r.id === id; });
+      if (cb) cb(foundRun);
+    }
+    s.onload = onScriptEvent;
+    s.onerror = onScriptEvent;
+    s.src = src;
     document.head.appendChild(s);
   }
   function selectRun(id) {
