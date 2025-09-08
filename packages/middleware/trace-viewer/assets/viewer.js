@@ -123,7 +123,15 @@
     var idx = (RUN_INDEX || []).find(function (r) { return r.id === id; });
     if (!idx || !idx.file) { cb && cb(null); return; }
     // Always prefer JS script loading to avoid CORS
-    var src = /\.js$/i.test(idx.file) ? idx.file : (idx.id ? (idx.id + '.js') : idx.file.replace(/\.json$/i, '.js'));
+    // Derive a .js url from index entry in a readable way
+    var src = idx && idx.file ? idx.file : '';
+    if (!/\.js$/i.test(src)) {
+      if (idx && idx.id && typeof idx.id === 'string') {
+        src = idx.id + '.js';
+      } else {
+        src = String(src || '').replace(/\.json$/i, '.js');
+      }
+    }
     var s = document.createElement('script');
     s.src = src; s.onload = s.onerror = function(){ cb && cb((window.SISU_TRACES.runs || []).find(function (r) { return r.id === id; })); };
     document.head.appendChild(s);
