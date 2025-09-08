@@ -211,7 +211,7 @@ function timestamp(d = new Date()) {
 
 function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle) {
   // Build lightweight runs index so the viewer can lazy-load details on demand.
-  // Prefer .json if present; fall back to parsing minimal info from .js.
+  // Prefer .js to avoid CORS (script loading); fall back to parsing minimal info from .json.
   const files: string[] = fs.readdirSync(dir);
   const jsons = new Set(files.filter((f: string) => f.endsWith('.json')));
   const jss = new Set(files.filter((f: string) => f.endsWith('.js') && f !== 'runs.js' && f !== 'viewer.js'));
@@ -223,15 +223,16 @@ function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle
     if (jss.has(jsName)) return jsName;
     if (jsons.has(jsonName)) return jsonName;
     // Fallback to any json starting with id or any js, if weird names
-    const anyJson = Array.from(jsons).find(f => f.replace(/\.json$/i, '') === id) || Array.from(jsons).find(f => f.includes(id));
-    const anyJs = Array.from(jss).find(f => f.replace(/\.js$/i, '') === id) || Array.from(jss).find(f => f.includes(id));
+    const findInSet = (set: Set<string>, pred: (s: string) => boolean) => { for (const f of set) { if (pred(f)) return f; } return undefined as any; };
+    const anyJson = findInSet(jsons, f => f.replace(/\.json$/i, '') === id) || findInSet(jsons, f => f.includes(id));
+    const anyJs = findInSet(jss, f => f.replace(/\.js$/i, '') === id) || findInSet(jss, f => f.includes(id));
     return anyJs || anyJson || '';
   };
 
   const ids = new Set<string>();
   // derive ids from jsons and jss
-  for (const f of Array.from(jsons)) ids.add(f.replace(/\.json$/i, ''));
-  for (const f of Array.from(jss)) ids.add(f.replace(/\.js$/i, ''));
+  for (const f of jsons) ids.add(f.replace(/\.json$/i, ''));
+  for (const f of jss) ids.add(f.replace(/\.js$/i, ''));
 
   const parseRunJs = (code: string): any | null => {
     // Expect: window.SISU_TRACES.runs.push(<json>);
