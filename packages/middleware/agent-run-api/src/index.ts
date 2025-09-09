@@ -50,8 +50,15 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
     if (!r.path.startsWith('/')) throw new Error(`agentRunApi route path must start with '/': ${r.path}`);
     customStartPaths.set(`${basePath}${r.path}`, { pipeline: r.pipeline, transform: r.transform });
   }
+  const endpoints: string[] = [
+    `POST ${basePath}/runs/start`,
+    `GET  ${basePath}/runs/:id/status`,
+    `GET  ${basePath}/runs/:id/stream`,
+    `POST ${basePath}/runs/:id/cancel`,
+    ...Array.from(customStartPaths.keys()).map(p => `POST ${p}`),
+  ];
 
-  return async (ctx: HttpCtx, next) => {
+  const mw: Middleware<any> = async (ctx: HttpCtx, next) => {
     const { req, res } = ctx;
     const url = req.url || '';
     if (!url.startsWith(basePath)) {
@@ -107,6 +114,26 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
         // Ensure state exists and attach pipeline/options hint for downstream routing
         runCtx.state = { ...((ctx as any).state ?? {}) };
         runCtx.state.agentRun = { ...(runCtx.state.agentRun ?? {}), pipeline, options: initial.options };
+        // Forward streaming token events from the model to the run emitter so SSE clients can receive live tokens.
+        if (runCtx.model && typeof runCtx.model.generate === 'function') {
+          const origGenerate = runCtx.model.generate.bind(runCtx.model);
+          runCtx.model = { ...runCtx.model, generate: (messages: any, opts?: any) => {
+            const maybe = origGenerate(messages, opts);
+            return Promise.resolve(maybe).then((res: any) => {
+              if (res && typeof res[Symbol.asyncIterator] === 'function') {
+                const src = res as AsyncIterable<any>;
+                async function* tee() {
+                  for await (const ev of src) {
+                    if (ev?.type === 'token' && ev.token) run.emitter.emit('token', { token: ev.token });
+                    yield ev;
+                  }
+                }
+                return tee();
+              }
+              return res;
+            });
+          } };
+        }
         try {
           await handler(runCtx);
           if (controller.signal.aborted) {
@@ -203,16 +230,33 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
     if (req.method === 'GET' && streamMatch) {
       const run = await runStore.get<RunRecord>(streamMatch.params.id);
       if (!run) { res.statusCode = 404; res.end(); return; }
-      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' });
       const send = (event: string, data: unknown) => { res.write(`event: ${event}\n`); res.write(`data: ${JSON.stringify(data)}\n\n`); };
       const onStatus = (s: unknown) => send('status', s);
+      const onToken = (t: unknown) => send('token', t);
       const onFinal = (d: unknown) => { send('final', d); cleanup(); res.end(); };
       const onError = (e: unknown) => { send('error', e); cleanup(); res.end(); };
-      const cleanup = () => { run.emitter.off('status', onStatus); run.emitter.off('final', onFinal); run.emitter.off('error', onError); };
+      const cleanup = () => { run.emitter.off('status', onStatus); run.emitter.off('token', onToken); run.emitter.off('final', onFinal); run.emitter.off('error', onError); };
       run.emitter.on('status', onStatus);
+      run.emitter.on('token', onToken);
       run.emitter.on('final', onFinal);
       run.emitter.on('error', onError);
       send('status', { status: run.status });
+      // If run already finished, replay the terminal event immediately
+      if (run.status === 'succeeded' && typeof run.result !== 'undefined') {
+        onFinal({ result: run.result });
+        return;
+      }
+      if (run.status === 'failed' && run.error) {
+        onError({ message: run.error });
+        return;
+      }
+      if (run.status === 'cancelled') {
+        onStatus({ status: run.status });
+        cleanup();
+        res.end();
+        return;
+      }
       req.on('close', cleanup);
       return;
     }
@@ -235,4 +279,6 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
 
     await next();
   };
+  (mw as any).bannerEndpoints = endpoints;
+  return mw;
 }

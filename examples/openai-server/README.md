@@ -25,6 +25,14 @@ curl -s -X POST localhost:3000/api/runs/start \
 
 The response includes `runId` that can be used with the other routes.
 
+## Streaming (SSE)
+
+```bash
+curl -N http://localhost:3000/api/runs/<runId>/stream
+```
+
+You will receive `status` and `final` events.
+
 ## Config Flags (CLI overrides env)
 - `--openai-api-key`, `--api-key`
 - `--openai-base-url`, `--base-url`

@@ -6,23 +6,32 @@ import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { agentRunApi } from '@sisu-ai/mw-agent-run-api';
 import { Server } from '@sisu-ai/server';
 
-const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini'});
 const basePath = process.env.BASE_PATH || '/api';
 const healthPath = process.env.HEALTH_PATH || '/health';
 const apiKey = process.env.API_KEY;
 
 const generateOnce = async (c: Ctx) => {
   if (c.input) c.messages.push({ role: 'user', content: c.input });
-  const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });
-  if (res?.message) c.messages.push(res.message);
+  const out: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal, stream: true });
+  if (out && typeof out[Symbol.asyncIterator] === 'function') {
+    for await (const ev of out as AsyncIterable<any>) {
+      if (ev?.type === 'assistant_message' && ev.message) {
+        c.messages.push(ev.message);
+      }
+    }
+  } else if (out?.message) {
+    c.messages.push(out.message);
+  }
 };
 const store = new InMemoryKV();
+const runApi = agentRunApi({ runStore: store, basePath, apiKey });
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
   .use(usageTracker({
     '*': { inputPer1M: 0.15, outputPer1M: 0.60 },
   }, { logPerCall: true }))
-  .use(agentRunApi({ runStore: store, basePath, apiKey }))
+  .use(runApi)
   .use(generateOnce);
 
 const port = Number(process.env.PORT) || 3000;
@@ -32,13 +41,8 @@ const server = new Server(app, {
   port,
   basePath,
   healthPath,
-  // Server prints a startup banner automatically; list endpoints here
-  bannerEndpoints: [
-    `POST ${basePath}/runs/start`,
-    `GET  ${basePath}/runs/:id/status`,
-    `GET  ${basePath}/runs/:id/stream`,
-    `POST ${basePath}/runs/:id/cancel`,
-  ],
+  // Server prints a startup banner automatically; list endpoints from middleware
+  bannerEndpoints: (runApi as any).bannerEndpoints,
   createCtx: (req, res) => ({
     req,
     res,
@@ -55,8 +59,3 @@ const server = new Server(app, {
 });
 
 server.listen();
-
-server.on('request', e => console.log('[req]', e));
-server.on('response', e => console.log('[res]', e));
-server.on('error', e => console.error('[error]', e));
-server.on('close', () => console.log('[close]'));

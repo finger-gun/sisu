@@ -66,7 +66,9 @@ export class Server<Ctx = any> {
     }
     const handler = this.agent.handler();
     await handler(ctx as Ctx);
-    if (!res.writableEnded) {
+    // Only synthesize a 404 when nothing has been written at all.
+    // If headers were sent (e.g., SSE), keep the connection as-is.
+    if (!res.writableEnded && !(res as any).headersSent) {
       res.statusCode = 404;
       res.end();
     }
