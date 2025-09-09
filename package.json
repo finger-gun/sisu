@@ -65,7 +65,8 @@
     "ex:openai:openai-rag-chroma": "TRACE_HTML=1 npm run dev -w examples/openai-rag-chroma -- --trace -- \"Best fika in Malmö?\"",
     "ex:openai:openai-azure-blob": "TRACE_HTML=1 npm run dev -w examples/openai-azure-blob -- --trace",
     "ex:openai:extract-urls": "TRACE_HTML=1 npm run dev -w examples/openai-extract-urls -- --trace -- \"Extract URLs from: 'Check out https://www.google.com and also https://example.com'\"",
-    "ex:openai:aws-s3": "TRACE_HTML=1 npm run dev -w examples/openai-aws-s3 -- --trace"
+    "ex:openai:aws-s3": "TRACE_HTML=1 npm run dev -w examples/openai-aws-s3 -- --trace",
+    "ex:openai:server": "TRACE_HTML=1 npm run dev -w examples/openai-server -- --trace"
   },
   "keywords": [
     "sisu",
