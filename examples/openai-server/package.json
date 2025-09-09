@@ -1,7 +1,7 @@
 {
   "name": "openai-server",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -10,8 +10,8 @@
   "dependencies": {
     "@sisu-ai/core": "1.0.2",
     "@sisu-ai/adapter-openai": "3.0.2",
-    "@sisu-ai/mw-agent-run-api": "0.0.1",
-    "@sisu-ai/server": "0.0.1",
+    "@sisu-ai/mw-agent-run-api": "1.0.0",
+    "@sisu-ai/server": "1.0.0",
     "dotenv": "^16.4.5"
   }
 }

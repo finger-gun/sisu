@@ -1,16 +1,22 @@
 {
   "name": "@sisu-ai/mw-agent-run-api",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
-  "publishConfig": {"access": "public"},
-  "scripts": {"build": "tsc -b"},
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
   "peerDependencies": {
     "@sisu-ai/core": "1.0.2",
-    "@sisu-ai/server": "0.0.1"
+    "@sisu-ai/server": "1.0.0"
   },
   "repository": {
     "type": "git",
@@ -18,6 +24,14 @@
     "directory": "packages/middleware/agent-run-api"
   },
   "homepage": "https://github.com/finger-gun/sisu#readme",
-  "bugs": {"url": "https://github.com/finger-gun/sisu/issues"},
-  "keywords": ["sisu", "middleware", "agent", "http", "api"]
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  },
+  "keywords": [
+    "sisu",
+    "middleware",
+    "agent",
+    "http",
+    "api"
+  ]
 }
