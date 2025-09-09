@@ -93,6 +93,33 @@ test('run can be cancelled', async () => {
   // no real server was started
 });
 
+test('cancel returns 409 when run already completed', async () => {
+  const app = new Agent<HttpCtx>()
+    .use(agentRunApi())
+    .use(async c => { c.messages = [{ role: 'assistant', content: 'done' }]; });
+  const server = new Server(app, { createCtx: (req, res) => ({ req, res, messages: [], signal: new AbortController().signal, agent: app }) });
+  // Start and wait for success
+  const start = makeReqRes('POST', '/api/runs/start', { input: 'hi' });
+  await server.listener()(start.req, start.res);
+  const { runId } = start.read().json();
+  // poll until succeeded
+  let ok = false;
+  for (let i = 0; i < 50; i++) {
+    await sleep(10);
+    const r = makeReqRes('GET', `/api/runs/${runId}/status`);
+    await server.listener()(r.req, r.res);
+    const b = r.read().json();
+    if (b.status === 'succeeded') { ok = true; break; }
+  }
+  expect(ok).toBe(true);
+  // Attempt cancel on completed run
+  const cancel = makeReqRes('POST', `/api/runs/${runId}/cancel`);
+  await server.listener()(cancel.req, cancel.res);
+  const out = cancel.read();
+  expect(out.status).toBe(409);
+  expect(JSON.parse(out.text).error).toBe('run_not_cancellable');
+});
+
 test('custom route transform and pipeline tag', async () => {
   const app = new Agent<HttpCtx>()
     .use(agentRunApi({

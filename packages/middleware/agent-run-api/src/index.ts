@@ -264,6 +264,21 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
     if (req.method === 'POST' && cancelMatch) {
       const run = await runStore.get<RunRecord>(cancelMatch.params.id);
       if (!run) { res.statusCode = 404; res.end(); return; }
+      // Do not overwrite terminal states
+      if (run.status === 'succeeded' || run.status === 'failed' || run.status === 'cancelled') {
+        res.statusCode = 409;
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ error: 'run_not_cancellable', status: run.status }));
+        return;
+      }
+      // If already cancelling, just echo state
+      if (run.status === 'cancelling') {
+        res.statusCode = 200;
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ runId: run.id, status: run.status }));
+        return;
+      }
+      // queued or running: request abort and mark cancelling
       run.controller.abort();
       run.status = 'cancelling';
       run.updatedAt = Date.now();
