@@ -64,6 +64,9 @@ export class Server<Ctx = any> {
     if (!(ctx as any).log) {
       (ctx as any).log = srvLogger;
     }
+    // Mark this context as an HTTP transport envelope for middleware that
+    // wants to trace only the spawned run (not the envelope requests).
+    (ctx as any).state = { ...((ctx as any).state ?? {}), _transport: { type: 'http' } };
     const handler = this.agent.handler();
     await handler(ctx as Ctx);
     // Only synthesize a 404 when nothing has been written at all.

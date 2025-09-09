@@ -45,6 +45,13 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
     const enabled = opts.enable ?? Boolean(argFlag || envFlag);
     if (!enabled) return next();
 
+    // Skip tracing for plain HTTP transport envelopes (server + agent-run-api)
+    const transportType = (ctx as any)?.state?._transport?.type as string | undefined;
+    const spawnedRun = Boolean((ctx as any)?.state?.agentRun?.spawned);
+    if (transportType === 'http' && !spawnedRun) {
+      return next();
+    }
+
     // Stamp messages with timestamps so the viewer can compute per-message durations
     const stamp = (m: any) => { if (m && !m.ts) (m as any).ts = new Date().toISOString(); };
     (ctx.messages || []).forEach(stamp);

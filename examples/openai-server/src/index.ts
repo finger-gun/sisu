@@ -4,6 +4,7 @@ import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { agentRunApi } from '@sisu-ai/mw-agent-run-api';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { cors } from '@sisu-ai/mw-cors';
 import { Server } from '@sisu-ai/server';
 
@@ -30,6 +31,7 @@ const runApi = agentRunApi({ runStore: store, basePath, apiKey });
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
   .use(cors({ origin: '*', credentials: true }))
+  .use(traceViewer())
   .use(usageTracker({
     '*': { inputPer1M: 0.15, outputPer1M: 0.60 },
   }, { logPerCall: true }))

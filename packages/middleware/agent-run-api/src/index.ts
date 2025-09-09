@@ -113,7 +113,9 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
         const runCtx: any = { ...ctx, req: { url: '', headers: {}, method: 'POST' } as any, res: undefined, input: initial.input, signal: controller.signal };
         // Ensure state exists and attach pipeline/options hint for downstream routing
         runCtx.state = { ...((ctx as any).state ?? {}) };
-        runCtx.state.agentRun = { ...(runCtx.state.agentRun ?? {}), pipeline, options: initial.options };
+        // Mark this as an internal spawned run (not the HTTP envelope)
+        runCtx.state._transport = { type: 'internal' } as any;
+        runCtx.state.agentRun = { ...(runCtx.state.agentRun ?? {}), pipeline, options: initial.options, spawned: true };
         // Forward streaming token events from the model to the run emitter so SSE clients can receive live tokens.
         if (runCtx.model && typeof runCtx.model.generate === 'function') {
           const origGenerate = runCtx.model.generate.bind(runCtx.model);
