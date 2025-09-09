@@ -77,7 +77,7 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
         chunks.push(chunk as Buffer);
       }
       if (chunks.length === 0) return undefined;
-      try { return JSON.parse(Buffer.concat(chunks).toString()); } catch { return undefined; }
+      try { return JSON.parse(Buffer.concat(chunks).toString()); } catch { return { __invalidJson: true }; }
     };
 
     const startRun = async (initial: { input?: unknown; options?: Record<string, unknown> }, pipeline?: string) => {
@@ -140,18 +140,41 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
     // Handle POST start for default and custom routes
     if (req.method === 'POST' && (url === `${basePath}/runs/start` || customStartPaths.has(url))) {
       const body = await readJsonBody();
-      if ((body as any)?.__tooLarge) { res.statusCode = 413; res.end(); return; }
+      if ((body as any)?.__tooLarge) { res.statusCode = 413; res.end(JSON.stringify({ error: 'body_too_large' })); return; }
+      if ((body as any)?.__invalidJson) { res.statusCode = 400; res.setHeader('content-type','application/json'); res.end(JSON.stringify({ error: 'invalid_json' })); return; }
 
       const custom = customStartPaths.get(url);
       if (custom) {
-        const v = custom.transform ? await custom.transform(req, body) : { input: (body as any)?.input };
-        const x: { input: unknown; options?: Record<string, unknown> } = (typeof v === 'object' && v && 'input' in v)
-          ? (v as any)
-          : { input: undefined };
-        await startRun({ input: x.input, options: x.options }, custom.pipeline);
+        try {
+          const v = custom.transform ? await custom.transform(req, body) : { input: (body as any)?.input };
+          const x: { input: unknown; options?: Record<string, unknown> } = (typeof v === 'object' && v && 'input' in v)
+            ? (v as any)
+            : { input: undefined };
+          if (typeof x.input === 'undefined' || x.input === null) {
+            res.statusCode = 422;
+            res.setHeader('content-type','application/json');
+            res.end(JSON.stringify({ error: 'missing_input' }));
+            (ctx as any).log?.info?.('[agent-run-api] missing input on custom route', { path: url });
+            return;
+          }
+          await startRun({ input: x.input, options: x.options }, custom.pipeline);
+        } catch (e: any) {
+          res.statusCode = 400;
+          res.setHeader('content-type','application/json');
+          res.end(JSON.stringify({ error: 'invalid_request', message: e?.message }));
+          (ctx as any).log?.warn?.('[agent-run-api] custom transform error', { path: url, message: e?.message });
+        }
         return;
       }
-      await startRun({ input: (body as any)?.input });
+      const defaultInput = (body as any)?.input;
+      if (typeof defaultInput === 'undefined' || defaultInput === null) {
+        res.statusCode = 422;
+        res.setHeader('content-type','application/json');
+        res.end(JSON.stringify({ error: 'missing_input' }));
+        (ctx as any).log?.info?.('[agent-run-api] missing input on default start');
+        return;
+      }
+      await startRun({ input: defaultInput });
       return;
     }
 
