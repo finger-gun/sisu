@@ -158,3 +158,72 @@ test('missing input returns 422', async () => {
   expect(out.status).toBe(422);
   expect(JSON.parse(out.text).error).toBe('missing_input');
 });
+
+test('SSE emits token events and final', async () => {
+  // Fake streaming model that emits two tokens and a final
+  const fakeModel: any = {
+    name: 'fake', capabilities: { streaming: true },
+    generate: (_m: any, opts?: any) => (opts?.stream ? (async function* () {
+      yield { type: 'token', token: 'Hello' };
+      yield { type: 'token', token: ' world' };
+      yield { type: 'assistant_message', message: { role: 'assistant', content: 'Hello world' } };
+    })() : { message: { role: 'assistant', content: 'Hello world' } })
+  };
+  const app = new Agent<HttpCtx>()
+    .use(agentRunApi())
+    .use(async c => {
+      const it: any = (c as any).model.generate(c.messages, { stream: true, signal: c.signal });
+      for await (const ev of it) {
+        if (ev?.type === 'assistant_message') c.messages = [ev.message];
+      }
+    });
+  const server = new Server(app, { createCtx: (req, res) => ({ req, res, messages: [], signal: new AbortController().signal, agent: app, model: fakeModel }) });
+  // Start run
+  const sReq = makeReqRes('POST', '/api/runs/start', { input: 'hi' });
+  await server.listener()(sReq.req, sReq.res);
+  const { runId } = sReq.read().json();
+  // Connect SSE
+  const { Readable, Writable } = require('stream');
+  const req = new Readable({ read() {} });
+  (req as any).method = 'GET';
+  (req as any).url = `/api/runs/${runId}/stream`;
+  process.nextTick(() => req.push(null));
+  let buf = ''; let ended = false; let statusCode = 0;
+  const res = new Writable({ write(chunk: any, _enc: any, cb: any) { buf += chunk.toString(); cb(); } });
+  (res as any).setHeader = () => {};
+  (res as any).writeHead = (code: number) => { statusCode = code; };
+  (res as any).end = () => { ended = true; };
+  Object.defineProperty(res, 'statusCode', { get: () => statusCode, set: (v) => { statusCode = v; } });
+  Object.defineProperty(res, 'writableEnded', { get: () => ended });
+  await server.listener()(req as any, res as any);
+  // Wait a tick for stream to finish
+  await sleep(10);
+  expect(buf).toContain('event: token');
+  expect(buf).toContain('event: final');
+});
+
+test('SSE late subscriber receives final immediately', async () => {
+  const app = new Agent<HttpCtx>()
+    .use(agentRunApi())
+    .use(async c => { c.messages = [{ role: 'assistant', content: 'done' }]; });
+  const server = new Server(app, { createCtx: (req, res) => ({ req, res, messages: [], signal: new AbortController().signal, agent: app }) });
+  const start = makeReqRes('POST', '/api/runs/start', { input: 'fast' });
+  await server.listener()(start.req, start.res);
+  const { runId } = start.read().json();
+  // After completion, connect to stream
+  await sleep(10);
+  const { Readable, Writable } = require('stream');
+  const req = new Readable({ read() {} });
+  (req as any).method = 'GET';
+  (req as any).url = `/api/runs/${runId}/stream`;
+  process.nextTick(() => req.push(null));
+  let buf = ''; let ended = false; let statusCode = 0;
+  const res = new Writable({ write(chunk: any, _enc: any, cb: any) { buf += chunk.toString(); cb(); } });
+  (res as any).setHeader = () => {};
+  (res as any).writeHead = (code: number) => { statusCode = code; };
+  (res as any).end = () => { ended = true; };
+  Object.defineProperty(res, 'statusCode', { get: () => statusCode, set: (v) => { statusCode = v; } });
+  Object.defineProperty(res, 'writableEnded', { get: () => ended });
+  await server.listener()(req as any, res as any);
+  expect(buf).toContain('event: final');
+});

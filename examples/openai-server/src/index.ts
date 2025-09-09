@@ -4,6 +4,7 @@ import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { agentRunApi } from '@sisu-ai/mw-agent-run-api';
+import { cors } from '@sisu-ai/mw-cors';
 import { Server } from '@sisu-ai/server';
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini'});
@@ -28,6 +29,7 @@ const store = new InMemoryKV();
 const runApi = agentRunApi({ runStore: store, basePath, apiKey });
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
+  .use(cors({ origin: '*', credentials: true }))
   .use(usageTracker({
     '*': { inputPer1M: 0.15, outputPer1M: 0.60 },
   }, { logPerCall: true }))
@@ -41,7 +43,6 @@ const server = new Server(app, {
   port,
   basePath,
   healthPath,
-  // Server prints a startup banner automatically; list endpoints from middleware
   bannerEndpoints: (runApi as any).bannerEndpoints,
   createCtx: (req, res) => ({
     req,

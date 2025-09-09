@@ -118,20 +118,18 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
         if (runCtx.model && typeof runCtx.model.generate === 'function') {
           const origGenerate = runCtx.model.generate.bind(runCtx.model);
           runCtx.model = { ...runCtx.model, generate: (messages: any, opts?: any) => {
-            const maybe = origGenerate(messages, opts);
-            return Promise.resolve(maybe).then((res: any) => {
-              if (res && typeof res[Symbol.asyncIterator] === 'function') {
-                const src = res as AsyncIterable<any>;
-                async function* tee() {
-                  for await (const ev of src) {
-                    if (ev?.type === 'token' && ev.token) run.emitter.emit('token', { token: ev.token });
-                    yield ev;
-                  }
+            const res = origGenerate(messages, opts);
+            if (res && typeof (res as any)[Symbol.asyncIterator] === 'function') {
+              const src = res as AsyncIterable<any>;
+              const tee = async function* () {
+                for await (const ev of src) {
+                  if (ev?.type === 'token' && ev.token) run.emitter.emit('token', { token: ev.token });
+                  yield ev;
                 }
-                return tee();
-              }
-              return res;
-            });
+              };
+              return tee();
+            }
+            return res;
           } };
         }
         try {
