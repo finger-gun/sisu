@@ -33,7 +33,14 @@ const ctx: Ctx = {
 };
 
 const intentClassifier = async (c: Ctx, next: () => Promise<void>) => { const q = (c.input ?? '').toLowerCase(); c.state.intent = /weather|forecast/.test(q) ? 'tooling' : 'chat'; await next(); };
-const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => { const wasTool = c.messages.at(-1)?.role === 'tool'; const turns = Number(c.state.turns ?? 0); c.state.moreTools = Boolean(wasTool && turns < 1); c.state.turns = turns + 1; await next(); };
+const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => {
+  const last = c.messages[c.messages.length - 1];
+  const wasTool = last?.role === 'tool';
+  const turns = Number(c.state.turns ?? 0);
+  c.state.moreTools = Boolean(wasTool && turns < 1);
+  c.state.turns = turns + 1;
+  await next();
+};
 
 const toolingBody = sequence([toolCalling, decideIfMoreTools]);
 const toolingLoop = loopUntil((c) => !c.state.moreTools, toolingBody, { max: 6 });
