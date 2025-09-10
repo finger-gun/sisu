@@ -1,6 +1,6 @@
 # @sisu-ai/tool-aws-s3
 
-## 2.0.0
+## 1.0.0
 
 ### Major Changes
 

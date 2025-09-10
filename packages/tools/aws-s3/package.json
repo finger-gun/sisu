@@ -1,11 +1,25 @@
 {
   "name": "@sisu-ai/tool-aws-s3",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "license": "Apache-2.0",
-  "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/tools/vec-chroma"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"

@@ -15,7 +15,7 @@
     "@sisu-ai/mw-conversation-buffer": "3.0.2",
     "@sisu-ai/mw-error-boundary": "3.0.2",
     "@sisu-ai/mw-trace-viewer": "4.1.0",
-    "@sisu-ai/tool-aws-s3": "2.0.0",
+    "@sisu-ai/tool-aws-s3": "1.0.0",
     "dotenv": "^16.4.5"
   }
 }
