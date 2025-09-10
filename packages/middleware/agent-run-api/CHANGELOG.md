@@ -12,22 +12,9 @@
 
   - Introduced `@sisu-ai/mw-agent-run-api`, a middleware package that exposes HTTP endpoints for agent run management (start, status, stream, cancel), with support for custom start routes, API key auth, and SSE streaming. Includes documentation and package metadata.
 
-  ### Example Project: OpenAI Server
-
-  - Added `examples/openai-server`, a full example of running Sisu over HTTP with the OpenAI adapter and the new agent run API middleware. Includes `README.md`, `CHANGELOG.md`, `package.json`, `tsconfig.json`, and a TypeScript entrypoint.
-
   ### OpenAI Adapter Improvements
 
   - Improved OpenAI streaming: gracefully ignores `[DONE]` sentinels and only logs JSON parse errors in debug mode, making streaming more robust and less noisy.
-
-  ### Tooling and Scripts
-
-  - Added a new npm script `ex:openai:server` to easily run the OpenAI server example from the monorepo root.
-
-  ### Miscellaneous
-
-  - Minor: Hardcoded model name in the Anthropic control flow example for clarity.
-  - Updated changeset to document new server adapter and API entrypoints middleware.
 
 ### Patch Changes
 
