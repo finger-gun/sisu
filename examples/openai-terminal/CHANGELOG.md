@@ -1,5 +1,12 @@
 # openai-terminal
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [3e576fd]
+  - @sisu-ai/mw-trace-viewer@4.1.0
+
 ## 0.1.3
 
 ### Patch Changes

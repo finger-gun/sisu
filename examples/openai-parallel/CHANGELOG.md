@@ -1,5 +1,12 @@
 # openai-parallel
 
+## 0.2.6
+
+### Patch Changes
+
+- Updated dependencies [3e576fd]
+  - @sisu-ai/mw-trace-viewer@4.1.0
+
 ## 0.2.5
 
 ### Patch Changes
