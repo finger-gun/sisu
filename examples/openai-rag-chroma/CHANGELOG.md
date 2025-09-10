@@ -1,5 +1,12 @@
 # @sisu-ai/example-openai-rag-chroma
 
+## 0.1.8
+
+### Patch Changes
+
+- Updated dependencies [bf2c70e]
+  - @sisu-ai/adapter-openai@3.0.3
+
 ## 0.1.7
 
 ### Patch Changes

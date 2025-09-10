@@ -1,5 +1,12 @@
 # openai-terminal
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [bf2c70e]
+  - @sisu-ai/adapter-openai@3.0.3
+
 ## 0.1.4
 
 ### Patch Changes

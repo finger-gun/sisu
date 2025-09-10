@@ -1,5 +1,14 @@
 # openai-aws-s3
 
+## 0.1.8
+
+### Patch Changes
+
+- Updated dependencies [bf2c70e]
+- Updated dependencies [bf2c70e]
+  - @sisu-ai/adapter-openai@3.0.3
+  - @sisu-ai/tool-aws-s3@2.0.0
+
 ## 0.1.7
 
 ### Patch Changes
