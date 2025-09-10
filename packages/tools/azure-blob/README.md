@@ -1,10 +1,11 @@
 # @sisu-ai/tool-azure-blob
+
+Azure Blob Storage tools for Sisu. Read, list, delete, and  write blobs. Includes metadata operations.
+
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Ftool-azure-blob)](https://www.npmjs.com/package/@sisu-ai/tool-azure-blob)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
-
-Azure Blob Storage tools for Sisu. Read, list, delete, and  write blobs. Includes metadata operations.
 
 ## Exports
 - `azureGetBlob({ container, blobName })` → `{ content: string }`
@@ -71,11 +72,15 @@ if (latest) {
   // 3) Optionally delete (requires allowWrite=true)
   await azureDeleteBlob.handler({ container: 'rag', blobName: latest }, ctx);
 }
+```
 
 # Community & Support
+
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
+
+
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 - [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
 - [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)
-```

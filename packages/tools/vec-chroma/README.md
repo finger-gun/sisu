@@ -1,10 +1,14 @@
 # @sisu-ai/tool-vec-chroma
+
+ChromaDB adapter tools for Sisu vectors. 
+
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Ftool-vec-chroma)](https://www.npmjs.com/package/@sisu-ai/tool-vec-chroma)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
-ChromaDB adapter tools for Sisu vectors. Provides three tools:
+
+# Tools
 
 - `vector.upsert(records)` — add/update embeddings
 - `vector.query({ embedding, topK, filter? })` — nearest neighbors
@@ -22,7 +26,12 @@ import { vectorTools } from '@sisu-ai/tool-vec-chroma';
 agent.use(registerTools(vectorTools));
 ```
 
+
 # Community & Support
+
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
+
+
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)

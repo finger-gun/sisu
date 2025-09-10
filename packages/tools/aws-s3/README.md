@@ -1,10 +1,11 @@
 # @sisu-ai/tool-aws-s3
+
+AWS S3 tools for Sisu. Read, list, delete, and write objects. Includes metadata helpers.
+
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Ftool-aws-s3)](https://www.npmjs.com/package/@sisu-ai/tool-aws-s3)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
-
-AWS S3 tools for Sisu. Read, list, delete, and write objects. Includes metadata helpers.
 
 ## Exports
 - `s3GetObject({ bucket, key })` → `{ content: string }`
@@ -54,11 +55,15 @@ if (latest) {
   // optionally delete
   await s3DeleteObject.handler({ bucket: 'my-bucket', key: latest } as any, ctx);
 }
+```
 
 # Community & Support
+
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
+
+
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 - [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
 - [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)
-```

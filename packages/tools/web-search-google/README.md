@@ -1,10 +1,11 @@
 # @sisu-ai/tool-web-search-google
+
+Google Programmable Search (Custom Search) powered web search tool.
+
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Ftool-web-search-google)](https://www.npmjs.com/package/@sisu-ai/tool-web-search-google)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
-
-Google Programmable Search (Custom Search) powered web search tool.
 
 Note: This tool queries Google’s JSON API (Programmable Search Engine). You need an API key and a search engine ID (CX).
 
@@ -37,6 +38,10 @@ const app = new Agent()
 - Use alongside `@sisu-ai/tool-web-fetch` to fetch and summarize selected results.
 
 # Community & Support
+
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
+
+
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
