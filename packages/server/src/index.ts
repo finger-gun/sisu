@@ -64,9 +64,19 @@ export class Server<Ctx = any> {
     if (!(ctx as any).log) {
       (ctx as any).log = srvLogger;
     }
-    // Mark this context as an HTTP transport envelope for middleware that
-    // wants to trace only the spawned run (not the envelope requests).
-    (ctx as any).state = { ...((ctx as any).state ?? {}), _transport: { type: 'http' } };
+    // Mark this context as an HTTP transport envelope and capture minimal request meta
+    const headers = req.headers || {};
+    const httpMeta = {
+      method: req.method || 'GET',
+      url: req.url || '',
+      ip: (req.socket && (req.socket.remoteAddress || '')) || '',
+      headers: {
+        'user-agent': typeof headers['user-agent'] === 'string' ? headers['user-agent'] : undefined,
+        'accept': typeof headers['accept'] === 'string' ? headers['accept'] : undefined,
+        'content-type': typeof headers['content-type'] === 'string' ? headers['content-type'] : undefined,
+      },
+    };
+    (ctx as any).state = { ...((ctx as any).state ?? {}), _transport: { type: 'http' }, _http: httpMeta };
     const handler = this.agent.handler();
     await handler(ctx as Ctx);
     // Only synthesize a 404 when nothing has been written at all.
