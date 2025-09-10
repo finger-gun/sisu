@@ -10,7 +10,7 @@ import { branch, sequence } from '@sisu-ai/mw-control-flow';
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Tell me a joke about cats.',
+  input: 'Tell me a joke about cats.',
   messages: [{ role: 'system', content: 'Be helpful and concise.' }],
   model,
   tools: new SimpleTools(),

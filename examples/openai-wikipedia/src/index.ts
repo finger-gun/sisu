@@ -10,7 +10,7 @@ import { wikipedia } from '@sisu-ai/tool-wikipedia';
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Tell me about the Hubble Space Telescope using Wikipedia.',
+  input: 'Tell me about the Hubble Space Telescope using Wikipedia.',
   messages: [{ role: 'system', content: 'You are a helpful assistant. Use the wikipediaLookup tool to fetch accurate facts. Prefer format: "summary". If the title is ambiguous, first call with format: "related" to pick the best page.' }],
   model,
   tools: new SimpleTools(),

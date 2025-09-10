@@ -1,10 +1,11 @@
 # @sisu-ai/adapter-anthropic
+
+Anthropic Messages API adapter with tool calling and streaming.
+
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fadapter-anthropic)](https://www.npmjs.com/package/@sisu-ai/adapter-anthropic)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
-
-Anthropic Messages API adapter with tool calling and streaming.
 
 ## Setup
 ```bash
@@ -60,6 +61,10 @@ The adapter maps `usage.input_tokens` and `usage.output_tokens` to `{ promptToke
 - Combine with your app logger’s `LOG_LEVEL=debug` to see middleware events.
 
 # Community & Support
+
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
+
+
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)

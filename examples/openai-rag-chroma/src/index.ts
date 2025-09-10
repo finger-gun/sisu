@@ -19,7 +19,7 @@ function embed(text: string): number[] {
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
-const query = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Best fika in Malmö?';
+const query = 'Best fika in Malmö?';
 
 const ctx: Ctx = {
   input: query,

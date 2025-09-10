@@ -21,7 +21,7 @@ const weather = {
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Weather in Malmö and suggest a fika plan.',
+  input: 'Weather in Malmö and suggest a fika plan.',
   messages: [{ role: 'system', content: 'Be helpful. Use tools when needed.' }],
   model,
   tools: new SimpleTools(),

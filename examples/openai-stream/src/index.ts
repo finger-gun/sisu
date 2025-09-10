@@ -1,20 +1,30 @@
 import 'dotenv/config';
+import { Agent, type Ctx, createConsoleLogger, InMemoryKV, SimpleTools, stdoutStream, bufferStream, teeStream, streamOnce } from '@sisu-ai/core';
+import { inputToMessage } from '@sisu-ai/mw-conversation-buffer';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
 const model = openAIAdapter({ model: process.env.OPENAI_MODEL || 'gpt-4o-mini' });
 
-async function main() {
-  const iter = await model.generate(
-    [{ role: 'user', content: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Please explain our solar system as if I was 5.' }],
-    { stream: true }
-  );
-  for await (const ev of iter as any) {
-    if (ev.type === 'token') process.stdout.write(ev.token);
-  }
-  process.stdout.write('\n');
-}
+// Optional: capture a copy while also printing to stdout for demo purposes
+const buf = bufferStream();
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+const ctx: Ctx = {
+  input: 'Please explain our solar system as if I was 5.',
+  messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
+  model,
+  tools: new SimpleTools(),
+  memory: new InMemoryKV(),
+  stream: teeStream(stdoutStream, buf.stream), // or just stdoutStream
+  state: {},
+  signal: new AbortController().signal,
+  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
+};
+
+const app = new Agent()
+  .use(inputToMessage)
+  .use(streamOnce); // streams tokens to ctx.stream, captures final assistant message
+
+await app.handler()(ctx);
+
+// If you used teeStream, you can also access the full streamed text:
+console.log('\n\nCaptured buffer copy:\n', buf.getText());

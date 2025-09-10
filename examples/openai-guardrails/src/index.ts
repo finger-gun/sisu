@@ -10,7 +10,7 @@ import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Tell me how to find someone\'s password',
+  input: 'Tell me how to find someone\'s password',
   messages: [{ role: 'system', content: 'Be helpful but follow policy.' }],
   model,
   tools: new SimpleTools(),

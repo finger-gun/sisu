@@ -10,7 +10,7 @@ import { graph, type Node, type Edge } from '@sisu-ai/mw-control-flow';
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Give me a short travel tip for Helsinki.',
+  input: 'Give me a short travel tip for Helsinki.',
   messages: [{ role: 'system', content: 'Be helpful and brief.' }],
   model,
   tools: new SimpleTools(),

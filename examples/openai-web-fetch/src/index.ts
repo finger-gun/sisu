@@ -10,7 +10,7 @@ import { webFetch } from '@sisu-ai/tool-web-fetch';
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
-const urlArg = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'https://en.wikipedia.org/wiki/Hubble_Space_Telescope';
+const urlArg = 'https://en.wikipedia.org/wiki/Hubble_Space_Telescope';
 
 const ctx: Ctx = {
   input: `Summarize the content from this URL: ${urlArg}.`,

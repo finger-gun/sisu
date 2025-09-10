@@ -11,7 +11,7 @@ import { duckDuckGoWebSearch } from '@sisu-ai/tool-web-search-duckduckgo';
 const model = ollamaAdapter({ model: process.env.MODEL || 'llama3.1' });
 
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Search the web for the tallest mountain in Europe.',
+  input: 'Search the web for the tallest mountain in Europe.',
   messages: [{ role: 'system', content: 'You are a helpful assistant. Use the webSearch tool when you need external information.' }],
   model,
   tools: new SimpleTools(),

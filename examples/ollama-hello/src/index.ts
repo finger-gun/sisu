@@ -9,7 +9,7 @@ import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
 const model = ollamaAdapter({ model: process.env.MODEL || 'llama3.1' }); 
 
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Say hello in one short sentence.',
+  input: 'Say hello in one short sentence.',
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
   model,
   tools: new SimpleTools(),

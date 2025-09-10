@@ -10,8 +10,7 @@ import { extractUrlsTool } from '@sisu-ai/tool-extract-urls';
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
-const textArg = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') ||
-  'Check out https://example.com and http://sisu.ai for more info.';
+const textArg = 'Check out https://example.com and http://sisu.ai for more info.';
 
 const ctx: Ctx = {
   input: `Extract URLs from: ${textArg}`,

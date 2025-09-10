@@ -21,7 +21,7 @@ const weather = {
 const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
 
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Weather in Malmö and suggest a fika plan.',
+  input: 'Weather in Malmö and suggest a fika plan.',
   messages: [{ role: 'system', content: 'Be helpful. Use tools when needed.' }],
   model,
   tools: new SimpleTools(),

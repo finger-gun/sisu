@@ -19,7 +19,7 @@ const echoTool = {
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Use Action: echo with Action Input: {"text":"hello from ReAct"}',
+  input: 'Use Action: echo with Action Input: {"text":"hello from ReAct"}',
   messages: [{ role: 'system', content: 'Use tools when helpful. For ReAct, reply with\nAction: <tool>\nAction Input: <JSON>' }],
   model,
   tools: new SimpleTools(),

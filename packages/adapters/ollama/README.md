@@ -1,10 +1,11 @@
 # @sisu-ai/adapter-ollama
+
+Ollama Chat adapter with native tools support.
+
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fadapter-ollama)](https://www.npmjs.com/package/@sisu-ai/adapter-ollama)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
-
-Ollama Chat adapter with native tools support.
 
 ## Setup
 ```bash
@@ -37,7 +38,11 @@ const model = ollamaAdapter({ model: 'llama3.1' });
 - Streaming can be added via Ollama's streaming API if desired.
  - Env: `OLLAMA_BASE_URL` or `BASE_URL` can override the base URL (or pass `baseUrl` in code). Examples may also support a CLI flag `--base-url` to override env.
 
+
 # Community & Support
+
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
+
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)

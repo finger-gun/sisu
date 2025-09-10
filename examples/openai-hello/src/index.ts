@@ -7,7 +7,7 @@ import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 
 const ctx: Ctx = {
-  input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Say hello in one short sentence.',
+  input: 'Say hello in one short sentence.',
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
   model,
   tools: new SimpleTools(),
