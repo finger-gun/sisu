@@ -1,18 +1,16 @@
 # @sisu-ai/mw-usage-tracker
+
+Track token usage across your pipeline and estimate cost.
+
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fmw-usage-tracker)](https://www.npmjs.com/package/@sisu-ai/mw-usage-tracker)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
-Track token usage across your pipeline and estimate cost.
-
 ## Setup
 ```bash
 npm i @sisu-ai/mw-usage-tracker
 ```
-
-## Documentation
-Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
 
 ## Usage
 ```ts
@@ -55,6 +53,9 @@ const app = new Agent()
 - Image cost estimation is an approximation unless your adapter returns precise image token usage.
 
 # Community & Support
+
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
+
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)

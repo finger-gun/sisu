@@ -1,18 +1,16 @@
 # @sisu-ai/mw-tool-calling
+
+Native tools API loop for providers that support tool calls.
+
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fmw-tool-calling)](https://www.npmjs.com/package/@sisu-ai/mw-tool-calling)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
-Native tools API loop for providers that support tool calls.
-
 ## Setup
 ```bash
 npm i @sisu-ai/mw-tool-calling
 ```
-
-## Documentation
-Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
 
 ## Behavior
 - `toolCalling`: single-round tool calling.
@@ -90,6 +88,9 @@ agent.use(iterativeToolCalling);
 ```
 
 # Community & Support
+
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
+
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
