@@ -18,7 +18,7 @@ const weather = {
   handler: async ({ city }: { city: string }) => ({ city, tempC: 20, summary: 'Partly cloudy (stub)' })
 };
 
-const model = anthropicAdapter({ model: process.env.MODEL || 'claude-sonnet-4-20250514' });
+const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
 
 const ctx: Ctx = {
   input: process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ') || 'Weather in Malmö and suggest a fika plan.',
@@ -33,7 +33,14 @@ const ctx: Ctx = {
 };
 
 const intentClassifier = async (c: Ctx, next: () => Promise<void>) => { const q = (c.input ?? '').toLowerCase(); c.state.intent = /weather|forecast/.test(q) ? 'tooling' : 'chat'; await next(); };
-const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => { const wasTool = c.messages.at(-1)?.role === 'tool'; const turns = Number(c.state.turns ?? 0); c.state.moreTools = Boolean(wasTool && turns < 1); c.state.turns = turns + 1; await next(); };
+const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => {
+  const last = c.messages[c.messages.length - 1];
+  const wasTool = last?.role === 'tool';
+  const turns = Number(c.state.turns ?? 0);
+  c.state.moreTools = Boolean(wasTool && turns < 1);
+  c.state.turns = turns + 1;
+  await next();
+};
 
 const toolingBody = sequence([toolCalling, decideIfMoreTools]);
 const toolingLoop = loopUntil((c) => !c.state.moreTools, toolingBody, { max: 6 });

@@ -45,6 +45,13 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
     const enabled = opts.enable ?? Boolean(argFlag || envFlag);
     if (!enabled) return next();
 
+    // Skip tracing for plain HTTP transport envelopes (server + agent-run-api)
+    const transportType = (ctx as any)?.state?._transport?.type as string | undefined;
+    const spawnedRun = Boolean((ctx as any)?.state?.agentRun?.spawned);
+    if (transportType === 'http' && !spawnedRun) {
+      return next();
+    }
+
     // Stamp messages with timestamps so the viewer can compute per-message durations
     const stamp = (m: any) => { if (m && !m.ts) (m as any).ts = new Date().toISOString(); };
     (ctx.messages || []).forEach(stamp);
@@ -81,11 +88,13 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
     } finally {
       const end = Date.now();
       const final = ctx.messages.filter(m => m.role === 'assistant').pop();
+      const pre = (((ctx as any).state?._tracePreamble) || []) as any[];
+      const mergedEvents = [...pre, ...getTrace()];
       const out: TraceDoc = {
         input: ctx.input,
         final: final?.content ?? null,
         messages: ctx.messages,
-        events: getTrace(),
+        events: mergedEvents,
         meta: {
           start: new Date(start).toISOString(),
           end: new Date(end).toISOString(),
@@ -95,6 +104,20 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
           usage: (ctx.state as any)?.usage,
         },
       };
+
+      const httpMeta = (ctx as any).state?._http;
+      const runMeta = (ctx as any).state?.agentRun;
+      if (httpMeta) {
+        (out.meta as any).transport = {
+          method: httpMeta.method,
+          url: httpMeta.url,
+          ip: httpMeta.ip,
+          headers: httpMeta.headers,
+          pipeline: runMeta?.pipeline,
+          route: runMeta?.route,
+          runId: runMeta?.runId,
+        };
+      }
 
       // Fallback: if usage not populated yet (e.g., usageTracker runs outside/after us),
       // derive simple totals from logged usage events.
@@ -308,12 +331,14 @@ function renderTraceHtml(out: TraceDoc, _style: TraceStyle = 'light', _logoDataU
   const messages = (out.messages || []).map((m: any) => `<tr><td>${esc(m.role || '')}</td><td><pre>${esc(typeof m.content === 'string' ? m.content : JSON.stringify(m.content, null, 2))}</pre></td></tr>`).join('\n');
   const events = (out.events || []).map((e: any) => `<tr><td>${esc(e.ts || e.time || '')}</td><td>${esc(e.level || '')}</td><td><pre>${esc(JSON.stringify(e.args, null, 2))}</pre></td></tr>`).join('\n');
   const usage = (out.meta as any).usage || {};
+  const transport = (out.meta as any).transport || undefined;
   return `<!doctype html><html><head><meta charset="utf-8"/><title>Trace</title>
     <style>body{font-family:system-ui,Arial,sans-serif;margin:16px;color:#111} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ddd;padding:6px;vertical-align:top} th{background:#f6f6f6} pre{white-space:pre-wrap}</style>
   </head><body>
     <h1>Trace</h1>
     <div><b>Status:</b> ${esc(out.meta.status)} • <b>Model:</b> ${esc(out.meta.model || '')} • <b>Duration:</b> ${(out.meta.durationMs / 1000).toFixed(2)}s</div>
     <div><b>Start:</b> ${esc(out.meta.start)} • <b>End:</b> ${esc(out.meta.end)}</div>
+    ${transport ? `<div><b>Transport:</b> ${esc(transport.method || '')} ${esc(transport.url || '')}${transport.pipeline ? ` • <b>Pipeline:</b> ${esc(transport.pipeline)}` : ''}${transport.runId ? ` • <b>RunId:</b> ${esc(transport.runId)}` : ''}</div>` : ''}
     ${usage && (usage.promptTokens || usage.totalTokens) ? `<div><b>Usage:</b> prompt=${usage.promptTokens ?? 0}, completion=${usage.completionTokens ?? 0}, total=${usage.totalTokens ?? 0}${usage.costUSD != null ? `, cost=$${usage.costUSD}` : ''}</div>` : ''}
     <h2>Input</h2><pre>${esc(String(out.input || ''))}</pre>
     <h2>Final</h2><pre>${esc(String(out.final || ''))}</pre>

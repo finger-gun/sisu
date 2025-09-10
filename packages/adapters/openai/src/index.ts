@@ -100,6 +100,11 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
             if (!m) continue;
             const data = m[1].trim();
             if (!data) continue;
+            if (data === '[DONE]') {
+              // Graceful end-of-stream sentinel from OpenAI; not JSON.
+              // Do not log parse errors for this case.
+              continue;
+            }
             try {
               const j = JSON.parse(data) as OpenAIStreamChunk;
               const token = j?.choices?.[0]?.delta?.content;
@@ -108,7 +113,8 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
                 yield { type: 'token', token } as ModelEvent;
               }
             } catch (e: unknown) {
-              console.error('[DEBUG_LLM] stream_parse_error', { error: e });
+              // Some providers may emit non-JSON comment frames; ignore silently unless DEBUG is on
+              if (DEBUG) console.error('[DEBUG_LLM] stream_parse_error', { error: e });
             }
           }
         }

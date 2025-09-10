@@ -1,7 +1,7 @@
 {
   "name": "ollama-weather",
   "private": true,
-  "version": "0.1.8",
+  "version": "0.1.9",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -18,7 +18,7 @@
     "@sisu-ai/mw-guardrails": "3.0.2",
     "@sisu-ai/mw-control-flow": "3.0.2",
     "@sisu-ai/mw-usage-tracker": "3.0.2",
-    "@sisu-ai/mw-trace-viewer": "4.0.0",
+    "@sisu-ai/mw-trace-viewer": "4.1.0",
     "@sisu-ai/mw-invariants": "3.0.2",
     "zod": "^3.23.8",
     "dotenv": "^16.4.5"

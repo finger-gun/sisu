@@ -1,5 +1,11 @@
 # @sisu-ai/mw-trace-viewer
 
+## 4.1.0
+
+### Minor Changes
+
+- 3e576fd: Adds logs support from server
+
 ## 4.0.0
 
 ### Major Changes

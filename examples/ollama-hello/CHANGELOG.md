@@ -1,5 +1,12 @@
 # ollama-hello
 
+## 0.1.9
+
+### Patch Changes
+
+- Updated dependencies [3e576fd]
+  - @sisu-ai/mw-trace-viewer@4.1.0
+
 ## 0.1.8
 
 ### Patch Changes
