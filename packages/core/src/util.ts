@@ -1,4 +1,5 @@
-import type { Logger, Memory, TokenStream, Tool, ToolRegistry } from './types.js';
+import { Middleware } from './compose.js';
+import type { Ctx, Logger, Memory, TokenStream, Tool, ToolRegistry } from './types.js';
 
 type Level = 'debug' | 'info' | 'warn' | 'error';
 const order: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
@@ -116,6 +117,50 @@ export class NullStream implements TokenStream {
   write(_t: string) {}
   end() {}
 }
+
+export const stdoutStream: TokenStream = {
+  write: (t: string) => {
+    process.stdout.write(t);
+  },
+  end: () => {
+    process.stdout.write('\n');
+  },
+};
+
+export function bufferStream() {
+  let buf = '';
+  return {
+    stream: { write: (t: string) => { buf += t; }, end: () => {} },
+    getText: () => buf,
+  };
+}
+
+export function teeStream(...streams: TokenStream[]): TokenStream {
+  return {
+    write: (t: string) => { for (const s of streams) s.write(t); },
+    end: () => { for (const s of streams) s.end(); },
+  };
+}
+
+export const streamOnce: Middleware = async (c: Ctx) => {
+  const out: any = await c.model.generate(c.messages, {
+    stream: true,
+    toolChoice: 'none',
+    signal: c.signal,
+  });
+
+  if (out && typeof out[Symbol.asyncIterator] === 'function') {
+    for await (const ev of out as AsyncIterable<any>) {
+      if (ev?.type === 'token') c.stream.write(ev.token);
+      else if (ev?.type === 'assistant_message' && ev.message) c.messages.push(ev.message);
+    }
+    c.stream.end();
+  } else if (out?.message) {
+    c.messages.push(out.message);
+    c.stream.write(out.message.content);
+    c.stream.end();
+  }
+};
 
 export class SimpleTools implements ToolRegistry {
   private tools = new Map<string, Tool>();
