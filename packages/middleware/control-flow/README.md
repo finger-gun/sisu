@@ -1,10 +1,11 @@
 # @sisu-ai/mw-control-flow
+
+Combinators for composing agent pipelines like functions. Model steps stay explicit and testable while you express routing and iteration at the middleware layer.
+
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fmw-control-flow)](https://www.npmjs.com/package/@sisu-ai/mw-control-flow)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
-
-Combinators for composing agent pipelines like functions. Model steps stay explicit and testable while you express routing and iteration at the middleware layer.
 
 ## Setup
 ```bash
@@ -93,7 +94,11 @@ Notes
 - Keep node bodies small and reuse regular middlewares inside `graph` nodes where possible.
 - Prefer `switchCase`/`branch` for simple splits; reach for `graph` when you have 3+ phases or need to rejoin branches.
 
+
 # Community & Support
+
+Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
+
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
