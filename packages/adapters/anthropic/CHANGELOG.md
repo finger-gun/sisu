@@ -1,5 +1,20 @@
 # @sisu-ai/adapter-anthropic
 
+## 2.0.1
+
+### Patch Changes
+
+- 82e8b95: Add CodeQL badges to documentation for enhanced security scanning
+  - Added CodeQL badge to the main README.md for visibility.
+  - Included CodeQL badge in the README.md files of various packages:
+    - adapters: anthropic, ollama, openai
+    - middleware: agent-run-api, context-compressor, control-flow, conversation-buffer, error-boundary, guardrails, invariants, rag, react-parser, register-tools, tool-calling, trace-viewer, usage-tracker
+    - server
+    - tools: aws-s3, azure-blob, extract-urls, github-projects, summarize-text, terminal, vec-chroma, web-fetch, web-search-duckduckgo, web-search-google, web-search-openai, wikipedia
+    - vector: core
+- Updated dependencies [82e8b95]
+  - @sisu-ai/core@1.1.1
+
 ## 2.0.0
 
 ### Patch Changes

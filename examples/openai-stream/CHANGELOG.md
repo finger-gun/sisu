@@ -1,5 +1,13 @@
 # openai-stream
 
+## 0.1.7
+
+### Patch Changes
+
+- Updated dependencies [82e8b95]
+  - @sisu-ai/adapter-openai@4.0.1
+  - @sisu-ai/core@1.1.1
+
 ## 0.1.6
 
 ### Patch Changes
