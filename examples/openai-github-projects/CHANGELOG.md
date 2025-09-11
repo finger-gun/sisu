@@ -1,5 +1,19 @@
 # openai-github-projects
 
+## 0.1.12
+
+### Patch Changes
+
+- Updated dependencies [0e36092]
+  - @sisu-ai/core@1.1.2
+  - @sisu-ai/adapter-openai@4.0.2
+  - @sisu-ai/mw-conversation-buffer@4.0.2
+  - @sisu-ai/mw-error-boundary@4.0.2
+  - @sisu-ai/mw-register-tools@4.0.2
+  - @sisu-ai/mw-tool-calling@4.0.2
+  - @sisu-ai/mw-trace-viewer@5.0.2
+  - @sisu-ai/tool-github-projects@4.0.2
+
 ## 0.1.11
 
 ### Patch Changes

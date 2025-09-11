@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/adapter-anthropic",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -24,7 +24,7 @@
     "build": "tsc -b"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "1.1.1"
+    "@sisu-ai/core": "1.1.2"
   },
   "keywords": [
     "sisu",

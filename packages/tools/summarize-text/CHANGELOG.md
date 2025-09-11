@@ -1,5 +1,12 @@
 # @sisu-ai/tool-summarize-text
 
+## 4.0.2
+
+### Patch Changes
+
+- Updated dependencies [0e36092]
+  - @sisu-ai/core@1.1.2
+
 ## 4.0.1
 
 ### Patch Changes

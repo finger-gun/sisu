@@ -1,5 +1,11 @@
 # @sisu-ai/core
 
+## 1.1.2
+
+### Patch Changes
+
+- 0e36092: remove uneccessary zod dependency and add more tests for streaming utils
+
 ## 1.1.1
 
 ### Patch Changes
