@@ -1,5 +1,11 @@
 # @sisu-ai/vector-core
 
+## 1.0.3
+
+### Patch Changes
+
+- 03b0e75: docs: update README to include links to examples and documentation for better user guidance
+
 ## 1.0.2
 
 ### Patch Changes

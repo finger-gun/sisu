@@ -1,5 +1,11 @@
 # @sisu-ai/mw-agent-run-api
 
+## 1.0.1
+
+### Patch Changes
+
+- 03b0e75: docs: Update README files to include badges and community support sections
+
 ## 1.0.0
 
 ### Major Changes
@@ -9,11 +15,9 @@
   **Key changes:**
 
   ### New Middleware: Agent Run API
-
   - Introduced `@sisu-ai/mw-agent-run-api`, a middleware package that exposes HTTP endpoints for agent run management (start, status, stream, cancel), with support for custom start routes, API key auth, and SSE streaming. Includes documentation and package metadata.
 
   ### OpenAI Adapter Improvements
-
   - Improved OpenAI streaming: gracefully ignores `[DONE]` sentinels and only logs JSON parse errors in debug mode, making streaming more robust and less noisy.
 
 ### Patch Changes

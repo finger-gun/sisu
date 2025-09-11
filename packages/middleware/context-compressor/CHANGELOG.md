@@ -1,5 +1,11 @@
 # @sisu-ai/mw-context-compressor
 
+## 2.0.3
+
+### Patch Changes
+
+- 03b0e75: docs: Update README files to include badges and community support sections
+
 ## 2.0.2
 
 ### Patch Changes

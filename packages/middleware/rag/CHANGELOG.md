@@ -1,5 +1,13 @@
 # @sisu-ai/mw-rag
 
+## 2.0.3
+
+### Patch Changes
+
+- 03b0e75: docs: Update README files to include badges and community support sections
+- Updated dependencies [03b0e75]
+  - @sisu-ai/vector-core@1.0.3
+
 ## 2.0.2
 
 ### Patch Changes
