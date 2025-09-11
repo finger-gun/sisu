@@ -1,25 +1,25 @@
 {
   "name": "ollama-weather",
   "private": true,
-  "version": "0.1.10",
+  "version": "0.1.11",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sisu-ai/core": "1.0.2",
-    "@sisu-ai/adapter-ollama": "3.1.0",
-    "@sisu-ai/mw-register-tools": "3.0.3",
-    "@sisu-ai/mw-conversation-buffer": "3.0.3",
-    "@sisu-ai/mw-error-boundary": "3.0.3",
-    "@sisu-ai/mw-react-parser": "3.0.3",
-    "@sisu-ai/mw-tool-calling": "3.0.3",
-    "@sisu-ai/mw-guardrails": "3.0.3",
-    "@sisu-ai/mw-control-flow": "3.0.3",
-    "@sisu-ai/mw-usage-tracker": "3.0.3",
-    "@sisu-ai/mw-trace-viewer": "4.1.1",
-    "@sisu-ai/mw-invariants": "3.0.3",
+    "@sisu-ai/core": "1.1.0",
+    "@sisu-ai/adapter-ollama": "4.0.0",
+    "@sisu-ai/mw-register-tools": "4.0.0",
+    "@sisu-ai/mw-conversation-buffer": "4.0.0",
+    "@sisu-ai/mw-error-boundary": "4.0.0",
+    "@sisu-ai/mw-react-parser": "4.0.0",
+    "@sisu-ai/mw-tool-calling": "4.0.0",
+    "@sisu-ai/mw-guardrails": "4.0.0",
+    "@sisu-ai/mw-control-flow": "4.0.0",
+    "@sisu-ai/mw-usage-tracker": "4.0.0",
+    "@sisu-ai/mw-trace-viewer": "5.0.0",
+    "@sisu-ai/mw-invariants": "4.0.0",
     "zod": "^3.23.8",
     "dotenv": "^16.4.5"
   }

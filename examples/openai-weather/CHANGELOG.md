@@ -1,5 +1,21 @@
 # openai-weather
 
+## 0.2.9
+
+### Patch Changes
+
+- Updated dependencies [b2675b7]
+  - @sisu-ai/core@1.1.0
+  - @sisu-ai/adapter-openai@4.0.0
+  - @sisu-ai/mw-control-flow@4.0.0
+  - @sisu-ai/mw-conversation-buffer@4.0.0
+  - @sisu-ai/mw-error-boundary@4.0.0
+  - @sisu-ai/mw-invariants@4.0.0
+  - @sisu-ai/mw-register-tools@4.0.0
+  - @sisu-ai/mw-tool-calling@4.0.0
+  - @sisu-ai/mw-trace-viewer@5.0.0
+  - @sisu-ai/mw-usage-tracker@4.0.0
+
 ## 0.2.8
 
 ### Patch Changes

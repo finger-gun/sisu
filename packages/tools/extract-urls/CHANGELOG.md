@@ -1,5 +1,12 @@
 # @sisu-ai/tool-extract-urls
 
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies [b2675b7]
+  - @sisu-ai/core@1.1.0
+
 ## 3.0.3
 
 ### Patch Changes

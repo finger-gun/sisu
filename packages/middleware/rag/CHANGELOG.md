@@ -1,5 +1,12 @@
 # @sisu-ai/mw-rag
 
+## 3.0.0
+
+### Patch Changes
+
+- Updated dependencies [b2675b7]
+  - @sisu-ai/core@1.1.0
+
 ## 2.0.3
 
 ### Patch Changes

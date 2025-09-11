@@ -1,5 +1,12 @@
 # @sisu-ai/tool-vec-chroma
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [b2675b7]
+  - @sisu-ai/core@1.1.0
+
 ## 1.0.1
 
 ### Patch Changes

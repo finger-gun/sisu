@@ -1,5 +1,19 @@
 # openai-extract-urls
 
+## 0.1.10
+
+### Patch Changes
+
+- Updated dependencies [b2675b7]
+  - @sisu-ai/core@1.1.0
+  - @sisu-ai/adapter-openai@4.0.0
+  - @sisu-ai/mw-conversation-buffer@4.0.0
+  - @sisu-ai/mw-error-boundary@4.0.0
+  - @sisu-ai/mw-register-tools@4.0.0
+  - @sisu-ai/mw-tool-calling@4.0.0
+  - @sisu-ai/mw-trace-viewer@5.0.0
+  - @sisu-ai/tool-extract-urls@4.0.0
+
 ## 0.1.9
 
 ### Patch Changes
