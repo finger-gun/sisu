@@ -1,4 +1,4 @@
-![sisu](sisu-logo.jpg)
+![sisu](./sisu-light.svg)
 > Grit‑powered agents. Quiet, determined, relentlessly useful.
 
 **Sisu** is a lightweight TypeScript framework for turning intent into action. Inspired by the Finnish idea of sisu—calm resolve under pressure—Sisu favors explicit tools, predictable plans, and built‑in guardrails. No ceremony, no mystery: compose, decide, do.
