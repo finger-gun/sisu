@@ -1,7 +1,7 @@
 {
   "name": "ollama-vision",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@sisu-ai/core": "1.1.2",
-    "@sisu-ai/adapter-ollama": "4.0.3",
+    "@sisu-ai/adapter-ollama": "4.1.0",
     "@sisu-ai/mw-usage-tracker": "4.0.2",
     "@sisu-ai/mw-trace-viewer": "5.0.2",
     "dotenv": "^16.4.5"

@@ -1,7 +1,7 @@
 {
   "name": "openai-terminal",
   "private": true,
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -11,7 +11,7 @@
     "dotenv": "^16.4.5",
     "ts-node": "^10.9.2",
     "@sisu-ai/core": "1.1.2",
-    "@sisu-ai/adapter-openai": "4.0.2",
+    "@sisu-ai/adapter-openai": "4.1.0",
     "@sisu-ai/mw-register-tools": "4.0.2",
     "@sisu-ai/mw-conversation-buffer": "4.0.2",
     "@sisu-ai/mw-tool-calling": "4.0.2",

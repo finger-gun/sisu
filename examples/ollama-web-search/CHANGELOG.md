@@ -1,5 +1,12 @@
 # ollama-web-search
 
+## 0.1.13
+
+### Patch Changes
+
+- Updated dependencies [9b419d0]
+  - @sisu-ai/adapter-ollama@4.1.0
+
 ## 0.1.12
 
 ### Patch Changes

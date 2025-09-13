@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/example-openai-rag-chroma",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "type": "module",
   "private": true,
   "main": "dist/index.js",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@sisu-ai/core": "1.1.2",
-    "@sisu-ai/adapter-openai": "4.0.2",
+    "@sisu-ai/adapter-openai": "4.1.0",
     "@sisu-ai/mw-trace-viewer": "5.0.2",
     "@sisu-ai/mw-register-tools": "4.0.2",
     "@sisu-ai/mw-rag": "3.0.2",

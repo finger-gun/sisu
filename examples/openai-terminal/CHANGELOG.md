@@ -1,5 +1,12 @@
 # openai-terminal
 
+## 0.1.10
+
+### Patch Changes
+
+- Updated dependencies [9b419d0]
+  - @sisu-ai/adapter-openai@4.1.0
+
 ## 0.1.9
 
 ### Patch Changes

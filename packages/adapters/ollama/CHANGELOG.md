@@ -1,5 +1,11 @@
 # @sisu-ai/adapter-ollama
 
+## 4.1.0
+
+### Minor Changes
+
+- 9b419d0: Normalized Ollama image handling
+
 ## 4.0.3
 
 ### Patch Changes

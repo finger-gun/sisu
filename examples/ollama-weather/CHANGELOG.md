@@ -1,5 +1,12 @@
 # ollama-weather
 
+## 0.1.15
+
+### Patch Changes
+
+- Updated dependencies [9b419d0]
+  - @sisu-ai/adapter-ollama@4.1.0
+
 ## 0.1.14
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # openai-weather
 
+## 0.2.12
+
+### Patch Changes
+
+- Updated dependencies [9b419d0]
+  - @sisu-ai/adapter-openai@4.1.0
+
 ## 0.2.11
 
 ### Patch Changes
