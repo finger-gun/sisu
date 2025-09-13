@@ -58,6 +58,7 @@
     "ex:openai:graph": "TRACE_HTML=1 npm run dev -w examples/openai-graph -- --trace",
     "ex:ollama:hello": "TRACE_HTML=1 npm run dev -w examples/ollama-hello -- --trace",
     "ex:ollama:weather": "TRACE_HTML=1 npm run dev -w examples/ollama-weather -- --trace",
+    "ex:ollama:vision": "TRACE_HTML=1 npm run dev -w examples/ollama-vision -- --trace",
     "ex:anthropic:stream": "TRACE_HTML=1 npm run dev -w examples/anthropic-stream -- --trace",
     "ex:openai:stream": "TRACE_HTML=1 npm run dev -w examples/openai-stream -- --trace",
     "ex:ollama:stream": "TRACE_HTML=1 npm run dev -w examples/ollama-stream -- --trace",

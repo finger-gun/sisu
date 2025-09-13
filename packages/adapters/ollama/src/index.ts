@@ -7,7 +7,18 @@ export interface OllamaAdapterOptions {
   headers?: Record<string, string>;
 }
 
-type OllamaChatMessage = { role: 'system' | 'user' | 'assistant' | 'tool'; content?: string | null; name?: string; tool_call_id?: string; tool_calls?: any[] };
+type OllamaContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } | string };
+
+type OllamaChatMessage = {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content?: string | null;
+  images?: string[];
+  name?: string;
+  tool_call_id?: string;
+  tool_calls?: any[];
+};
 
 export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
   const envBase = firstConfigValue(['OLLAMA_BASE_URL', 'BASE_URL']);
@@ -21,15 +32,28 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
     // Map messages to Ollama format; include assistant tool_calls and tool messages
     const mapped: OllamaChatMessage[] = messages.map((m: any) => {
       const base: any = { role: m.role };
-      if (m.role === 'assistant' && Array.isArray(m.tool_calls)) {
-        base.tool_calls = m.tool_calls.map((tc: any) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: (tc.arguments ?? {}) } }));
-        base.content = m.content ? String(m.content) : null;
+      const anyM = m as Message & {
+        tool_calls?: Array<{ id?: string; name?: string; arguments?: unknown }>;
+        contentParts?: unknown;
+        images?: unknown;
+        image_urls?: unknown;
+        image_url?: unknown;
+        image?: unknown;
+      };
+      if (m.role === 'assistant' && Array.isArray(anyM.tool_calls)) {
+        base.tool_calls = anyM.tool_calls.map((tc: any) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: (tc.arguments ?? {}) } }));
+        const ti = buildTextAndImages(anyM);
+        base.content = ti.content ?? (m.content !== undefined ? m.content : null);
+        if (ti.images?.length) base.images = ti.images;
       } else if (m.role === 'tool') {
         base.content = String(m.content ?? '');
         if (m.tool_call_id) base.tool_call_id = m.tool_call_id;
         if (m.name && !m.tool_call_id) base.name = m.name;
       } else {
-        base.content = String(m.content ?? '');
+        const ti = buildTextAndImages(anyM);
+        base.content = ti.content ?? (m.content ?? '');
+        if (ti.images?.length) base.images = ti.images;
+        if (m.name) base.name = m.name;
       }
       return base;
     });
@@ -103,11 +127,11 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
       }
       const data: any = raw ? JSON.parse(raw) : {};
       const choice = data?.message ?? {};
-      const content = choice?.content ?? '';
+      const content = choice?.content;
       const tcs = Array.isArray(choice?.tool_calls)
         ? choice.tool_calls.map((tc: any) => ({ id: tc.id, name: tc.function?.name, arguments: safeJson(tc.function?.arguments) }))
         : undefined;
-      const out: any = { role: 'assistant', content: String(content ?? '') };
+      const out: any = { role: 'assistant', content: content ?? '' };
       if (tcs) out.tool_calls = tcs;
       return { message: out };
     })();
@@ -156,4 +180,42 @@ function toJsonSchema(schema: any): any {
 function safeJson(s: any) {
   if (typeof s !== 'string') return s;
   try { return JSON.parse(s); } catch { return s; }
+}
+
+// Accept OpenAI-style content parts or convenience fields and map to
+// Ollama's expected shape: { content: string, images?: string[] }
+function buildTextAndImages(m: unknown): { content?: string; images?: string[] } {
+  if (!m || typeof m !== 'object') return {};
+  const obj = m as Record<string, unknown>;
+  // If content is parts, normalize
+  if (Array.isArray(obj.content) || Array.isArray(obj.contentParts)) {
+    const parts = Array.isArray(obj.content) ? (obj.content as unknown[]) : (obj.contentParts as unknown[]);
+    const texts: string[] = [];
+    const images: string[] = [];
+    for (const p of parts) {
+      if (typeof p === 'string') { texts.push(p); continue; }
+      if (!p || typeof p !== 'object') continue;
+      const po = p as Record<string, unknown>;
+      const t = po.type as string | undefined;
+      if (t === 'text' && typeof po.text === 'string') { texts.push(po.text); continue; }
+      if (t === 'image_url') {
+        const iu = po.image_url as unknown;
+        if (typeof iu === 'string') images.push(iu);
+        else if (iu && typeof iu === 'object' && typeof (iu as any).url === 'string') images.push(String((iu as any).url));
+        continue;
+      }
+      if (t === 'image' && typeof (po as any).url === 'string') { images.push(String((po as any).url)); continue; }
+      if (typeof (po as any).image_url === 'string') { images.push(String((po as any).image_url)); continue; }
+      if (typeof (po as any).image === 'string') { images.push(String((po as any).image)); continue; }
+    }
+    return { content: texts.join('\n\n'), images: images.length ? images : undefined };
+  }
+  // Otherwise, use content string (if any) and collect convenience images
+  const images: string[] = [];
+  if (Array.isArray(obj.images)) images.push(...(obj.images as string[]));
+  if (Array.isArray(obj.image_urls)) images.push(...(obj.image_urls as string[]));
+  if (typeof obj.image_url === 'string') images.push(obj.image_url);
+  if (typeof obj.image === 'string') images.push(obj.image);
+  const content = typeof obj.content === 'string' ? obj.content : undefined;
+  return { content, images: images.length ? images : undefined };
 }

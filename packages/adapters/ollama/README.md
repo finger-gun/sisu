@@ -16,8 +16,6 @@ npm i @sisu-ai/adapter-ollama
 - Start Ollama locally: `ollama serve`
 - Pull a tools-capable model: `ollama pull llama3.1:latest`
 
-## Documentation
-Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
 
 ## Usage
 ```ts
@@ -25,8 +23,29 @@ import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
 
 const model = ollamaAdapter({ model: 'llama3.1' });
 // or with custom base URL: { baseUrl: 'http://localhost:11435' }
+```
 
-// Works with @sisu-ai/mw-tool-calling — tools are passed via GenerateOptions.tools
+## Images (Vision)
+- Accepts multi-part `content` arrays with `type: 'text' | 'image_url'` and convenience fields like `images`/`image_url`.
+- The adapter maps these to Ollama's expected shape by sending `content` as a string and `images` as a string array on the message.
+
+Content parts (adapter maps to `images[]` under the hood):
+```ts
+const messages: any[] = [
+  { role: 'user', content: [
+    { type: 'text', text: 'What is in this image?' },
+    { type: 'image_url', image_url: { url: 'https://example.com/pic.jpg' } },
+  ] }
+];
+const res = await model.generate(messages, { toolChoice: 'none' });
+```
+
+Convenience shape:
+```ts
+const messages: any[] = [
+  { role: 'user', content: 'Describe the image.', images: ['https://example.com/pic.jpg'] },
+];
+const res = await model.generate(messages, { toolChoice: 'none' });
 ```
 
 ## Tools

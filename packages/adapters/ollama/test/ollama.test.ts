@@ -89,3 +89,17 @@ test('ollamaAdapter sends tools schema when provided', async () => {
   expect(body.tools[0].function.name).toBe('echo');
 });
 
+test('ollamaAdapter maps content parts or convenience images to Ollama images[]', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, text: async () => JSON.stringify({ message: { role: 'assistant', content: '' } }) } as any);
+  const llm = ollamaAdapter({ model: 'llama3' });
+  const messages: Message[] = [
+    { role: 'user', content: 'see', images: ['http://img/1.png', 'http://img/2.png'] } as any,
+  ];
+  await llm.generate(messages);
+  const [, init] = fetchMock.mock.calls[0] as any;
+  const body = JSON.parse(init.body);
+  const user = body.messages[0];
+  expect(typeof user.content).toBe('string');
+  expect(Array.isArray(user.images)).toBe(true);
+  expect(user.images).toEqual(['http://img/1.png', 'http://img/2.png']);
+});
