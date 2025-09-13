@@ -207,6 +207,17 @@ flowchart TD
   - `npm run ex:ollama:hello`
   - Open `examples/ollama-hello/traces/trace.html`
 
+- OpenAI vision:
+  - `cp examples/openai-vision/.env.example examples/openai-vision/.env`
+  - `npm run ex:openai:vision`
+  - Open `examples/openai-vision/traces/trace.html`
+
+- Ollama vision (local):
+  - `ollama serve && ollama pull llava:latest` (or another vision-capable model)
+  - `npm run ex:ollama:vision`
+  - Open `examples/ollama-vision/traces/trace.html`
+  - The Ollama adapter auto-fetches http(s) image URLs and inlines them as base64.
+
 
 ## Find your inner strength
 - [packages/core](packages/core/README.md)

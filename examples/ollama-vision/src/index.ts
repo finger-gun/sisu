@@ -9,29 +9,14 @@ import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
 const model = ollamaAdapter({ model: process.env.MODEL || 'llava:latest' });
 
 // Example image (public domain) or first CLI arg
-const imageSrc = process.argv.find(a => a.startsWith('http'))
-  || 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg';
+const imageUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg';
 
-async function toBase64(src: string): Promise<string> {
-  // If already looks like base64 (data URL), strip prefix and return the payload
-  if (src.startsWith('data:')) return src.split(',')[1] ?? '';
-  // Simple heuristic: if not http(s), return as-is
-  if (!/^https?:\/\//i.test(src)) return src;
-  const res = await fetch(src);
-  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  return buf.toString('base64');
-}
-
-// Prepare base64 image for Ollama (expects images as base64 strings)
-const base64Image = await toBase64(imageSrc);
-
-// Use content parts to include text + image (adapter maps to images[])
+// Use content parts to include text + image (adapter maps to images[] and auto-fetches URL → base64)
 const userMessage: any = {
   role: 'user',
   content: [
     { type: 'text', text: 'Please describe this image.' },
-    { type: 'image_url', image_url: { url: base64Image } },
+    { type: 'image_url', image_url: { url: imageUrl } },
   ],
 };
 

@@ -30,40 +30,44 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
   function generate(messages: Message[], genOpts?: Omit<GenerateOptions, 'stream'> | (GenerateOptions & { stream?: false | undefined })): Promise<ModelResponse>;
   function generate(messages: Message[], genOpts?: GenerateOptions): Promise<ModelResponse> | AsyncIterable<ModelEvent> {
     // Map messages to Ollama format; include assistant tool_calls and tool messages
-    const mapped: OllamaChatMessage[] = messages.map((m: any) => {
-      const base: any = { role: m.role };
-      const anyM = m as Message & {
-        tool_calls?: Array<{ id?: string; name?: string; arguments?: unknown }>;
-        contentParts?: unknown;
-        images?: unknown;
-        image_urls?: unknown;
-        image_url?: unknown;
-        image?: unknown;
-      };
-      if (m.role === 'assistant' && Array.isArray(anyM.tool_calls)) {
-        base.tool_calls = anyM.tool_calls.map((tc: any) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: (tc.arguments ?? {}) } }));
-        const ti = buildTextAndImages(anyM);
-        base.content = ti.content ?? (m.content !== undefined ? m.content : null);
-        if (ti.images?.length) base.images = ti.images;
-      } else if (m.role === 'tool') {
-        base.content = String(m.content ?? '');
-        if (m.tool_call_id) base.tool_call_id = m.tool_call_id;
-        if (m.name && !m.tool_call_id) base.name = m.name;
-      } else {
-        const ti = buildTextAndImages(anyM);
-        base.content = ti.content ?? (m.content ?? '');
-        if (ti.images?.length) base.images = ti.images;
-        if (m.name) base.name = m.name;
+    async function mapMessagesWithImages(): Promise<OllamaChatMessage[]> {
+      const out: OllamaChatMessage[] = [];
+      for (const m of messages as any[]) {
+        const base: any = { role: m.role };
+        const anyM = m as Message & {
+          tool_calls?: Array<{ id?: string; name?: string; arguments?: unknown }>;
+          contentParts?: unknown;
+          images?: unknown;
+          image_urls?: unknown;
+          image_url?: unknown;
+          image?: unknown;
+        };
+        if (m.role === 'assistant' && Array.isArray(anyM.tool_calls)) {
+          base.tool_calls = anyM.tool_calls.map((tc: any) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: (tc.arguments ?? {}) } }));
+          const ti = buildTextAndImages(anyM);
+          base.content = ti.content ?? (m.content !== undefined ? m.content : null);
+          if (ti.images?.length) base.images = await toBase64Images(ti.images);
+        } else if (m.role === 'tool') {
+          base.content = String(m.content ?? '');
+          if (m.tool_call_id) base.tool_call_id = m.tool_call_id;
+          if (m.name && !m.tool_call_id) base.name = m.name;
+        } else {
+          const ti = buildTextAndImages(anyM);
+          base.content = ti.content ?? (m.content ?? '');
+          if (ti.images?.length) base.images = await toBase64Images(ti.images);
+          if (m.name) base.name = m.name;
+        }
+        out.push(base);
       }
-      return base;
-    });
-
-    const toolsParam = (genOpts?.tools ?? []).map(toOllamaTool);
-    const baseBody: any = { model: opts.model, messages: mapped };
-    if (toolsParam.length) baseBody.tools = toolsParam;
+      return out;
+    }
 
     if (genOpts?.stream === true) {
       return (async function* () {
+        const toolsParam = (genOpts?.tools ?? []).map(toOllamaTool);
+        const mapped = await mapMessagesWithImages();
+        const baseBody: any = { model: opts.model, messages: mapped };
+        if (toolsParam.length) baseBody.tools = toolsParam;
         const res = await fetch(`${baseUrl}/api/chat`, {
           method: 'POST',
           headers: {
@@ -108,6 +112,10 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
 
     // Non-stream path
     return (async () => {
+      const toolsParam = (genOpts?.tools ?? []).map(toOllamaTool);
+      const mapped = await mapMessagesWithImages();
+      const baseBody: any = { model: opts.model, messages: mapped };
+      if (toolsParam.length) baseBody.tools = toolsParam;
       const res = await fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
         headers: {
@@ -218,4 +226,41 @@ function buildTextAndImages(m: unknown): { content?: string; images?: string[] }
   if (typeof obj.image === 'string') images.push(obj.image);
   const content = typeof obj.content === 'string' ? obj.content : undefined;
   return { content, images: images.length ? images : undefined };
+}
+
+async function toBase64Images(images: string[]): Promise<string[]> {
+  const out: string[] = [];
+  for (const src of images) out.push(await toBase64(src));
+  return out;
+}
+
+function isHttpUrl(s: string): boolean {
+  return /^https?:\/\//i.test(s);
+}
+
+function isDataUrl(s: string): boolean {
+  return /^data:/i.test(s);
+}
+
+function fromDataUrl(s: string): string {
+  const i = s.indexOf(',');
+  return i >= 0 ? s.slice(i + 1) : '';
+}
+
+function isProbablyBase64(s: string): boolean {
+  if (!s || /[:\/]/.test(s)) return false; // exclude URLs
+  // Basic base64 check: valid chars and length % 4 == 0
+  if (s.length % 4 !== 0) return false;
+  return /^[A-Za-z0-9+/]+={0,2}$/.test(s);
+}
+
+async function toBase64(src: string): Promise<string> {
+  if (isDataUrl(src)) return fromDataUrl(src);
+  if (isHttpUrl(src)) {
+    const res = await fetch(src);
+    if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    return buf.toString('base64');
+  }
+  return isProbablyBase64(src) ? src : src;
 }

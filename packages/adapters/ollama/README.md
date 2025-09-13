@@ -28,8 +28,9 @@ const model = ollamaAdapter({ model: 'llama3.1' });
 ## Images (Vision)
 - Accepts multi-part `content` arrays with `type: 'text' | 'image_url'` and convenience fields like `images`/`image_url`.
 - The adapter maps these to Ollama's expected shape by sending `content` as a string and `images` as a string array on the message.
+- If an image value is an `http(s)` URL, the adapter fetches it and inlines it as base64 automatically. Data URLs are supported; raw base64 strings pass through.
 
-Content parts (adapter maps to `images[]` under the hood):
+Content parts (adapter maps to `images[]` under the hood and auto-fetches URLs):
 ```ts
 const messages: any[] = [
   { role: 'user', content: [
@@ -48,10 +49,57 @@ const messages: any[] = [
 const res = await model.generate(messages, { toolChoice: 'none' });
 ```
 
+### Normalizing Ollama API
+- Providers such as OpenAI vision models accepts `image_url` parts with `url` pointing to a remote image; the provider dereferences the URL.
+- Ollama expects each message to include `images: string[]` of base64-encoded image data; it does not dereference remote URLs.
+- This adapter keeps the authoring experience consistent by accepting OpenAI-style parts and convenience URLs, and performs URL→base64 conversion for you.
+
+### Accepted image formats
+- Base64 string: `images: ["<base64>"]` (preferred/default for Ollama)
+- Data URL: `images: ["data:image/png;base64,<base64>"]` or in parts via `{ type: 'image_url', image_url: { url: 'data:...' } }`
+- Remote URL (convenience): `{ type: 'image_url', image_url: { url: 'https://...' } }` or `images: ['https://...']` — adapter fetches and inlines as base64.
+
+Note: URL fetching happens from your runtime. If your environment blocks outbound HTTP, either provide base64 directly or host images where your runtime can reach them.
+
 ## Tools
-- Accepts `GenerateOptions.tools` and sends them to Ollama under `tools`.
-- Parses `message.tool_calls` into `{ id, name, arguments }` for the tool loop.
-- Sends assistant `tool_calls` and `tool` messages back to Ollama for follow-up.
+- Define tools as small, named functions with a zod schema.
+- Register them on your agent and add the tool-calling middleware — the adapter handles the wire format to/from Ollama.
+- Under the hood, the adapter sends your tool schemas to the model, maps model “function calls” back to your handlers, and includes tool results for follow‑up turns.
+
+Quick start with tools
+```ts
+import { Agent, InMemoryKV, NullStream, SimpleTools, createConsoleLogger, type Ctx, type Tool } from '@sisu-ai/core';
+import { registerTools } from '@sisu-ai/mw-register-tools';
+import { toolCalling } from '@sisu-ai/mw-tool-calling';
+import { z } from 'zod';
+import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
+
+const sum: Tool<{ a: number; b: number }> = {
+  name: 'sum',
+  description: 'Add two numbers',
+  schema: z.object({ a: z.number(), b: z.number() }),
+  handler: async ({ a, b }) => ({ result: a + b }),
+};
+
+const model = ollamaAdapter({ model: 'llama3.1' });
+const ctx: Ctx = {
+  input: 'Use the sum tool to add 3 and 7, then explain.',
+  messages: [{ role: 'system', content: 'You are helpful.' }],
+  model,
+  tools: new SimpleTools(),
+  memory: new InMemoryKV(),
+  stream: new NullStream(),
+  state: {},
+  signal: new AbortController().signal,
+  log: createConsoleLogger(),
+};
+
+const app = new Agent()
+  .use(registerTools([sum])) // make tools available
+  .use(toolCalling);         // let the model pick tools, run them, and finalize
+
+await app.handler()(ctx);
+```
 
 ## Notes
 - Tool choice forcing is model-dependent; current loop asks for tools on first turn and plain completion on second.
