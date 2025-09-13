@@ -1,5 +1,11 @@
 # @sisu-ai/adapter-openai
 
+## 4.1.0
+
+### Minor Changes
+
+- 9b419d0: Minor fixes
+
 ## 4.0.2
 
 ### Patch Changes

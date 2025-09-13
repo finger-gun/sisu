@@ -1,7 +1,7 @@
 {
   "name": "openai-parallel",
   "private": true,
-  "version": "0.2.11",
+  "version": "0.2.12",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@sisu-ai/core": "1.1.2",
-    "@sisu-ai/adapter-openai": "4.0.2",
+    "@sisu-ai/adapter-openai": "4.1.0",
     "@sisu-ai/mw-control-flow": "4.0.2",
     "@sisu-ai/mw-conversation-buffer": "4.0.2",
     "@sisu-ai/mw-error-boundary": "4.0.2",

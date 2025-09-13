@@ -1,7 +1,7 @@
 {
-  "name": "ollama-hello",
+  "name": "ollama-vision",
   "private": true,
-  "version": "0.1.15",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",

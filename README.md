@@ -207,6 +207,18 @@ flowchart TD
   - `npm run ex:ollama:hello`
   - Open `examples/ollama-hello/traces/trace.html`
 
+- OpenAI vision:
+  - `cp examples/openai-vision/.env.example examples/openai-vision/.env`
+  - `npm run ex:openai:vision`
+  - Open `examples/openai-vision/traces/trace.html`
+
+- Ollama vision (local):
+  - `ollama serve && ollama pull llava:latest` (or another vision-capable model)
+  - `npm run ex:ollama:vision`
+  - Open `examples/ollama-vision/traces/trace.html`
+  - The Ollama adapter auto-fetches http(s) image URLs and inlines them as base64.
+
+
 ## Find your inner strength
 - [packages/core](packages/core/README.md)
 - Adapters: [Anthropic](packages/adapters/anthropic/README.md), [Ollama](packages/adapters/ollama/README.md), [OpenAI](packages/adapters/openai/README.md)
@@ -277,9 +289,9 @@ Adapters are small shims that let Sisu talk to different LLM providers in a **no
 Every adapter implements the same `LLM.generate(messages, opts)` contract so you can swap providers without changing your agent code.
 
 | Adapter       | Package                      | Features                                                                               | Notes                                                                                                                         |
-| ------------- | ---------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **OpenAI**    | `@sisu-ai/adapter-openai`    | ✅ Tool calling, ✅ JSON mode, ✅ Streaming, ✅ Vision (multi-part input), usage reporting | Works with OpenAI API and *any service that is OpenAI-compatible* (e.g. **LM Studio**, **vLLM**, some **OpenRouter** models). |
-| **Ollama**    | `@sisu-ai/adapter-ollama`    | ✅ Local inference, ✅ Tool calling, partial streaming                                   | Run local models via [`ollama serve`](https://ollama.com).                                                                    |
+|---------------|------------------------------|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| **OpenAI**    | `@sisu-ai/adapter-openai`    | ✅ Tool calling, ✅ JSON mode, ✅ Streaming, ✅ Vision (multi-part input), ✅ Usage reporting | Works with OpenAI API and *any service that is OpenAI-compatible* (e.g. **LM Studio**, **vLLM**, some **OpenRouter** models). |
+| **Ollama**    | `@sisu-ai/adapter-ollama`    | ✅ Local inference, ✅ Tool calling, ✅ Streaming, ✅ Vision (multi-part input)                                   | Run local models via [`ollama serve`](https://ollama.com).                                                                    |
 | **Anthropic** | `@sisu-ai/adapter-anthropic` | ✅ Tool calling, ✅ Streaming, ✅ Usage reporting                                         | Claude family models. Slightly different tool-call semantics are normalized for you.                                          |
 
 ### When to re-use vs. add a new adapter
@@ -308,12 +320,12 @@ const model = openAIAdapter({ model: 'gpt-4o-mini' });
 // ctx.model = model
 ```
 
-| Feature       | Details                                                                                                                                                                 |
-|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Env Vars**  | - `OPENAI_API_KEY` or `API_KEY`<br>- `OPENAI_BASE_URL` or `BASE_URL`                                        |
-| **Tools**     | ✅ |
-| **Images**    | - Multi-part arrays: `{ type: 'text' \| 'image_url' }`<br>- Example: `[{ type: 'text', ...}, { type: 'image_url', ...}]`<br>- See `examples/openai-vision`              |
-| **Streaming** | ✅                                                                                                                                                                       |
+| Feature       | Details                                                                                                                                                    |
+|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Env Vars**  | - `OPENAI_API_KEY` or `API_KEY`<br>- `OPENAI_BASE_URL` or `BASE_URL`                                                                                       |
+| **Tools**     | ✅                                                                                                                                                          |
+| **Images**    | - Multi-part arrays: `{ type: 'text' \| 'image_url' }`<br>- Example: `[{ type: 'text', ...}, { type: 'image_url', ...}]`<br>- See `examples/openai-vision` |
+| **Streaming** | ✅                                                                                                                                                          |
 
 ---
 
@@ -325,12 +337,12 @@ const model = ollamaAdapter({ model: 'llama3.1' });
 // ctx.model = model
 ```
 
-| Feature       | Details                                                                                                 |
-|---------------|---------------------------------------------------------------------------------------------------------|
-| **Env Vars**  | - `OLLAMA_BASE_URL` or `BASE_URL` (default `http://localhost:11434`)                                    |
-| **Tools**     | ✅ |
-| **Images**    | –                                                                                                       |
-| **Streaming** | ✅                                                                                                       |
+| Feature       | Details                                                              |
+|---------------|----------------------------------------------------------------------|
+| **Env Vars**  | - `OLLAMA_BASE_URL` or `BASE_URL` (default `http://localhost:11434`) |
+| **Tools**     | ✅                                                                    |
+| **Images**    | - Multi-part arrays: `{ type: 'text' \| 'image_url' }`<br>- Example: `[{ type: 'text', ...}, { type: 'image_url', ...}]`<br>- See `examples/ollama-vision` |
+| **Streaming** | ✅                                                                    |
 
 ---
 
@@ -342,12 +354,12 @@ const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
 // ctx.model = model
 ```
 
-| Feature       | Details                                                                                                                                          |
-|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Env Vars**  | - `ANTHROPIC_API_KEY` or `API_KEY`<br>- `ANTHROPIC_BASE_URL` or `BASE_URL`                                                           |
-| **Tools**     | ✅ |
-| **Images**    | –                                                                                                                                                |
-| **Streaming** | ✅                                                                                                                                                |
+| Feature       | Details                                                                    |
+|---------------|----------------------------------------------------------------------------|
+| **Env Vars**  | - `ANTHROPIC_API_KEY` or `API_KEY`<br>- `ANTHROPIC_BASE_URL` or `BASE_URL` |
+| **Tools**     | ✅                                                                          |
+| **Images**    | –                                                                          |
+| **Streaming** | ✅                                                                          |
 
 ---
 

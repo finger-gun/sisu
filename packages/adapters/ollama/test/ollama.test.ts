@@ -89,3 +89,28 @@ test('ollamaAdapter sends tools schema when provided', async () => {
   expect(body.tools[0].function.name).toBe('echo');
 });
 
+test('ollamaAdapter converts http image URLs to base64 images[]', async () => {
+  const imgBytes = new Uint8Array([1, 2, 3, 4]);
+  const imgB64 = Buffer.from(imgBytes).toString('base64'); // AQIDBA==
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (url: any, init: any) => {
+    const u = String(url);
+    if (u.includes('/api/chat')) {
+      return { ok: true, status: 200, statusText: 'OK', text: async () => JSON.stringify({ message: { role: 'assistant', content: '' } }) } as any;
+    }
+    // image fetch
+    return { ok: true, arrayBuffer: async () => imgBytes.buffer } as any;
+  });
+  const llm = ollamaAdapter({ model: 'llama3' });
+  const messages: Message[] = [
+    { role: 'user', content: 'see', images: ['http://img/1.png', 'http://img/2.png'] } as any,
+  ];
+  await llm.generate(messages);
+  // Last call should be to /api/chat; inspect its body
+  const calls = fetchMock.mock.calls as any[];
+  const [, init] = calls.find(c => String(c[0]).includes('/api/chat')) as any;
+  const body = JSON.parse(init.body);
+  const user = body.messages[0];
+  expect(typeof user.content).toBe('string');
+  expect(Array.isArray(user.images)).toBe(true);
+  expect(user.images).toEqual([imgB64, imgB64]);
+});

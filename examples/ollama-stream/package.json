@@ -1,7 +1,7 @@
 {
   "name": "ollama-stream",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.1.9",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@sisu-ai/core": "1.1.2",
-    "@sisu-ai/adapter-ollama": "4.0.2",
+    "@sisu-ai/adapter-ollama": "4.1.0",
     "dotenv": "^16.4.5"
   }
 }

@@ -70,7 +70,6 @@ const res = await model.generate(messages, { toolChoice: 'none' });
 - Images: Prefer `imagePer1K` (e.g., ≈0.217 per 1K images). Alternatively, use `imageInputPer1K` + `imageTokenPerImage`.
 
  
-
 ## Debugging
 - `DEBUG_LLM=1` prints sanitized payloads and error bodies.
 - Combine with `LOG_LEVEL=debug` to see middleware events.
