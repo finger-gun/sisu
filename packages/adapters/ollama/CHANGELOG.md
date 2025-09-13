@@ -1,5 +1,11 @@
 # @sisu-ai/adapter-ollama
 
+## 4.0.3
+
+### Patch Changes
+
+- 43e3b32: Add image content support matching OpenAI's `image_url` format.
+
 ## 4.0.2
 
 ### Patch Changes
