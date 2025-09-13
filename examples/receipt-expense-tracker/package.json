@@ -1,0 +1,25 @@
+{
+  "name": "receipt-expense-tracker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sisu-ai/core": "1.1.2",
+    "@sisu-ai/adapter-openai": "4.0.2",
+    "@sisu-ai/mw-register-tools": "4.0.2",
+    "@sisu-ai/mw-tool-calling": "4.0.2",
+    "@sisu-ai/mw-conversation-buffer": "4.0.2",
+    "@sisu-ai/mw-error-boundary": "4.0.2",
+    "@sisu-ai/mw-trace-viewer": "5.0.2",
+    "@sisu-ai/mw-usage-tracker": "4.0.2",
+    "@sisu-ai/tool-aws-s3": "1.0.2",
+    "@sisu-ai/tool-terminal": "2.0.2",
+    "dotenv": "^16.4.5",
+    "zod": "^4.1.5"
+  }
+}
