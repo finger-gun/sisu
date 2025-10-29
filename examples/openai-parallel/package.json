@@ -1,7 +1,7 @@
 {
   "name": "openai-parallel",
   "private": true,
-  "version": "0.2.12",
+  "version": "0.2.13",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -13,7 +13,7 @@
     "@sisu-ai/mw-control-flow": "4.0.2",
     "@sisu-ai/mw-conversation-buffer": "4.0.2",
     "@sisu-ai/mw-error-boundary": "4.0.2",
-    "@sisu-ai/mw-trace-viewer": "5.0.2",
+    "@sisu-ai/mw-trace-viewer": "5.0.3",
     "@sisu-ai/mw-usage-tracker": "4.0.2",
     "dotenv": "^16.4.5"
   }

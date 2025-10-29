@@ -1,7 +1,7 @@
 {
   "name": "openai-extract-urls",
   "private": true,
-  "version": "0.1.13",
+  "version": "0.1.14",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -14,7 +14,7 @@
     "@sisu-ai/mw-tool-calling": "4.0.2",
     "@sisu-ai/mw-conversation-buffer": "4.0.2",
     "@sisu-ai/mw-error-boundary": "4.0.2",
-    "@sisu-ai/mw-trace-viewer": "5.0.2",
+    "@sisu-ai/mw-trace-viewer": "5.0.3",
     "@sisu-ai/tool-extract-urls": "4.0.2",
     "dotenv": "^16.4.5"
   }

@@ -1,5 +1,12 @@
 # ollama-vision
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [1128ef4]
+  - @sisu-ai/mw-trace-viewer@5.0.3
+
 ## 0.1.2
 
 ### Patch Changes

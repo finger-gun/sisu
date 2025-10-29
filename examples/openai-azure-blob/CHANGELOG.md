@@ -1,5 +1,12 @@
 # openai-azure-blob
 
+## 0.1.14
+
+### Patch Changes
+
+- Updated dependencies [1128ef4]
+  - @sisu-ai/mw-trace-viewer@5.0.3
+
 ## 0.1.13
 
 ### Patch Changes
