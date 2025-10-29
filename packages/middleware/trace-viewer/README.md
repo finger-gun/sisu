@@ -23,17 +23,22 @@ const app = new Agent()
 ```
 
 ## Options
-- `enable?: boolean` — force on/off (default: enabled when `--trace` or `TRACE_JSON/TRACE_HTML` present)
+- `enable?: boolean` — force on/off (default: enabled when `--trace` or `TRACE_JSON=1/TRACE_HTML=1` present)
 - `path?: string` — output target; `.html` writes HTML only, `.json` writes JSON + HTML sidecar (default: `trace.json`)
-- `html?: boolean` — write HTML (default `true`)
-- `json?: boolean` — write JSON (default `true`)
+- `html?: boolean` — write HTML (default `true`, or controlled by `TRACE_HTML=1` env var)
+- `json?: boolean` — write JSON (default `true`, or controlled by `TRACE_JSON=1` env var)
 - `style?: 'light'|'dark'` — built‑in themes (default `light`)
 - `template?: (doc, style) => string` — custom HTML renderer
+- `dir?: string` — directory for traces when no explicit path given (default: `traces`)
 
 ## CLI / Env
-- `--trace` or `--trace=run.json|run.html`
-- `--trace-style=light|dark`
-- `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=dark`
+- `--trace` or `--trace=run.json|run.html` — enable tracing with optional output path
+- `--trace-style=light|dark` — set theme via CLI
+- `TRACE_JSON=1` — enable tracing and control JSON output (only JSON if set alone)
+- `TRACE_HTML=1` — enable tracing and control HTML output (only HTML if set alone)
+- `TRACE_STYLE=dark` — set theme via env var
+
+**Priority:** Options passed to `traceViewer()` always take precedence over env vars. If neither are set, both HTML and JSON are written by default.
 
 ## What’s captured
 - `input`, `final` message text

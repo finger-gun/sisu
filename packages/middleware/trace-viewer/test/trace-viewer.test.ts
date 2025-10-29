@@ -75,34 +75,37 @@ test('traceViewer is enabled via --trace CLI and writes to custom traces dir', a
   }
 });
 
-test('traceViewer supports html-only and json-only outputs', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-modes-'));
+test('traceViewer supports html-only output', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-html-'));
   try {
-    // HTML only
-    const htmlPath = path.join(dir, 'only.html');
+    const htmlPath = path.join(dir, 'html-only.html');
     await compose([traceViewer({ enable: true, path: htmlPath, html: true, json: false })])(makeCtx());
     expect(fs.existsSync(htmlPath)).toBe(true);
     expect(fs.existsSync(htmlPath.replace(/\.html$/, '.json'))).toBe(false);
     // runs.js should still exist and contain an index (from .js files)
-    const dir1 = path.dirname(htmlPath);
-    const runsJs1 = path.join(dir1, 'runs.js');
-    expect(fs.existsSync(runsJs1)).toBe(true);
-    const js1 = fs.readFileSync(runsJs1, 'utf8');
-    const m1 = js1.match(/SISU_RUN_INDEX\s*=\s*(\[[\s\S]*?\]);/);
-    expect(m1).toBeTruthy();
-    const idx1 = JSON.parse(m1![1]);
-    expect(Array.isArray(idx1)).toBe(true);
-    expect(idx1.length).toBeGreaterThan(0);
+    const runsJs = path.join(dir, 'runs.js');
+    expect(fs.existsSync(runsJs)).toBe(true);
+    const js = fs.readFileSync(runsJs, 'utf8');
+    const m = js.match(/SISU_RUN_INDEX\s*=\s*(\[[\s\S]*?\]);/);
+    expect(m).toBeTruthy();
+    const idx = JSON.parse(m![1]);
+    expect(Array.isArray(idx)).toBe(true);
+    expect(idx.length).toBeGreaterThan(0);
+  } finally {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+});
 
-    // JSON only
-    const jsonPath = path.join(dir, 'only.json');
+test('traceViewer supports json-only output', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-json-'));
+  try {
+    const jsonPath = path.join(dir, 'json-only.json');
     await compose([traceViewer({ enable: true, path: jsonPath, html: false, json: true })])(makeCtx());
     expect(fs.existsSync(jsonPath)).toBe(true);
-    expect(fs.existsSync(jsonPath.replace(/\.json$/, '.html'))).toBe(true); // pairs HTML by default when json path provided
-    // In json-only mode (wantHtml=false), viewer assets are not maintained
-    const runsJs2 = path.join(dir, 'runs.js');
-    // runs.js may or may not exist depending on previous writes; ensure it is at least a file if present
-    // We won't assert existence here to keep behavior consistent with html flag.
+    expect(fs.existsSync(jsonPath.replace(/\.json$/, '.html'))).toBe(false); // html=false means no HTML
+    // In json-only mode (wantHtml=false), viewer assets (runs.js, etc.) are not maintained
+    const runsJs = path.join(dir, 'runs.js');
+    expect(fs.existsSync(runsJs)).toBe(false); // no viewer assets when html=false
   } finally {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
   }

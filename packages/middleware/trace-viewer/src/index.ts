@@ -66,11 +66,17 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
     const explicitPath = Boolean(opts.path || traceArgPath);
     const defaultDir = opts.dir || 'traces';
     const path = opts.path || traceArgPath || 'trace.json';
-    // Defaults: write both HTML and JSON (back-compat with tests and prior behavior)
-    const wantHtmlDefault = true;
-    const wantJsonDefault = true;
-    const wantHtml = opts.html ?? wantHtmlDefault;
-    const wantJson = opts.json ?? wantJsonDefault;
+    // Allow env vars to override defaults when not explicitly set via opts
+    const envHtml = process.env.TRACE_HTML === '1';
+    const envJson = process.env.TRACE_JSON === '1';
+    const hasEnvOverride = envHtml || envJson;
+    
+    // If env vars are set, respect them as the default; otherwise write both (backward compat)
+    const defaultHtml = hasEnvOverride ? envHtml : true;
+    const defaultJson = hasEnvOverride ? envJson : true;
+    
+    const wantHtml = opts.html ?? defaultHtml;
+    const wantJson = opts.json ?? defaultJson;
     const cliStyle = argv.find(a => a.startsWith('--trace-style='))?.split('=')[1] as TraceStyle | undefined;
     const envStyle = (process.env.TRACE_STYLE as TraceStyle | undefined);
     const style: TraceStyle = (opts.style || cliStyle || envStyle || 'light');
@@ -166,9 +172,9 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
       const toHtmlPath = (p: string) => p.replace(/\.json$/i, '.html');
       const toJsonPath = (p: string) => p.replace(/\.html$/i, '.json');
       if (lower.endsWith('.json')) {
-        // Write JSON (if enabled) and always pair an HTML next to it
+        // Write JSON (if enabled) and HTML next to it (if enabled)
         if (wantJson) { fs.writeFileSync(targetPath, JSON.stringify(out, null, 2), 'utf8'); }
-        fs.writeFileSync(toHtmlPath(targetPath), html, 'utf8');
+        if (wantHtml) { fs.writeFileSync(toHtmlPath(targetPath), html, 'utf8'); }
       } else if (lower.endsWith('.html')) {
         // Write HTML (if enabled) and JSON alongside if requested
         if (wantHtml) { fs.writeFileSync(targetPath, html, 'utf8'); }
