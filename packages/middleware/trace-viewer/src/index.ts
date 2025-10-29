@@ -1,5 +1,6 @@
 import type { Ctx, Middleware } from '@sisu-ai/core';
 import { createTracingLogger } from '@sisu-ai/core';
+import { fileURLToPath } from 'node:url';
 
 export type TraceStyle = 'light' | 'dark';
 
@@ -305,12 +306,18 @@ function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle
 
   // Copy SPA viewer assets (viewer.html/css/js) into target dir
   let assetsDir = '';
-  // ESM-friendly resolution using import.meta.url; falls back to __dirname if available
-  const modUrl = (import.meta && import.meta.url) ? import.meta.url : '';
-  const here = modUrl ? pathMod.dirname(new URL(modUrl).pathname) : (typeof __dirname !== 'undefined' ? __dirname : '');
-  if (here) assetsDir = pathMod.resolve(here, '..', 'assets');
+  // ESM-compatible resolution using import.meta.url
+  if (import.meta && import.meta.url) {
+    const currentFile = fileURLToPath(import.meta.url);
+    const currentDir = pathMod.dirname(currentFile);
+    assetsDir = pathMod.resolve(currentDir, '..', 'assets');
+  }
+  // Fallback: if assets not found at expected location, try monorepo structure
   if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
-    assetsDir = pathMod.resolve(__dirname as any, '..', 'assets');
+    const guess = pathMod.resolve(process.cwd(), '..', '..', 'packages', 'middleware', 'trace-viewer', 'assets');
+    if (fs.existsSync(pathMod.join(guess, 'viewer.html'))) {
+      assetsDir = guess;
+    }
   }
   if (!assetsDir || !fs.existsSync(pathMod.join(assetsDir, 'viewer.html'))) {
     // Last-resort guess for monorepo execution from example cwd
