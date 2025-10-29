@@ -1,5 +1,12 @@
 # @sisu-ai/adapter-openai
 
+## 5.0.0
+
+### Patch Changes
+
+- Updated dependencies [e9f7d6c]
+  - @sisu-ai/core@1.2.0
+
 ## 4.1.1
 
 ### Patch Changes
