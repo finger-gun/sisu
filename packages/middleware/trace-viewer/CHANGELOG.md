@@ -1,5 +1,11 @@
 # @sisu-ai/mw-trace-viewer
 
+## 5.0.5
+
+### Patch Changes
+
+- 67529e8: Fix missing assets directory in published package. The `assets/` directory containing viewer.html, viewer.css, and viewer.js files is now included in the npm package, resolving the ENOENT error when HTML trace output is enabled.
+
 ## 5.0.3
 
 ### Patch Changes
