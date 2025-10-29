@@ -1,5 +1,15 @@
 # anthropic-hello
 
+## 0.2.12
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@1.1.3
+  - @sisu-ai/adapter-anthropic@2.0.3
+  - @sisu-ai/mw-trace-viewer@5.0.7
+  - @sisu-ai/mw-usage-tracker@4.0.3
+
 ## 0.2.11
 
 ### Patch Changes

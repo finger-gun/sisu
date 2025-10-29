@@ -65,15 +65,13 @@ function redactObject(input: any, keysSet: Set<string>, mask: string): any {
   if (input instanceof Error) {
     return { name: input.name, message: input.message, stack: input.stack };
   }
-  if (Array.isArray(input)) return input.map(v => redactObject(v, keysSet, mask));
+  if (Array.isArray(input)) {
+    return input.map(v => redactObject(v, keysSet, mask));
+  }
   if (typeof input === 'object') {
-    const out: any = Array.isArray(input) ? [] : {};
+    const out: Record<string, any> = {};
     for (const [k, v] of Object.entries(input)) {
-      if (keysSet.has(k.toLowerCase())) {
-        out[k] = mask;
-      } else {
-        out[k] = redactObject(v, keysSet, mask);
-      }
+      out[k] = keysSet.has(k.toLowerCase()) ? mask : redactObject(v, keysSet, mask);
     }
     return out;
   }

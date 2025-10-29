@@ -36,6 +36,8 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish",
+    "release:publish": "npm run version-packages && npm run release",
+    "release:full": "npm run changeset && npm run version-packages && npm run release",
     "release:report": "node ./tools/release-report.cjs",
     "release:report:since": "node ./tools/release-report.cjs --since=origin/main",
     "release:plan": "changeset status --output=markdown",

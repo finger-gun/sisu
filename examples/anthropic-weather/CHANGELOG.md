@@ -1,5 +1,22 @@
 # anthropic-weather
 
+## 0.2.12
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@1.1.3
+  - @sisu-ai/adapter-anthropic@2.0.3
+  - @sisu-ai/mw-control-flow@4.0.3
+  - @sisu-ai/mw-conversation-buffer@4.0.3
+  - @sisu-ai/mw-error-boundary@4.0.3
+  - @sisu-ai/mw-invariants@4.0.3
+  - @sisu-ai/mw-react-parser@4.0.3
+  - @sisu-ai/mw-register-tools@4.0.3
+  - @sisu-ai/mw-tool-calling@4.0.3
+  - @sisu-ai/mw-trace-viewer@5.0.7
+  - @sisu-ai/mw-usage-tracker@4.0.3
+
 ## 0.2.11
 
 ### Patch Changes

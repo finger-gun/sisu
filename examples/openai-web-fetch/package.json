@@ -1,21 +1,21 @@
 {
   "name": "openai-web-fetch",
   "private": true,
-  "version": "0.2.13",
+  "version": "0.2.14",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sisu-ai/core": "1.1.2",
-    "@sisu-ai/adapter-openai": "4.1.0",
-    "@sisu-ai/mw-register-tools": "4.0.2",
-    "@sisu-ai/mw-tool-calling": "4.0.2",
-    "@sisu-ai/mw-conversation-buffer": "4.0.2",
-    "@sisu-ai/mw-error-boundary": "4.0.2",
-    "@sisu-ai/mw-trace-viewer": "5.0.3",
-    "@sisu-ai/tool-web-fetch": "3.0.2",
+    "@sisu-ai/core": "1.1.3",
+    "@sisu-ai/adapter-openai": "4.1.1",
+    "@sisu-ai/mw-register-tools": "4.0.3",
+    "@sisu-ai/mw-tool-calling": "4.0.3",
+    "@sisu-ai/mw-conversation-buffer": "4.0.3",
+    "@sisu-ai/mw-error-boundary": "4.0.3",
+    "@sisu-ai/mw-trace-viewer": "5.0.7",
+    "@sisu-ai/tool-web-fetch": "3.0.3",
     "dotenv": "^16.4.5"
   }
 }

@@ -1,5 +1,15 @@
 # openai-vision
 
+## 0.2.14
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@1.1.3
+  - @sisu-ai/adapter-openai@4.1.1
+  - @sisu-ai/mw-trace-viewer@5.0.7
+  - @sisu-ai/mw-usage-tracker@4.0.3
+
 ## 0.2.13
 
 ### Patch Changes

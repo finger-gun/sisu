@@ -429,6 +429,18 @@ npm run release
 # If 2FA enabled, enter OTP when prompted
 ```
 
+Convenience Scripts
+- If changesets already exist (manually created or by AI agents):
+```bash
+npm run release:publish
+# Runs: version-packages → release
+```
+- To run the full workflow (create changeset → version → publish):
+```bash
+npm run release:full
+# Runs: changeset → version-packages → release
+```
+
 Notes
 - Packages are configured with `publishConfig.access = public` and ship `dist/` only.
 - `.changeset/config.json` ignores `examples/*` when computing releases.

@@ -1,5 +1,19 @@
 # openai-terminal
 
+## 0.1.12
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@1.1.3
+  - @sisu-ai/adapter-openai@4.1.1
+  - @sisu-ai/mw-conversation-buffer@4.0.3
+  - @sisu-ai/mw-error-boundary@4.0.3
+  - @sisu-ai/mw-register-tools@4.0.3
+  - @sisu-ai/mw-tool-calling@4.0.3
+  - @sisu-ai/mw-trace-viewer@5.0.7
+  - @sisu-ai/tool-terminal@2.0.3
+
 ## 0.1.11
 
 ### Patch Changes

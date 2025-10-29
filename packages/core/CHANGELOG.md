@@ -1,5 +1,11 @@
 # @sisu-ai/core
 
+## 1.1.3
+
+### Patch Changes
+
+- Fix redaction logic bug in `redactObject` function by removing duplicate array check. The function was checking `Array.isArray(input)` twice - once for early return and once inside the object handling block, which was unreachable code.
+
 ## 1.1.2
 
 ### Patch Changes

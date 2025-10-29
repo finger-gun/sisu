@@ -1,5 +1,13 @@
 # @sisu-ai/mw-agent-run-api
 
+## 2.0.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@1.1.3
+  - @sisu-ai/server@2.0.3
+
 ## 2.0.2
 
 ### Patch Changes

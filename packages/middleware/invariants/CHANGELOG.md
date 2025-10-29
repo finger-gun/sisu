@@ -1,5 +1,12 @@
 # @sisu-ai/mw-invariants
 
+## 4.0.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@1.1.3
+
 ## 4.0.2
 
 ### Patch Changes

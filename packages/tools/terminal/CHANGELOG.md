@@ -1,5 +1,12 @@
 # @sisu-ai/tool-terminal
 
+## 2.0.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@1.1.3
+
 ## 2.0.2
 
 ### Patch Changes
