@@ -393,6 +393,38 @@ const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
 - Set `DEBUG_LLM=1` to log redacted HTTP payloads from the OpenAI adapter when a call fails (status + body snippet).
 - The trace viewer writes `run.json` and `run.html` for quick scanning of messages and events.
 
+## Security & Redaction
+Sisu includes built-in protection against accidentally logging sensitive data:
+
+### Automatic Secret Detection
+The `createRedactingLogger` uses **pattern-based detection** to automatically identify and redact common sensitive formats:
+- API keys (OpenAI: `sk-...`, Google: `AIza...`, AWS: `AKIA...`)
+- Authentication tokens (JWT, GitHub PAT, GitLab, Slack)
+- OAuth tokens
+
+### Key-Based Redaction
+Additionally redacts values for known sensitive key names:
+- `api_key`, `apiKey`, `authorization`, `auth`, `token`, `password`, `secret`, etc.
+
+### Example
+```ts
+import { createRedactingLogger, createConsoleLogger } from '@sisu-ai/core';
+
+// Automatic protection with default patterns
+const logger = createRedactingLogger(createConsoleLogger());
+
+// Custom patterns for your domain
+const customLogger = createRedactingLogger(createConsoleLogger(), {
+  patterns: [/custom-secret-\d{4}/],  // Add custom regex
+  mask: '[HIDDEN]'  // Customize redaction text
+});
+
+logger.info({ apiKey: 'sk-1234567890abcdef...' });
+// Output: { apiKey: '***REDACTED***' }
+```
+
+See [@sisu-ai/core](packages/core/README.md#redacting-sensitive-data) for complete documentation.
+
 # Community & Support
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
 - [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)

@@ -50,8 +50,9 @@ export function createTracingLogger(base: Logger = createConsoleLogger()): { log
 }
 
 export interface RedactOptions {
-  keys?: string[]; // case-insensitive match of key names to redact
-  mask?: string;   // replacement for sensitive values
+  keys?: string[];     // case-insensitive match of key names to redact
+  mask?: string;       // replacement for sensitive values
+  patterns?: RegExp[]; // regex patterns to match sensitive values
 }
 
 const DEFAULT_SENSITIVE_KEYS = [
@@ -59,40 +60,66 @@ const DEFAULT_SENSITIVE_KEYS = [
   'password','passwd','secret','x-api-key','openai_api_key'
 ];
 
-function redactObject(input: any, keysSet: Set<string>, mask: string): any {
+// Default patterns for detecting common sensitive data formats
+const DEFAULT_PATTERNS = [
+  /sk-[a-zA-Z0-9]{32,}/,  // OpenAI-style keys
+  /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/,  // JWT tokens
+  /ghp_[a-zA-Z0-9]{36}/,  // GitHub Personal Access Token
+  /gho_[a-zA-Z0-9]{36}/,  // GitHub OAuth Access Token
+  /github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}/,  // GitHub fine-grained PAT
+  /glpat-[a-zA-Z0-9_-]{20}/,  // GitLab Personal Access Token
+  /AIza[0-9A-Za-z_-]{35}/,  // Google API Key
+  /ya29\.[0-9A-Za-z_-]+/,  // Google OAuth Access Token
+  /AKIA[0-9A-Z]{16}/,  // AWS Access Key ID
+  /xox[baprs]-[0-9a-zA-Z-]{10,}/,  // Slack tokens
+];
+
+function matchesPattern(value: string, patterns: RegExp[]): boolean {
+  for (const pattern of patterns) {
+    if (pattern.test(value)) return true;
+  }
+  return false;
+}
+
+function redactObject(input: any, keysSet: Set<string>, patterns: RegExp[], mask: string): any {
   if (input === null || input === undefined) return input;
   // Preserve Error objects with useful fields
   if (input instanceof Error) {
     return { name: input.name, message: input.message, stack: input.stack };
   }
   if (Array.isArray(input)) {
-    return input.map(v => redactObject(v, keysSet, mask));
+    return input.map(v => redactObject(v, keysSet, patterns, mask));
   }
   if (typeof input === 'object') {
     const out: Record<string, any> = {};
     for (const [k, v] of Object.entries(input)) {
-      out[k] = keysSet.has(k.toLowerCase()) ? mask : redactObject(v, keysSet, mask);
+      out[k] = keysSet.has(k.toLowerCase()) ? mask : redactObject(v, keysSet, patterns, mask);
     }
     return out;
+  }
+  // Check string values against patterns
+  if (typeof input === 'string' && matchesPattern(input, patterns)) {
+    return mask;
   }
   return input;
 }
 
-function redactArgs(args: unknown[], keysSet: Set<string>, mask: string): unknown[] {
-  return args.map(arg => redactObject(arg as any, keysSet, mask));
+function redactArgs(args: unknown[], keysSet: Set<string>, patterns: RegExp[], mask: string): unknown[] {
+  return args.map(arg => redactObject(arg as any, keysSet, patterns, mask));
 }
 
 export function createRedactingLogger(base: Logger, opts: RedactOptions = {}): Logger {
   const envKeys = (process.env.LOG_REDACT_KEYS || '').split(',').map(s => s.trim()).filter(Boolean);
   const keys = (opts.keys && opts.keys.length ? opts.keys : DEFAULT_SENSITIVE_KEYS).concat(envKeys);
   const keysSet = new Set(keys.map(k => k.toLowerCase()));
+  const patterns = opts.patterns ?? DEFAULT_PATTERNS;
   const mask = opts.mask ?? '***REDACTED***';
   return {
-    debug: (...a) => base.debug(...redactArgs(a, keysSet, mask)),
-    info:  (...a) => base.info(...redactArgs(a, keysSet, mask)),
-    warn:  (...a) => base.warn(...redactArgs(a, keysSet, mask)),
-    error: (...a) => base.error(...redactArgs(a, keysSet, mask)),
-    span:  (name, attrs) => base.span?.(name, redactObject(attrs as any, keysSet, mask)),
+    debug: (...a) => base.debug(...redactArgs(a, keysSet, patterns, mask)),
+    info:  (...a) => base.info(...redactArgs(a, keysSet, patterns, mask)),
+    warn:  (...a) => base.warn(...redactArgs(a, keysSet, patterns, mask)),
+    error: (...a) => base.error(...redactArgs(a, keysSet, patterns, mask)),
+    span:  (name, attrs) => base.span?.(name, redactObject(attrs as any, keysSet, patterns, mask)),
   };
 }
 

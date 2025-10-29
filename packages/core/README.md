@@ -29,7 +29,7 @@ Discover what you can do through examples or documentation. Check it out at http
 - Utilities
   - `createConsoleLogger({ level, timestamps })` — leveled logger
   - `createTracingLogger(base?)` — wraps a logger and records events
-  - `createRedactingLogger(base, { keys?, mask? })` — redacts secrets in logs
+  - `createRedactingLogger(base, { keys?, mask?, patterns? })` — redacts secrets in logs using key names and regex patterns
   - `InMemoryKV` — basic key-value store with a toy retrieval facade
   - `NullStream` — no-op token sink
   - `stdoutStream` — writes tokens to stdout (CLI streaming)
@@ -81,6 +81,39 @@ Use any provider by implementing `LLM.generate(messages, opts)`, or use a ready 
 - Use `createConsoleLogger` for leveled logs (debug/info/warn/error)
 - Wrap with `createTracingLogger` to capture events for trace viewers
 - Wrap with `createRedactingLogger` to mask secrets before printing
+
+### Redacting sensitive data
+The `createRedactingLogger` automatically protects sensitive information in logs through two methods:
+
+**Key-based redaction**: Redacts values of known sensitive keys (case-insensitive):
+- `api_key`, `apiKey`, `authorization`, `auth`, `token`, `access_token`, `password`, `secret`, etc.
+
+**Pattern-based redaction**: Automatically detects and redacts common sensitive data formats:
+- OpenAI API keys (`sk-...`)
+- JWT tokens
+- GitHub tokens (PAT, OAuth, fine-grained)
+- GitLab Personal Access Tokens
+- Google API keys and OAuth tokens
+- AWS Access Key IDs
+- Slack tokens
+
+```ts
+import { createRedactingLogger, createConsoleLogger } from '@sisu-ai/core';
+
+// Use default patterns and keys
+const logger = createRedactingLogger(createConsoleLogger());
+
+// Customize with your own patterns
+const customLogger = createRedactingLogger(createConsoleLogger(), {
+  keys: ['customSecret', 'apiKey'],
+  patterns: [/custom-\d{4}/],  // Add custom regex patterns
+  mask: '[HIDDEN]'  // Change the redaction mask
+});
+
+// Automatically redacts sensitive values
+logger.info({ apiKey: 'sk-1234567890abcdef...' });
+// Output: { apiKey: '***REDACTED***' }
+```
 
 ## Tools and memory
 - `SimpleTools` provides a basic in-memory tool registry (good for demos/tests)
