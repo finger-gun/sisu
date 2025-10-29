@@ -84,7 +84,8 @@ describe('createRedactingLogger', () => {
       span: () => {}
     };
     const logger = createRedactingLogger(base);
-    logger.debug({ slack: 'xoxb-1234567890-1234567890-abcdefghijklmnop' });
+    // Using clearly fake token for testing (all zeros and TEST suffix)
+    logger.debug({ slack: 'xoxb-0000000000-0000000000-XXXXXXXXXXTEST' });
     expect(logs[0][0]).toEqual({ slack: '***REDACTED***' });
   });
 
