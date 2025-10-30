@@ -143,6 +143,7 @@ export function compose<C extends Ctx>(stack: Middleware<C>[]) {
 
 #### 1. Add Ctx Factory/Builder
 **Issue**: Creating `Ctx` requires verbose boilerplate in every example.
+**Status**: ✅ **COMPLETED**
 
 **Recommendation**: Add a factory function:
 ```typescript
@@ -223,6 +224,7 @@ export function compose<C extends Ctx>(stack: Middleware<C>[]) {
 
 #### 3. Better Error Types
 **Issue**: Generic errors make debugging harder.
+**Status**: ✅ **COMPLETED**
 
 **Recommendation**: Create specific error classes:
 ```typescript
