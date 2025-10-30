@@ -1,4 +1,4 @@
-import type { Tool, Ctx } from '@sisu-ai/core';
+import type { Tool, ToolContext } from '@sisu-ai/core';
 import { firstConfigValue } from '@sisu-ai/core';
 import { z } from 'zod';
 
@@ -48,7 +48,7 @@ export const wikipedia: Tool<WikipediaArgs> = {
     format: z.enum(['summary','html','related']).optional(),
     lang: z.string().min(2).max(10).optional(),
   }),
-  handler: async ({ title, format = 'summary', lang }, ctx: Ctx) => {
+  handler: async ({ title, format = 'summary', lang }, ctx: ToolContext) => {
     const base = resolveBaseUrl(ctx, lang);
     if (format === 'html') return fetchHtml(base, title);
     if (format === 'related') return fetchRelated(base, title);
@@ -58,7 +58,7 @@ export const wikipedia: Tool<WikipediaArgs> = {
 
 export default wikipedia;
 
-function resolveBaseUrl(ctx: Ctx | undefined, lang?: string): string {
+function resolveBaseUrl(ctx: ToolContext | undefined, lang?: string): string {
   // Precedence: CLI flags (via core helpers) > env vars; allow overriding full base or just language
   const baseFromFlags = firstConfigValue(['WIKIPEDIA_BASE_URL','WIKI_BASE_URL']);
   const langFromFlags = firstConfigValue(['WIKIPEDIA_LANG','WIKI_LANG']) || lang;

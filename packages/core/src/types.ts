@@ -113,12 +113,36 @@ export interface TokenStream {
   end(): void;
 }
 
+/**
+ * Restricted context for tool execution.
+ * Tools have access to a sandboxed subset of Ctx to prevent:
+ * - Tools calling other tools (no tools registry access)
+ * - Tools manipulating conversation history (no messages access)
+ * - Tools accessing middleware state (no state access)
+ * - Tools interfering with user I/O (no input/stream access)
+ *
+ * Tools CAN:
+ * - Use the model for meta-operations (e.g., summarizeText)
+ * - Access persistent memory
+ * - Respect cancellation signals
+ * - Log their operations
+ * - Access injected dependencies (for testing/configuration)
+ */
+export interface ToolContext {
+  readonly memory: Memory;
+  readonly signal: AbortSignal;
+  readonly log: Logger;
+  readonly model: LLM;
+  /** Optional dependency injection container for testing or runtime configuration */
+  readonly deps?: Record<string, unknown>;
+}
+
 /** Stronger Tool typing with generics */
 export interface Tool<TArgs = any, TResult = unknown> {
   name: string;
   description?: string;
   schema: any; // zod schema at runtime
-  handler: (args: TArgs, ctx: Ctx) => Promise<TResult>;
+  handler: (args: TArgs, ctx: ToolContext) => Promise<TResult>;
 }
 
 /** Registry */

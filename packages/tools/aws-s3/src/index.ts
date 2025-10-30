@@ -1,7 +1,5 @@
-import type { Tool } from '@sisu-ai/core';
+import type { Tool, ToolContext } from '@sisu-ai/core';
 import { z } from 'zod';
-
-type S3Ctx = { state?: any } | undefined;
 
 type V3Client = { send: (cmd: any) => Promise<any> };
 type V2LikeClient = {
@@ -12,10 +10,12 @@ type V2LikeClient = {
   headObject?: (p: any) => Promise<any>;
 };
 
-async function resolveClient(ctx: S3Ctx): Promise<V3Client | V2LikeClient> {
-  const c = (ctx as any)?.state?.s3?.client;
-  if (c) return c as any;
-  // Construct a v3 client from env if not provided
+async function resolveClient(ctx: ToolContext): Promise<V3Client | V2LikeClient> {
+  // Check deps for injected client (for testing/configuration)
+  const injectedClient = ctx.deps?.s3Client as (V3Client | V2LikeClient) | undefined;
+  if (injectedClient) return injectedClient;
+  
+  // Construct a v3 client from env
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1';
   const mod = await import('@aws-sdk/client-s3');
   const S3Client = (mod as any).S3Client;
@@ -28,9 +28,11 @@ async function resolveClient(ctx: S3Ctx): Promise<V3Client | V2LikeClient> {
   return new S3Client({ region, ...creds });
 }
 
-function allowWriteFromCtx(ctx: S3Ctx): boolean {
-  const v = (ctx as any)?.state?.s3?.allowWrite;
-  if (typeof v === 'boolean') return v;
+function allowWriteFromCtx(ctx: ToolContext): boolean {
+  // Check deps for injected allowWrite flag (for testing/configuration)
+  const injected = ctx.deps?.s3AllowWrite as boolean | undefined;
+  if (typeof injected === 'boolean') return injected;
+  
   const env = process.env.AWS_S3_ALLOW_WRITE;
   return !!(env && /^(1|true|yes)$/i.test(env));
 }

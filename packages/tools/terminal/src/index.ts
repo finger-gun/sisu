@@ -3,7 +3,7 @@ import { promises as fs, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { minimatch } from 'minimatch';
-import type { Tool, Ctx } from '@sisu-ai/core';
+import type { Tool, ToolContext } from '@sisu-ai/core';
 import { z } from 'zod';
 
 export interface TerminalToolConfig {
@@ -498,7 +498,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
       stdin: z.string().optional(),
       sessionId: z.string().optional()
     }),
-    handler: async (a, ctx: Ctx) => {
+    handler: async (a, ctx: ToolContext) => {
       const s = getSession(a.sessionId);
       const effCwd = path.resolve(a.cwd ?? s?.cwd ?? cfg.roots[0]);
       const policy = commandPolicyCheck({ command: a.command, cwd: effCwd }, cfg);
@@ -527,7 +527,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
         'Use before terminalRun when you need to run multiple commands in the same folder.'
       ].join(' '),
     schema: z.object({ path: z.string(), sessionId: z.string().optional() }),
-    handler: async ({ path: relPath, sessionId }, ctx: Ctx) => {
+    handler: async ({ path: relPath, sessionId }, ctx: ToolContext) => {
       const s = getSession(sessionId);
       const base = s?.cwd ?? cfg.roots[0];
       const target = path.resolve(base, relPath);
@@ -548,7 +548,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
         'Path must be inside allowed roots; returns UTF-8 text by default.'
       ].join(' '),
     schema: z.object({ path: z.string(), encoding: z.enum(['utf8', 'base64']).optional(), sessionId: z.string().optional() }),
-    handler: async (a, ctx: Ctx) => {
+    handler: async (a, ctx: ToolContext) => {
       const s = getSession(a.sessionId);
       const base = s?.cwd ?? cfg.roots[0];
       const abs = path.resolve(base, a.path);

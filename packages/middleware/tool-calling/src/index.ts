@@ -1,4 +1,4 @@
-import type { Middleware, Message } from '@sisu-ai/core';
+import type { Middleware, Message, ToolContext } from '@sisu-ai/core';
 export const toolCalling: Middleware = async (ctx, next) => {
   await next();
   for (let i = 0; i < 6; i++) {
@@ -37,7 +37,16 @@ export const toolCalling: Middleware = async (ctx, next) => {
         if (result === undefined) {
           const args = tool.schema?.parse ? tool.schema.parse(call.arguments) : call.arguments;
           ctx.log.debug?.('[tool-calling] invoking tool', { name: call.name, id: call.id, args });
-          result = await tool.handler(args, ctx);
+          // Create restricted context for tool execution
+          const toolCtx: ToolContext = {
+            memory: ctx.memory,
+            signal: ctx.signal,
+            log: ctx.log,
+            model: ctx.model,
+            // Pass deps from state for dependency injection (testing/configuration)
+            deps: ctx.state?.toolDeps as Record<string, unknown> | undefined,
+          };
+          result = await tool.handler(args, toolCtx);
           cache.set(key, result);
           lastArgsByName.set(call.name, args);
         } else {
@@ -93,7 +102,16 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
         if (result === undefined) {
           const args = tool.schema?.parse ? tool.schema.parse(call.arguments) : call.arguments;
           ctx.log.debug?.('[iterative-tool-calling] invoking tool', { name: call.name, id: call.id, args });
-          result = await tool.handler(args, ctx);
+          // Create restricted context for tool execution
+          const toolCtx: ToolContext = {
+            memory: ctx.memory,
+            signal: ctx.signal,
+            log: ctx.log,
+            model: ctx.model,
+            // Pass deps from state for dependency injection (testing/configuration)
+            deps: ctx.state?.toolDeps as Record<string, unknown> | undefined,
+          };
+          result = await tool.handler(args, toolCtx);
           cache.set(key, result);
           lastArgsByName.set(call.name, args);
         } else {

@@ -1,4 +1,4 @@
-import type { Tool, Ctx, Message } from '@sisu-ai/core';
+import type { Tool, ToolContext, Message } from '@sisu-ai/core';
 import { z } from 'zod';
 
 export type TargetLength = 'short'|'medium'|'long';
@@ -28,7 +28,7 @@ export const summarizeText: Tool<SummarizeArgs> = {
     includeCitations: z.boolean().optional(),
     focus: z.string().optional(),
   }),
-  handler: async ({ text, target = 'medium', maxChars, bullets, includeCitations, focus }, ctx: Ctx): Promise<SummarizeResult> => {
+  handler: async ({ text, target = 'medium', maxChars, bullets, includeCitations, focus }, ctx: ToolContext): Promise<SummarizeResult> => {
     const cap = Math.min(Math.max(Number(maxChars ?? 2000), 200), 50_000);
     const chunks = chunkText(text, 10_000);
     const chunkSummaries: string[] = [];

@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import type { Ctx } from '@sisu-ai/core';
+import type { ToolContext } from '@sisu-ai/core';
 
 // Mock chromadb module shape used in the adapter
 vi.mock('chromadb', () => {
@@ -14,7 +14,12 @@ vi.mock('chromadb', () => {
 
 import { vectorUpsert, vectorQuery, vectorDelete } from '../src/index.js';
 
-const baseCtx = { state: {}, log: { info: vi.fn(), debug: vi.fn() } } as unknown as Ctx;
+const baseCtx = {
+  log: { info: vi.fn(), debug: vi.fn() },
+  signal: new AbortController().signal,
+  memory: { get: vi.fn(), set: vi.fn() },
+  model: {} as any
+} as unknown as ToolContext;
 
 describe('vec-chroma tools', () => {
   beforeEach(() => { vi.clearAllMocks(); });

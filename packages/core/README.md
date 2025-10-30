@@ -19,10 +19,12 @@ Discover what you can do through examples or documentation. Check it out at http
 ## What it provides
 - Types and contracts
   - `Ctx` — the single context object that flows through your pipeline
+  - `ToolContext` — restricted context for tool execution (sandboxed subset of `Ctx`)
   - `Middleware<Ctx>` — Koa-style `(ctx, next) => {}` functions
   - `LLM` — model adapter interface with `generate(messages, opts)`
   - `Message` — chat message shape (system/user/assistant/tool)
   - `ModelResponse` — `{ message, usage? }` for non-streaming paths
+  - `Tool<TArgs, TResult>` — tool handler interface with schema validation
 - Composition
   - `compose(middlewares)` — function composer
   - `Agent` — tiny class with `.use(mw).handler()` convenience
@@ -118,6 +120,61 @@ logger.info({ apiKey: 'sk-1234567890abcdef...' });
 ## Tools and memory
 - `SimpleTools` provides a basic in-memory tool registry (good for demos/tests)
 - `InMemoryKV` is a minimal KV store; the `retrieval(index)` method is a toy that you can replace with a real vector DB behind a middleware
+
+### Tool handler sandboxing
+Tool handlers receive a restricted `ToolContext` instead of the full `Ctx` to prevent security issues:
+
+**Available in ToolContext:**
+- `memory`: Access to persistent storage
+- `signal`: AbortSignal for cancellation
+- `log`: Logger for debugging
+- `model`: LLM interface (for meta-tools like summarization)
+- `deps`: Optional dependency injection (for testing/configuration)
+
+**Not available (sandboxed):**
+- `tools`: Prevents tools from calling other tools
+- `messages`: Prevents tools from manipulating conversation history
+- `state`: Prevents tools from accessing middleware state
+- `input` / `stream`: Prevents tools from interfering with I/O
+
+This ensures tools remain focused, testable, and safe. Meta-tools can still use `ctx.model.generate()` for operations like text summarization.
+
+```ts
+import type { Tool, ToolContext } from '@sisu-ai/core';
+import { z } from 'zod';
+
+export const myTool: Tool<{ input: string }> = {
+  name: 'myTool',
+  description: 'Example tool with restricted context',
+  schema: z.object({ input: z.string() }),
+  handler: async ({ input }, ctx: ToolContext) => {
+    // ctx has: memory, signal, log, model, deps
+    // ctx does NOT have: tools, messages, state, input, stream
+    ctx.log.info('Processing', { input });
+    
+    // Access persistent storage
+    const cached = await ctx.memory.get('cache-key');
+    
+    // Use injected dependencies (for testing or runtime configuration)
+    const client = ctx.deps?.apiClient;
+    
+    return { result: `Processed: ${input}` };
+  }
+};
+```
+
+**Dependency injection for testing:**
+```ts
+// In your middleware or test setup, inject dependencies via ctx.state.toolDeps
+ctx.state = {
+  toolDeps: {
+    apiClient: mockClient,
+    config: { timeout: 5000 }
+  }
+};
+
+// Tools will receive these via ctx.deps
+```
 
 ## Philosophy
 Small, explicit, composable. Sisu’s core stays tiny; everything else — tools, control flow, guardrails, usage/cost, tracing — lives in opt-in middlewares and adapters.

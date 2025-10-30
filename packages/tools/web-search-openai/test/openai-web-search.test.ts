@@ -1,6 +1,6 @@
 import { test, expect, vi, afterEach } from 'vitest';
 import { openAIWebSearch } from '../src/index.js';
-import type { Ctx } from '@sisu-ai/core';
+import type { ToolContext } from '@sisu-ai/core';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -30,7 +30,12 @@ test('openAIWebSearch posts to /v1/responses with web_search tool and returns re
     } as any;
   });
 
-  const ctx = { state: {}, model: { name: 'openai:gpt-4o-mini' } } as unknown as Ctx;
+  const ctx = {
+    model: { name: 'openai:gpt-4o-mini' } as any,
+    log: { info: vi.fn(), debug: vi.fn() },
+    signal: new AbortController().signal,
+    memory: { get: vi.fn(), set: vi.fn() }
+  } as unknown as ToolContext;
   const results: any = await openAIWebSearch.handler({ query: 'hello' } as any, ctx);
   expect(Array.isArray(results)).toBe(true);
   expect(results[0]?.title).toBe('A');
@@ -41,7 +46,12 @@ test('openAIWebSearch throws on non-JSON response', async () => {
   process.env.OPENAI_API_KEY = 'k';
   process.env.OPENAI_RESPONSES_BASE_URL = 'https://api.example.com';
   vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, status: 200, headers: { get: () => 'text/html' }, text: async () => '<html>' } as any);
-  const ctx = { state: {}, model: { name: 'openai:gpt-4o-mini' } } as unknown as Ctx;
+  const ctx = {
+    model: { name: 'openai:gpt-4o-mini' } as any,
+    log: { info: vi.fn(), debug: vi.fn() },
+    signal: new AbortController().signal,
+    memory: { get: vi.fn(), set: vi.fn() }
+  } as unknown as ToolContext;
   await expect(openAIWebSearch.handler({ query: 'x' } as any, ctx)).rejects.toThrow(/non-JSON content/);
 });
 

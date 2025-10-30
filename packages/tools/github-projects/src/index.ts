@@ -1,4 +1,4 @@
-import type { Tool, Ctx } from '@sisu-ai/core';
+import type { Tool, ToolContext } from '@sisu-ai/core';
 import { firstConfigValue } from '@sisu-ai/core';
 import { z } from 'zod';
 
@@ -15,7 +15,7 @@ function resolveToken(): string | undefined {
   return firstConfigValue(['GITHUB_ACCESS_TOKEN','GITHUB_TOKEN']);
 }
 
-async function ghGraphQL(query: string, variables: Record<string, unknown> | undefined, ctx: Ctx): Promise<any> {
+async function ghGraphQL(query: string, variables: Record<string, unknown> | undefined, ctx: ToolContext): Promise<any> {
   const endpoint = resolveGraphQLEndpoint();
   const token = resolveToken();
   if (!token) throw new Error('Missing GitHub token. Set GITHUB_ACCESS_TOKEN or GITHUB_TOKEN.');
@@ -48,7 +48,7 @@ export interface IssueSummary { id: string; itemId: string; title: string; state
 export interface IssueDetails { title?: string; body?: string; state?: string; url?: string; author?: string; createdAt?: string; updatedAt?: string }
 export interface StatusOption { id: string; name: string; fieldId: string }
 
-async function listProjectIssues(ctx: Ctx): Promise<IssueSummary[]> {
+async function listProjectIssues(ctx: ToolContext): Promise<IssueSummary[]> {
   const projectId = requireProjectId();
   const query = `
     query($projectId: ID!) {
@@ -74,7 +74,7 @@ async function listProjectIssues(ctx: Ctx): Promise<IssueSummary[]> {
   return out;
 }
 
-async function getIssueDetails(issueId: string, ctx: Ctx): Promise<IssueDetails | undefined> {
+async function getIssueDetails(issueId: string, ctx: ToolContext): Promise<IssueDetails | undefined> {
   const query = `
     query($id: ID!) {
       node(id: $id) {
@@ -96,7 +96,7 @@ async function getIssueDetails(issueId: string, ctx: Ctx): Promise<IssueDetails 
   return { title: n.title, body: n.body, state: n.state, url: n.url, createdAt: n.createdAt, updatedAt: n.updatedAt, author: n.author?.login };
 }
 
-async function getStatusFieldId(ctx: Ctx): Promise<string> {
+async function getStatusFieldId(ctx: ToolContext): Promise<string> {
   const projectId = requireProjectId();
   const query = `
     query($projectId: ID!) {
@@ -116,14 +116,14 @@ async function getStatusFieldId(ctx: Ctx): Promise<string> {
   return status.id;
 }
 
-async function getProjectItemId(issueId: string, ctx: Ctx): Promise<string> {
+async function getProjectItemId(issueId: string, ctx: ToolContext): Promise<string> {
   const list = await listProjectIssues(ctx);
   const found = list.find(i => i.id === issueId);
   if (!found?.itemId) throw new Error(`Issue ${issueId} not found in project`);
   return found.itemId;
 }
 
-async function listStatusOptions(ctx: Ctx): Promise<StatusOption[]> {
+async function listStatusOptions(ctx: ToolContext): Promise<StatusOption[]> {
   const projectId = requireProjectId();
   const query = `
     query($projectId: ID!) {
@@ -148,7 +148,7 @@ async function listStatusOptions(ctx: Ctx): Promise<StatusOption[]> {
   return options.map(o => ({ id: o.id, name: o.name, fieldId }));
 }
 
-async function moveIssueToColumn(issueId: string, optionId: string, ctx: Ctx): Promise<{ itemId: string }> {
+async function moveIssueToColumn(issueId: string, optionId: string, ctx: ToolContext): Promise<{ itemId: string }> {
   const projectId = requireProjectId();
   const fieldId = await getStatusFieldId(ctx);
   const itemId = await getProjectItemId(issueId, ctx);
@@ -165,7 +165,7 @@ async function moveIssueToColumn(issueId: string, optionId: string, ctx: Ctx): P
   return { itemId };
 }
 
-async function updateIssue(issueId: string, title: string | undefined, body: string | undefined, ctx: Ctx): Promise<{ id: string, title?: string, body?: string }> {
+async function updateIssue(issueId: string, title: string | undefined, body: string | undefined, ctx: ToolContext): Promise<{ id: string, title?: string, body?: string }> {
   const mutation = `
     mutation($input: UpdateIssueInput!) {
       updateIssue(input: $input) { issue { id title body } }

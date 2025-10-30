@@ -69,25 +69,50 @@ const DEFAULT_PATTERNS = [
 
 #### 3. Tool Handler Sandboxing
 **Priority**: Medium
+**Status**: ✅ **COMPLETED**
 
 **Issue**: Tool handlers have full access to `ctx` with no restrictions.
 
-**Recommendation**: Create a restricted context for tool execution:
+**Implementation**: Created `ToolContext` interface with restricted properties:
 ```typescript
 export interface ToolContext {
   readonly memory: Memory;
   readonly signal: AbortSignal;
   readonly log: Logger;
-  // Explicitly exclude: model, tools (prevent tool-calling-tools)
+  readonly model: LLM;
+  readonly deps?: Record<string, unknown>;  // For dependency injection
 }
 
 export interface Tool<TArgs = any, TResult = unknown> {
   name: string;
   description?: string;
   schema: any;
-  handler: (args: TArgs, ctx: ToolContext) => Promise<TResult>;  // Restricted ctx
+  handler: (args: TArgs, ctx: ToolContext) => Promise<TResult>;
 }
 ```
+
+**Changes made**:
+- Created `ToolContext` interface in [`types.ts`](packages/core/src/types.ts:115-136)
+- Updated `Tool` interface to use `ToolContext` instead of `Ctx`
+- Modified tool-calling middleware to create restricted context before invoking handlers
+- Tool-calling middleware passes `ctx.state.toolDeps` as `ctx.deps` for proper dependency injection
+- Updated all existing tool implementations (wikipedia, github-projects, summarize-text, terminal, aws-s3, etc.)
+- Added comprehensive tests verifying sandboxing works correctly
+- Updated documentation in core README
+
+**Key decisions**:
+- Included `model` in `ToolContext` to support meta-tools (e.g., `summarizeText` needs to call LLM)
+- Tool handlers naturally pass `toolChoice: 'none'` when using model, preventing recursive tool calling
+- Added `deps` property for proper dependency injection pattern instead of abusing `memory`
+  - Tools access injected dependencies via `ctx.deps?.dependencyName`
+  - Middleware/tests provide dependencies via `ctx.state.toolDeps = { ... }`
+  - Keeps semantic separation: `memory` for persistence, `deps` for configuration/testing
+
+**Security improvements**:
+- Tools cannot call other tools (no `tools` registry access)
+- Tools cannot manipulate conversation history (no `messages` access)
+- Tools cannot access middleware state (no `state` access)
+- Tools cannot interfere with user I/O (no `input`/`stream` access)
 
 #### 4. Input Validation for Compose
 **Priority**: Medium

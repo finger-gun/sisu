@@ -1,7 +1,23 @@
 import { test, expect, vi } from 'vitest';
+import type { ToolContext } from '@sisu-ai/core';
 import { s3GetObject, s3ListObjects, s3ListObjectsDetailed, s3PutObject, s3DeleteObject, s3GetObjectMetadata } from '../src/index.js';
 
-const ctxWith = (client: any, allowWrite?: boolean) => ({ state: { s3: { client, ...(typeof allowWrite === 'boolean' ? { allowWrite } : {}) } } }) as any;
+const ctxWith = (client: any, allowWrite?: boolean): ToolContext => {
+  const deps: Record<string, unknown> = { s3Client: client };
+  if (typeof allowWrite === 'boolean') {
+    deps.s3AllowWrite = allowWrite;
+  }
+  return {
+    memory: {
+      get: vi.fn(),
+      set: vi.fn(),
+    },
+    signal: new AbortController().signal,
+    log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    model: {} as any,
+    deps,
+  } as ToolContext;
+};
 
 test('s3GetObject returns UTF-8 content', async () => {
   const client = { getObject: vi.fn(async () => ({ Body: Buffer.from('hello') })) };
