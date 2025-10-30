@@ -1,7 +1,7 @@
 {
   "name": "openai-azure-blob",
   "private": true,
-  "version": "0.1.20",
+  "version": "0.1.21",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -15,7 +15,7 @@
     "@sisu-ai/mw-conversation-buffer": "8.0.0",
     "@sisu-ai/mw-error-boundary": "8.0.0",
     "@sisu-ai/mw-trace-viewer": "9.0.0",
-    "@sisu-ai/tool-azure-blob": "8.0.0",
+    "@sisu-ai/tool-azure-blob": "8.0.1",
     "dotenv": "^16.4.5"
   }
 }

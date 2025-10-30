@@ -1,5 +1,12 @@
 # @sisu-ai/example-openai-rag-chroma
 
+## 0.1.21
+
+### Patch Changes
+
+- Updated dependencies [6679420]
+  - @sisu-ai/tool-vec-chroma@6.0.1
+
 ## 0.1.20
 
 ### Patch Changes

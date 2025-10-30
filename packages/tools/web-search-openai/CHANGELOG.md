@@ -1,5 +1,13 @@
 # @sisu-ai/tool-web-search-openai
 
+## 7.0.1
+
+### Patch Changes
+
+- 6679420: Fix TypeScript compilation errors by migrating from ctx.state to ctx.deps
+
+  Tools were incorrectly accessing ctx.state which doesn't exist on ToolContext interface. Updated to use ctx.deps for dependency injection following the sandboxed tool architecture pattern. This fixes CI build failures while maintaining backward compatibility with environment variables.
+
 ## 7.0.0
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # openai-web-search
 
+## 0.2.20
+
+### Patch Changes
+
+- Updated dependencies [6679420]
+  - @sisu-ai/tool-web-search-openai@7.0.1
+
 ## 0.2.19
 
 ### Patch Changes

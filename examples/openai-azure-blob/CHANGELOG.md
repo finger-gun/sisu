@@ -1,5 +1,13 @@
 # openai-azure-blob
 
+## 0.1.21
+
+### Patch Changes
+
+- Updated dependencies [6679420]
+- Updated dependencies [6679420]
+  - @sisu-ai/tool-azure-blob@8.0.1
+
 ## 0.1.20
 
 ### Patch Changes
