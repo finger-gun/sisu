@@ -1,5 +1,21 @@
 # anthropic-control-flow
 
+## 0.2.15
+
+### Patch Changes
+
+- Updated dependencies [bacf245]
+  - @sisu-ai/core@2.0.1
+  - @sisu-ai/adapter-anthropic@4.0.1
+  - @sisu-ai/mw-control-flow@6.0.1
+  - @sisu-ai/mw-conversation-buffer@6.0.1
+  - @sisu-ai/mw-error-boundary@6.0.1
+  - @sisu-ai/mw-invariants@6.0.1
+  - @sisu-ai/mw-register-tools@6.0.1
+  - @sisu-ai/mw-tool-calling@6.0.1
+  - @sisu-ai/mw-trace-viewer@7.0.1
+  - @sisu-ai/mw-usage-tracker@6.0.1
+
 ## 0.2.14
 
 ### Patch Changes

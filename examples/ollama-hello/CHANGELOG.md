@@ -1,5 +1,15 @@
 # ollama-hello
 
+## 0.1.20
+
+### Patch Changes
+
+- Updated dependencies [bacf245]
+  - @sisu-ai/core@2.0.1
+  - @sisu-ai/adapter-ollama@6.0.1
+  - @sisu-ai/mw-trace-viewer@7.0.1
+  - @sisu-ai/mw-usage-tracker@6.0.1
+
 ## 0.1.19
 
 ### Patch Changes

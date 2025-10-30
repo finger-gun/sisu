@@ -1,5 +1,13 @@
 # ollama-stream
 
+## 0.1.13
+
+### Patch Changes
+
+- Updated dependencies [bacf245]
+  - @sisu-ai/core@2.0.1
+  - @sisu-ai/adapter-ollama@6.0.1
+
 ## 0.1.12
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @sisu-ai/tool-azure-blob
 
+## 6.0.1
+
+### Patch Changes
+
+- Updated dependencies [bacf245]
+  - @sisu-ai/core@2.0.1
+
 ## 6.0.0
 
 ### Patch Changes
