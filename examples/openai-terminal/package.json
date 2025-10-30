@@ -1,7 +1,7 @@
 {
   "name": "openai-terminal",
   "private": true,
-  "version": "0.1.16",
+  "version": "0.1.17",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -10,13 +10,13 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "ts-node": "^10.9.2",
-    "@sisu-ai/core": "2.1.0",
-    "@sisu-ai/adapter-openai": "7.0.0",
-    "@sisu-ai/mw-register-tools": "7.0.0",
-    "@sisu-ai/mw-conversation-buffer": "7.0.0",
-    "@sisu-ai/mw-tool-calling": "7.0.0",
-    "@sisu-ai/mw-error-boundary": "7.0.0",
-    "@sisu-ai/mw-trace-viewer": "8.0.0",
-    "@sisu-ai/tool-terminal": "5.0.0"
+    "@sisu-ai/core": "2.2.0",
+    "@sisu-ai/adapter-openai": "8.0.0",
+    "@sisu-ai/mw-register-tools": "8.0.0",
+    "@sisu-ai/mw-conversation-buffer": "8.0.0",
+    "@sisu-ai/mw-tool-calling": "8.0.0",
+    "@sisu-ai/mw-error-boundary": "8.0.0",
+    "@sisu-ai/mw-trace-viewer": "9.0.0",
+    "@sisu-ai/tool-terminal": "6.0.0"
   }
 }
