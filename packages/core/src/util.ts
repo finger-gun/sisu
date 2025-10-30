@@ -1,5 +1,5 @@
 import { Middleware } from './compose.js';
-import type { Ctx, Logger, Memory, TokenStream, Tool, ToolRegistry } from './types.js';
+import type { Ctx, Logger, Memory, TokenStream, Tool, ToolRegistry, LLM, Message } from './types.js';
 
 type Level = 'debug' | 'info' | 'warn' | 'error';
 const order: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
@@ -192,6 +192,70 @@ export class SimpleTools implements ToolRegistry {
   list() { return Array.from(this.tools.values()); }
   get(name: string) { return this.tools.get(name); }
   register(tool: Tool) { this.tools.set(tool.name, tool); }
+}
+
+// --- Context factory ---
+
+export interface CreateCtxOptions {
+  model: LLM;                           // Required - the only essential piece
+  input?: string;
+  systemPrompt?: string;
+  logLevel?: Level;
+  timestamps?: boolean;                 // For logger
+  signal?: AbortSignal;
+  tools?: Tool[] | ToolRegistry;        // Accept array OR ToolRegistry instance
+  memory?: Memory;
+  stream?: TokenStream;
+  state?: Record<string, unknown>;      // Allow initial state
+}
+
+/**
+ * Factory function to create a Ctx object with sensible defaults.
+ * Reduces boilerplate by providing defaults for all optional fields.
+ *
+ * @example
+ * ```ts
+ * const ctx = createCtx({
+ *   model: openAIAdapter({ model: 'gpt-4o-mini' }),
+ *   input: 'Hello',
+ *   systemPrompt: 'You are a helpful assistant',
+ *   logLevel: 'debug'
+ * });
+ * ```
+ */
+export function createCtx(options: CreateCtxOptions): Ctx {
+  const messages: Message[] = [];
+  if (options.systemPrompt) {
+    messages.push({ role: 'system', content: options.systemPrompt });
+  }
+  
+  // Handle tools - accept either array or registry
+  let toolRegistry: ToolRegistry;
+  if (options.tools) {
+    if (Array.isArray(options.tools)) {
+      toolRegistry = new SimpleTools();
+      options.tools.forEach(t => toolRegistry.register(t));
+    } else {
+      toolRegistry = options.tools;
+    }
+  } else {
+    toolRegistry = new SimpleTools();
+  }
+  
+  return {
+    input: options.input,
+    messages,
+    model: options.model,
+    tools: toolRegistry,
+    memory: options.memory ?? new InMemoryKV(),
+    stream: options.stream ?? new NullStream(),
+    state: options.state ?? {},
+    signal: options.signal ?? new AbortController().signal,
+    log: createConsoleLogger({
+      level: options.logLevel ?? 'info',
+      timestamps: options.timestamps
+    }),
+  };
 }
 
 // --- CLI helpers ---

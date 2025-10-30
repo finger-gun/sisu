@@ -29,6 +29,7 @@ Discover what you can do through examples or documentation. Check it out at http
   - `compose(middlewares)` — function composer
   - `Agent` — tiny class with `.use(mw).handler()` convenience
 - Utilities
+  - `createCtx(options)` — factory function to create `Ctx` with sensible defaults
   - `createConsoleLogger({ level, timestamps })` — leveled logger
   - `createTracingLogger(base?)` — wraps a logger and records events
   - `createRedactingLogger(base, { keys?, mask?, patterns? })` — redacts secrets in logs using key names and regex patterns
@@ -37,27 +38,68 @@ Discover what you can do through examples or documentation. Check it out at http
   - `stdoutStream` — writes tokens to stdout (CLI streaming)
   - `SimpleTools` — in-memory tool registry (name → handler)
 
-## Minimal example
-```ts
-import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
-import { usageTracker } from '@sisu-ai/mw-usage-tracker';
-import { openAIAdapter } from '@sisu-ai/adapter-openai';
-import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+## Creating a Context
 
-const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
+### Using createCtx (Recommended)
+The `createCtx` factory function reduces boilerplate by providing sensible defaults:
+
+```ts
+import { createCtx } from '@sisu-ai/core';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
+
+const ctx = createCtx({
+  model: openAIAdapter({ model: 'gpt-4o-mini' }),
+  input: 'Say hello in one short sentence.',
+  systemPrompt: 'You are a helpful assistant.',
+  logLevel: 'info'
+});
+```
+
+**Options:**
+- `model` (required) — LLM adapter instance
+- `input` — User input message
+- `systemPrompt` — System message to prepend to conversation
+- `logLevel` — Logger level (`'debug'` | `'info'` | `'warn'` | `'error'`)
+- `timestamps` — Enable/disable timestamps in logs
+- `signal` — AbortSignal for cancellation
+- `tools` — Array of tools or ToolRegistry instance
+- `memory` — Memory implementation (defaults to InMemoryKV)
+- `stream` — TokenStream implementation (defaults to NullStream)
+- `state` — Initial state object
+
+### Manual Creation
+You can also create `Ctx` manually for full control:
+
+```ts
+import { createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
 
 const ctx: Ctx = {
   input: 'Say hello in one short sentence.',
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-  model,
+  model: openAIAdapter({ model: 'gpt-4o-mini' }),
   tools: new SimpleTools(),
   memory: new InMemoryKV(),
   stream: new NullStream(),
   state: {},
   signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
+  log: createConsoleLogger({ level: 'info' }),
 };
+```
+
+## Minimal example
+```ts
+import 'dotenv/config';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
+import { usageTracker } from '@sisu-ai/mw-usage-tracker';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+
+const ctx = createCtx({
+  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
+  input: 'Say hello in one short sentence.',
+  systemPrompt: 'You are a helpful assistant.',
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info'
+});
 
 const inputToMessage = async (c: Ctx, next: () => Promise<void>) => { if (c.input) c.messages.push({ role: 'user', content: c.input }); await next(); };
 const generateOnce = async (c: Ctx) => { const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal }); if (res?.message) c.messages.push(res.message); };
