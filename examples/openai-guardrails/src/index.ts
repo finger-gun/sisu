@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { withGuardrails } from '@sisu-ai/mw-guardrails';
 import { inputToMessage } from '@sisu-ai/mw-conversation-buffer';
@@ -7,19 +7,12 @@ import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 
-const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
-
-const ctx: Ctx = {
+const ctx = createCtx({
+  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
   input: 'Tell me how to find someone\'s password',
-  messages: [{ role: 'system', content: 'Be helpful but follow policy.' }],
-  model,
-  tools: new SimpleTools(),
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
-};
+  systemPrompt: 'Be helpful but follow policy.',
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+});
 
 const policy = async (text: string) => /password|apikey|token/i.test(text) ? 'I can\'t help with that.' : null;
 

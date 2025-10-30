@@ -1,24 +1,18 @@
 import 'dotenv/config';
-import { Agent, type Ctx, createConsoleLogger, InMemoryKV, SimpleTools, stdoutStream, bufferStream, teeStream, streamOnce } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx, stdoutStream, bufferStream, teeStream, streamOnce } from '@sisu-ai/core';
 import { inputToMessage } from '@sisu-ai/mw-conversation-buffer';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
-
-const model = openAIAdapter({ model: process.env.OPENAI_MODEL || 'gpt-4o-mini' });
 
 // Optional: capture a copy while also printing to stdout for demo purposes
 const buf = bufferStream();
 
-const ctx: Ctx = {
+const ctx = createCtx({
+  model: openAIAdapter({ model: process.env.OPENAI_MODEL || 'gpt-4o-mini' }),
   input: 'Please explain our solar system as if I was 5.',
-  messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-  model,
-  tools: new SimpleTools(),
-  memory: new InMemoryKV(),
+  systemPrompt: 'You are a helpful assistant.',
   stream: teeStream(stdoutStream, buf.stream), // or just stdoutStream
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
-};
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+});
 
 const app = new Agent()
   .use(inputToMessage)

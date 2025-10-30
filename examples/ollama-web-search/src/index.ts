@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
 import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
@@ -8,19 +8,12 @@ import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { duckDuckGoWebSearch } from '@sisu-ai/tool-web-search-duckduckgo';
 
-const model = ollamaAdapter({ model: process.env.MODEL || 'llama3.1' });
-
-const ctx: Ctx = {
+const ctx = createCtx({
+  model: ollamaAdapter({ model: process.env.MODEL || 'llama3.1' }),
   input: 'Search the web for the tallest mountain in Europe.',
-  messages: [{ role: 'system', content: 'You are a helpful assistant. Use the webSearch tool when you need external information.' }],
-  model,
-  tools: new SimpleTools(),
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
-};
+  systemPrompt: 'You are a helpful assistant. Use the webSearch tool when you need external information.',
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+});
 
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))

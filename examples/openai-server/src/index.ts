@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
@@ -7,6 +7,7 @@ import { agentRunApi } from '@sisu-ai/mw-agent-run-api';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { cors } from '@sisu-ai/mw-cors';
 import { Server } from '@sisu-ai/server';
+import { InMemoryKV } from '@sisu-ai/core';
 
 const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini'});
 const basePath = process.env.BASE_PATH || '/api';
@@ -49,15 +50,11 @@ const server = new Server(app, {
   createCtx: (req, res) => ({
     req,
     res,
-    input: '',
-    messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-    model,
-    tools: new SimpleTools(),
-    memory: new InMemoryKV(),
-    stream: new NullStream(),
-    state: {},
-    signal: new AbortController().signal,
-    log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
+    ...createCtx({
+      model,
+      systemPrompt: 'You are a helpful assistant.',
+      logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+    })
   }),
 });
 

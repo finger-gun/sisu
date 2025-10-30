@@ -1,11 +1,10 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
 import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 
 // Vision-capable model
-const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 // Example image (public domain)
 const imageUrl = process.argv.find(a => a.startsWith('http'))
   || 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg';
@@ -19,21 +18,15 @@ const userMessage: any = {
   ],
 };
 
-const ctx: Ctx = {
-  input: '',
-  messages: [
-    { role: 'system', content: 'You are a concise, helpful assistant.' },
-    userMessage,
-  ] as any,
-  model,
-  // Minimal runtime plumbing
+const ctx = createCtx({
+  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
+  systemPrompt: 'You are a concise, helpful assistant.',
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
   tools: { list: () => [], get: () => undefined, register: () => { /* no-op */ } },
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
-};
+});
+
+// Add the user message with image after context creation
+ctx.messages.push(userMessage);
 
 const generateOnce = async (c: Ctx) => {
   const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });

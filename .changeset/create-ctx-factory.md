@@ -50,4 +50,15 @@ const ctx = createCtx({
 - `stream` — TokenStream implementation (defaults to NullStream)
 - `state` — Initial state object
 
+**Examples Updated:**
+All 29 examples have been updated to showcase the new `createCtx` pattern, demonstrating significant reduction in boilerplate code across:
+- Basic examples: openai-hello, ollama-hello, anthropic-hello
+- Streaming: openai-stream, ollama-stream, anthropic-stream
+- Tool calling: openai-weather, anthropic-weather, ollama-weather, openai-terminal
+- Control flow: openai-control-flow, anthropic-control-flow, openai-branch, openai-parallel, openai-graph
+- Vision: openai-vision, ollama-vision
+- Web tools: openai-web-search, ollama-web-search, openai-web-fetch, openai-wikipedia, openai-extract-urls
+- Cloud storage: openai-aws-s3, openai-azure-blob
+- Advanced: openai-react, openai-guardrails, openai-github-projects, openai-rag-chroma, openai-server
+
 This is a non-breaking addition - existing manual Ctx creation continues to work.

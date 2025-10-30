@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
 import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
@@ -18,19 +18,12 @@ const weather = {
   handler: async ({ city }: { city: string }) => ({ city, tempC: 20, summary: 'Partly cloudy (stub)' })
 };
 
-const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
-
-const ctx: Ctx = {
+const ctx = createCtx({
+  model: anthropicAdapter({ model: 'claude-sonnet-4-20250514' }),
   input: 'Weather in Malmö and suggest a fika plan.',
-  messages: [{ role: 'system', content: 'Be helpful. Use tools when needed.' }],
-  model,
-  tools: new SimpleTools(),
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
-};
+  systemPrompt: 'Be helpful. Use tools when needed.',
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+});
 
 const intentClassifier = async (c: Ctx, next: () => Promise<void>) => { const q = (c.input ?? '').toLowerCase(); c.state.intent = /weather|forecast/.test(q) ? 'tooling' : 'chat'; await next(); };
 const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => {

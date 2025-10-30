@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
@@ -8,22 +8,15 @@ import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import ghTools from '@sisu-ai/tool-github-projects';
 
-const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
-
 const userInput = process.argv.filter(a => !a.startsWith('--')).slice(2).join(' ')
   || 'List issues for the configured project, then show details for the first one, then list columns.';
 
-const ctx: Ctx = {
+const ctx = createCtx({
+  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
   input: userInput,
-  messages: [{ role: 'system', content: 'You are a helpful assistant. Use tools to interact with GitHub Projects. Start by planning out what tools to use and in what order, an interaction could require multiple tool calls in correct order.' }],
-  model,
-  tools: new SimpleTools(),
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
-};
+  systemPrompt: 'You are a helpful assistant. Use tools to interact with GitHub Projects. Start by planning out what tools to use and in what order, an interaction could require multiple tool calls in correct order.',
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+});
 
 const app = new Agent()
   .use(errorBoundary(async (err, c) => { c.log.error(err); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))

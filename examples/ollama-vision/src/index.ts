@@ -1,13 +1,11 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
 import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
 
 // Vision-capable model (ensure pulled locally)
 // Examples: `llava:latest`, `qwen2.5-vl:latest` (model availability may vary)
-const model = ollamaAdapter({ model: process.env.MODEL || 'llava:latest' });
-
 // Example image (public domain) or first CLI arg
 const imageUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg';
 
@@ -20,20 +18,15 @@ const userMessage: any = {
   ],
 };
 
-const ctx: Ctx = {
-  input: '',
-  messages: [
-    { role: 'system', content: 'You are a concise, helpful assistant.' },
-    userMessage,
-  ] as any,
-  model,
+const ctx = createCtx({
+  model: ollamaAdapter({ model: process.env.MODEL || 'llava:latest' }),
+  systemPrompt: 'You are a concise, helpful assistant.',
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
   tools: { list: () => [], get: () => undefined, register: () => { /* no-op */ } },
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
-};
+});
+
+// Add the user message with image after context creation
+ctx.messages.push(userMessage);
 
 const generateOnce = async (c: Ctx) => {
   const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });

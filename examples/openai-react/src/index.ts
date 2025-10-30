@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { reactToolLoop } from '@sisu-ai/mw-react-parser';
@@ -17,18 +17,12 @@ const echoTool = {
   handler: async ({ text }: { text: string }) => ({ text })
 };
 
-const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
-const ctx: Ctx = {
+const ctx = createCtx({
+  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
   input: 'Use Action: echo with Action Input: {"text":"hello from ReAct"}',
-  messages: [{ role: 'system', content: 'Use tools when helpful. For ReAct, reply with\nAction: <tool>\nAction Input: <JSON>' }],
-  model,
-  tools: new SimpleTools(),
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
-};
+  systemPrompt: 'Use tools when helpful. For ReAct, reply with\nAction: <tool>\nAction Input: <JSON>',
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+});
 
 const app = new Agent()
   .use(errorBoundary(async (err, ctx) => { ctx.log.error(err); ctx.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))

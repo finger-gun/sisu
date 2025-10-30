@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { registerTools } from '@sisu-ai/mw-register-tools';
@@ -17,21 +17,7 @@ function embed(text: string): number[] {
   const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1; return v.map(x => x / norm);
 }
 
-const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
-
 const query = 'Best fika in Malmö?';
-
-const ctx: Ctx = {
-  input: query,
-  messages: [],
-  model,
-  tools: new SimpleTools(),
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: { chromaUrl: process.env.CHROMA_URL, vectorNamespace: process.env.VECTOR_NAMESPACE || 'sisu' },
-  signal: new AbortController().signal,
-  log: createConsoleLogger({ level: (process.env.LOG_LEVEL as any) ?? 'info' }),
-};
 
 // Seed docs for ingestion
 const docs = [
@@ -40,11 +26,19 @@ const docs = [
   { id: 'd3', text: 'Open-source RAG patterns with ChromaDB and Sisu.' },
 ];
 
-// Prepare records with trivial embeddings
-(ctx.state as any).rag = {
-  records: docs.map(d => ({ id: d.id, embedding: embed(d.text), metadata: { text: d.text } })),
-  queryEmbedding: embed(query),
-};
+const ctx = createCtx({
+  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
+  input: query,
+  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+  state: {
+    chromaUrl: process.env.CHROMA_URL,
+    vectorNamespace: process.env.VECTOR_NAMESPACE || 'sisu',
+    rag: {
+      records: docs.map(d => ({ id: d.id, embedding: embed(d.text), metadata: { text: d.text } })),
+      queryEmbedding: embed(query),
+    }
+  },
+});
 
 const inputToMessage = async (c: Ctx, next: () => Promise<void>) => { if (c.input) c.messages.push({ role: 'user', content: c.input }); await next(); };
 const generateOnce = async (c: Ctx) => { const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal }); if (res?.message) c.messages.push(res.message); };

@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Tool, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Tool, type Ctx } from '@sisu-ai/core';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
@@ -17,20 +17,12 @@ const weather: Tool<WeatherArgs> = {
   handler: async ({ city }) => ({ city, tempC: 21, summary: 'Sunny' }),
 };
 
-// Model
-const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
 // Ctx
-const ctx: Ctx = {
+const ctx = createCtx({
+  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
   input: 'What is the weather in Malmö?',
-  messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-  model,
-  tools: new SimpleTools(),
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger(),
-};
+  systemPrompt: 'You are a helpful assistant.',
+});
 
 // Minimal pipeline: no classifier, no switch, no manual loop
 const app = new Agent()
