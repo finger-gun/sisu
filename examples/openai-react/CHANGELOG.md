@@ -1,5 +1,19 @@
 # openai-react
 
+## 0.2.18
+
+### Patch Changes
+
+- Updated dependencies [4c5a27a]
+  - @sisu-ai/core@2.1.0
+  - @sisu-ai/adapter-openai@7.0.0
+  - @sisu-ai/mw-conversation-buffer@7.0.0
+  - @sisu-ai/mw-error-boundary@7.0.0
+  - @sisu-ai/mw-react-parser@7.0.0
+  - @sisu-ai/mw-register-tools@7.0.0
+  - @sisu-ai/mw-trace-viewer@8.0.0
+  - @sisu-ai/mw-usage-tracker@7.0.0
+
 ## 0.2.17
 
 ### Patch Changes

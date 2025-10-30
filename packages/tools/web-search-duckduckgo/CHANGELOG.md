@@ -1,5 +1,12 @@
 # @sisu-ai/tool-web-search-duckduckgo
 
+## 6.0.0
+
+### Patch Changes
+
+- Updated dependencies [4c5a27a]
+  - @sisu-ai/core@2.1.0
+
 ## 5.0.1
 
 ### Patch Changes

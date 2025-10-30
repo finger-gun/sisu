@@ -1,5 +1,17 @@
 # @sisu-ai/example-openai-rag-chroma
 
+## 0.1.19
+
+### Patch Changes
+
+- Updated dependencies [4c5a27a]
+  - @sisu-ai/core@2.1.0
+  - @sisu-ai/adapter-openai@7.0.0
+  - @sisu-ai/mw-rag@6.0.0
+  - @sisu-ai/mw-register-tools@7.0.0
+  - @sisu-ai/mw-trace-viewer@8.0.0
+  - @sisu-ai/tool-vec-chroma@5.0.0
+
 ## 0.1.18
 
 ### Patch Changes

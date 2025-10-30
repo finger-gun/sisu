@@ -1,5 +1,15 @@
 # openai-server
 
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [4c5a27a]
+  - @sisu-ai/core@2.1.0
+  - @sisu-ai/adapter-openai@7.0.0
+  - @sisu-ai/mw-agent-run-api@5.0.0
+  - @sisu-ai/server@5.0.0
+
 ## 0.0.12
 
 ### Patch Changes
