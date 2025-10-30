@@ -1,6 +1,8 @@
 # @sisu-ai/core
 
-Core contracts and tiny utilities that everything else builds on.
+> **The foundation for building reliable AI agents in TypeScript.**
+
+Lightweight core contracts and utilities that give you full control over your AI agent pipelines. No magic, no hidden state—just composable middleware and typed tools that you can understand, test, and debug.
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
@@ -8,81 +10,146 @@ Core contracts and tiny utilities that everything else builds on.
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcore)](https://www.npmjs.com/package/@sisu-ai/core)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
-## Setup
+---
+
+## Why @sisu-ai/core?
+
+🎯 **Minimal & Focused** - Just the essentials. No bloat, no opinions.  
+🔧 **Fully Typed** - TypeScript-first with strict mode support.  
+🎨 **Composable** - Build complex agents from simple, testable pieces.  
+🔍 **Transparent** - Everything flows through one typed context—what you see is what runs.  
+🛡️ **Production-Ready** - Built-in error handling, logging, and secret redaction.
+
+---
+
+## Quick Start
+
+### Install
 ```bash
 npm i @sisu-ai/core
 ```
 
-## Documentation
-Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
-
-## What it provides
-- Types and contracts
-  - `Ctx` — the single context object that flows through your pipeline
-  - `ToolContext` — restricted context for tool execution (sandboxed subset of `Ctx`)
-  - `Middleware<Ctx>` — Koa-style `(ctx, next) => {}` functions
-  - `LLM` — model adapter interface with `generate(messages, opts)`
-  - `Message` — chat message shape (system/user/assistant/tool)
-  - `ModelResponse` — `{ message, usage? }` for non-streaming paths
-  - `Tool<TArgs, TResult>` — tool handler interface with schema validation
-- Composition
-  - `compose(middlewares)` — function composer
-  - `Agent` — tiny class with `.use(mw).handler()` convenience
-- Utilities
-  - `createCtx(options)` — factory function to create `Ctx` with sensible defaults
-  - `createConsoleLogger({ level, timestamps })` — leveled logger
-  - `createTracingLogger(base?)` — wraps a logger and records events
-  - `createRedactingLogger(base, { keys?, mask?, patterns? })` — redacts secrets in logs using key names and regex patterns
-  - `InMemoryKV` — basic key-value store with a toy retrieval facade
-  - `NullStream` — no-op token sink
-  - `stdoutStream` — writes tokens to stdout (CLI streaming)
-  - `SimpleTools` — in-memory tool registry (name → handler)
-- Error handling
-  - `SisuError` — base error class with structured error codes and context
-  - `MiddlewareError` — thrown when middleware execution fails
-  - `ToolExecutionError` — thrown when tool execution fails
-  - `AdapterError` — thrown when LLM adapter operations fail
-  - `ValidationError` — thrown when validation fails (e.g., schema validation)
-  - `TimeoutError` — thrown when operations timeout
-  - `CancellationError` — thrown when operations are cancelled
-  - `ConfigurationError` — thrown when configuration is invalid
-  - `isSisuError(error)` — type guard to check if error is a SisuError
-  - `getErrorDetails(error)` — extract structured error details for logging
-
-## Creating a Context
-
-### Using createCtx (Recommended)
-The `createCtx` factory function reduces boilerplate by providing sensible defaults:
-
+### 60-Second Example
 ```ts
-import { createCtx } from '@sisu-ai/core';
+import 'dotenv/config';
+import { Agent, createCtx } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
+// 1. Create your context
 const ctx = createCtx({
   model: openAIAdapter({ model: 'gpt-4o-mini' }),
   input: 'Say hello in one short sentence.',
   systemPrompt: 'You are a helpful assistant.',
   logLevel: 'info'
 });
+
+// 2. Build your pipeline (middleware style)
+const inputToMessage = async (c, next) => { 
+  if (c.input) c.messages.push({ role: 'user', content: c.input }); 
+  await next(); 
+};
+
+const generateOnce = async (c) => { 
+  const res = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });
+  if (res?.message) c.messages.push(res.message);
+};
+
+const app = new Agent()
+  .use(inputToMessage)
+  .use(generateOnce);
+
+// 3. Run it!
+await app.handler()(ctx);
+console.log('✅', ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 ```
 
-**Options:**
-- `model` (required) — LLM adapter instance
-- `input` — User input message
-- `systemPrompt` — System message to prepend to conversation
-- `logLevel` — Logger level (`'debug'` | `'info'` | `'warn'` | `'error'`)
-- `timestamps` — Enable/disable timestamps in logs
-- `signal` — AbortSignal for cancellation
-- `tools` — Array of tools or ToolRegistry instance
-- `memory` — Memory implementation (defaults to InMemoryKV)
-- `stream` — TokenStream implementation (defaults to NullStream)
-- `state` — Initial state object
+**Want more?** Check out the [examples](https://github.com/finger-gun/sisu/tree/main/examples) or the [full documentation](https://github.com/finger-gun/sisu).
 
-### Manual Creation
-You can also create `Ctx` manually for full control:
+---
+
+## What's Inside
+
+### 🎯 Core Types & Contracts
+Build on solid TypeScript foundations:
+
+- **`Ctx`** - The single context object flowing through your pipeline
+- **`ToolContext`** - Sandboxed context for safe tool execution
+- **`Middleware<Ctx>`** - Koa-style `(ctx, next) => {}` functions
+- **`LLM`** - Model adapter interface with `generate(messages, opts)`
+- **`Message`** - Chat message shape (system/user/assistant/tool)
+- **`Tool<TArgs, TResult>`** - Tool handler with schema validation
+
+### 🔧 Composition Utilities
+Compose complex behavior from simple pieces:
+
+- **`compose(middlewares)`** - Function composition for pipelines
+- **`Agent`** - Convenient class with `.use(mw).handler()`
+
+### 🛠️ Context & Helpers
+Everything you need to get started:
+
+- **`createCtx(options)`** - Factory with sensible defaults (⭐ **Recommended**)
+- **`createConsoleLogger({ level, timestamps })`** - Leveled logging
+- **`createTracingLogger(base?)`** - Captures events for trace viewers
+- **`createRedactingLogger(base, opts)`** - Auto-redacts secrets 🔒
+- **`InMemoryKV`** - Basic key-value store with toy retrieval
+- **`NullStream`** / **`stdoutStream`** - Token stream implementations
+- **`SimpleTools`** - In-memory tool registry
+
+### 🚨 Error Handling
+Structured errors for better debugging:
+
+- **`SisuError`** - Base error with codes and context
+- **`MiddlewareError`** / **`ToolExecutionError`** / **`AdapterError`**
+- **`ValidationError`** / **`TimeoutError`** / **`CancellationError`**
+- **`isSisuError(error)`** - Type guard for error handling
+- **`getErrorDetails(error)`** - Extract structured error info
+
+---
+
+## Creating a Context
+
+### ✅ Using createCtx (Recommended)
+Reduce boilerplate with sensible defaults:
 
 ```ts
-import { createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
+import { createCtx } from '@sisu-ai/core';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
+
+const ctx = createCtx({
+  model: openAIAdapter({ model: 'gpt-4o-mini' }),  // Required
+  input: 'Say hello in one short sentence.',       // Optional
+  systemPrompt: 'You are a helpful assistant.',    // Optional
+  logLevel: 'info'                                  // Optional
+});
+```
+
+**All `createCtx` options:**
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `model` | `LLM` | **Required** - LLM adapter instance |
+| `input` | `string` | User input message |
+| `systemPrompt` | `string` | System message for conversation |
+| `logLevel` | `Level` | `'debug'` \| `'info'` \| `'warn'` \| `'error'` |
+| `timestamps` | `boolean` | Enable/disable log timestamps |
+| `signal` | `AbortSignal` | For operation cancellation |
+| `tools` | `Tool[]` \| `ToolRegistry` | Tool array or registry |
+| `memory` | `Memory` | Defaults to `InMemoryKV` |
+| `stream` | `TokenStream` | Defaults to `NullStream` |
+| `state` | `object` | Initial middleware state |
+
+### Manual Creation
+For full control, create `Ctx` manually:
+
+```ts
+import { 
+  createConsoleLogger, 
+  InMemoryKV, 
+  NullStream, 
+  SimpleTools, 
+  type Ctx 
+} from '@sisu-ai/core';
 
 const ctx: Ctx = {
   input: 'Say hello in one short sentence.',
@@ -97,118 +164,158 @@ const ctx: Ctx = {
 };
 ```
 
-## Minimal example
-```ts
-import 'dotenv/config';
-import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
-import { usageTracker } from '@sisu-ai/mw-usage-tracker';
-import { openAIAdapter } from '@sisu-ai/adapter-openai';
-import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+---
 
-const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
-  input: 'Say hello in one short sentence.',
-  systemPrompt: 'You are a helpful assistant.',
-  logLevel: (process.env.LOG_LEVEL as any) ?? 'info'
+## 🔌 LLM Adapters
+
+Use any provider by implementing `LLM.generate(messages, opts)`:
+
+**Official adapters:**
+- [`@sisu-ai/adapter-openai`](https://github.com/finger-gun/sisu/tree/main/packages/adapters/openai) - OpenAI & compatible APIs
+- [`@sisu-ai/adapter-ollama`](https://github.com/finger-gun/sisu/tree/main/packages/adapters/ollama) - Local inference
+- [`@sisu-ai/adapter-anthropic`](https://github.com/finger-gun/sisu/tree/main/packages/adapters/anthropic) - Claude models
+
+**Return types:**
+- `Promise<ModelResponse>` for non-streaming calls
+- `AsyncIterable<ModelEvent>` for token streaming
+
+---
+
+## 📊 Logging & Tracing
+
+### Basic Logging
+```ts
+import { createConsoleLogger } from '@sisu-ai/core';
+
+const logger = createConsoleLogger({ 
+  level: 'info',      // debug|info|warn|error
+  timestamps: true 
 });
 
-const inputToMessage = async (c: Ctx, next: () => Promise<void>) => { if (c.input) c.messages.push({ role: 'user', content: c.input }); await next(); };
-const generateOnce = async (c: Ctx) => { const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal }); if (res?.message) c.messages.push(res.message); };
-
-const app = new Agent()
-  .use(async (c, next) => { try { await next(); } catch (e) { c.log.error(e); c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); } })
-  .use(traceViewer())
-  .use(usageTracker({ '*': { inputPer1M: 0.15, outputPer1M: 0.60 } }, { logPerCall: true }))
-  .use(inputToMessage)
-  .use(generateOnce);
-
-await app.handler()(ctx);
-const final = ctx.messages.filter(m => m.role === 'assistant').pop();
-console.log('\nAssistant:\n', final?.content);
+logger.info('Processing request');
+logger.error('Something failed', { error });
 ```
 
-## LLM adapters
-Use any provider by implementing `LLM.generate(messages, opts)`, or use a ready adapter like `@sisu-ai/adapter-openai` or `@sisu-ai/adapter-ollama`. Adapters can return:
-- `Promise<ModelResponse>` for simple, non-streaming calls
-- `AsyncIterable<ModelEvent>` for token streaming (wire to `ctx.stream`)
+### Tracing Logger
+Capture events for debugging and visualization:
 
-## Logging & tracing
-- Use `createConsoleLogger` for leveled logs (debug/info/warn/error)
-- Wrap with `createTracingLogger` to capture events for trace viewers
-- Wrap with `createRedactingLogger` to mask secrets before printing
+```ts
+import { createTracingLogger, createConsoleLogger } from '@sisu-ai/core';
 
-### Redacting sensitive data
-The `createRedactingLogger` automatically protects sensitive information in logs through two methods:
+const { logger, getTrace, reset } = createTracingLogger(
+  createConsoleLogger()
+);
 
-**Key-based redaction**: Redacts values of known sensitive keys (case-insensitive):
-- `api_key`, `apiKey`, `authorization`, `auth`, `token`, `access_token`, `password`, `secret`, etc.
+// Use logger normally
+logger.info('Step 1');
+logger.debug('Step 2');
 
-**Pattern-based redaction**: Automatically detects and redacts common sensitive data formats:
-- OpenAI API keys (`sk-...`)
-- JWT tokens
-- GitHub tokens (PAT, OAuth, fine-grained)
-- GitLab Personal Access Tokens
-- Google API keys and OAuth tokens
-- AWS Access Key IDs
-- Slack tokens
+// Get captured events
+const events = getTrace();
+console.log(events); // Array of { level, ts, args }
+```
+
+### 🔒 Redacting Secrets
+**Never log sensitive data accidentally.**
+
+The redacting logger auto-detects and masks:
+- 🔑 API keys (OpenAI `sk-...`, Google `AIza...`, AWS `AKIA...`)
+- 🎫 Auth tokens (JWT, GitHub PAT, OAuth)
+- 🔒 Common secret key names (`apiKey`, `password`, `token`, etc.)
 
 ```ts
 import { createRedactingLogger, createConsoleLogger } from '@sisu-ai/core';
 
-// Use default patterns and keys
+// Use defaults
 const logger = createRedactingLogger(createConsoleLogger());
 
-// Customize with your own patterns
-const customLogger = createRedactingLogger(createConsoleLogger(), {
-  keys: ['customSecret', 'apiKey'],
-  patterns: [/custom-\d{4}/],  // Add custom regex patterns
-  mask: '[HIDDEN]'  // Change the redaction mask
-});
-
-// Automatically redacts sensitive values
 logger.info({ apiKey: 'sk-1234567890abcdef...' });
 // Output: { apiKey: '***REDACTED***' }
+
+// Customize
+const customLogger = createRedactingLogger(createConsoleLogger(), {
+  keys: ['customSecret'],         // Additional key names
+  patterns: [/custom-\d{4}/],     // Custom regex patterns
+  mask: '[HIDDEN]'                // Change redaction text
+});
 ```
 
-## Tools and memory
-- `SimpleTools` provides a basic in-memory tool registry (good for demos/tests)
-- `InMemoryKV` is a minimal KV store; the `retrieval(index)` method is a toy that you can replace with a real vector DB behind a middleware
+**Default protected patterns:**
+- OpenAI keys (`sk-...`)
+- JWT tokens
+- GitHub tokens (PAT, OAuth, fine-grained)
+- GitLab Personal Access Tokens
+- Google API keys & OAuth
+- AWS Access Key IDs
+- Slack tokens
 
-### Tool handler sandboxing
-Tool handlers receive a restricted `ToolContext` instead of the full `Ctx` to prevent security issues:
+---
 
-**Available in ToolContext:**
-- `memory`: Access to persistent storage
-- `signal`: AbortSignal for cancellation
-- `log`: Logger for debugging
-- `model`: LLM interface (for meta-tools like summarization)
-- `deps`: Optional dependency injection (for testing/configuration)
+## 🔧 Tools & Memory
 
-**Not available (sandboxed):**
-- `tools`: Prevents tools from calling other tools
-- `messages`: Prevents tools from manipulating conversation history
-- `state`: Prevents tools from accessing middleware state
-- `input` / `stream`: Prevents tools from interfering with I/O
+### SimpleTools Registry
+Basic in-memory tool storage (perfect for demos and tests):
 
-This ensures tools remain focused, testable, and safe. Meta-tools can still use `ctx.model.generate()` for operations like text summarization.
+```ts
+import { SimpleTools } from '@sisu-ai/core';
 
+const tools = new SimpleTools();
+tools.register(myTool);
+
+const tool = tools.get('myTool');
+const allTools = tools.list();
+```
+
+### InMemoryKV Store
+Minimal key-value storage with toy retrieval:
+
+```ts
+import { InMemoryKV } from '@sisu-ai/core';
+
+const memory = new InMemoryKV();
+
+// Basic KV operations
+await memory.set('key', { data: 'value' });
+const data = await memory.get('key');
+
+// Toy retrieval (replace with real vector DB in production)
+const retrieval = memory.retrieval('docs-index');
+const results = await retrieval.search('query', 4);
+```
+
+### 🛡️ Tool Context Sandboxing
+Tools receive **restricted context** for safety and clarity:
+
+**✅ Available in ToolContext:**
+- `memory` - Persistent storage access
+- `signal` - AbortSignal for cancellation
+- `log` - Logger for debugging
+- `model` - LLM interface (for meta-tools)
+- `deps` - Optional dependency injection
+
+**❌ Not available (sandboxed):**
+- `tools` - Prevents recursive tool calls
+- `messages` - Prevents conversation manipulation
+- `state` - Prevents middleware state access
+- `input` / `stream` - Prevents I/O interference
+
+**Example:**
 ```ts
 import type { Tool, ToolContext } from '@sisu-ai/core';
 import { z } from 'zod';
 
 export const myTool: Tool<{ input: string }> = {
   name: 'myTool',
-  description: 'Example tool with restricted context',
+  description: 'Example with restricted context',
   schema: z.object({ input: z.string() }),
   handler: async ({ input }, ctx: ToolContext) => {
-    // ctx has: memory, signal, log, model, deps
-    // ctx does NOT have: tools, messages, state, input, stream
+    // ✅ Can use: memory, signal, log, model, deps
     ctx.log.info('Processing', { input });
     
-    // Access persistent storage
+    // Access storage
     const cached = await ctx.memory.get('cache-key');
     
-    // Use injected dependencies (for testing or runtime configuration)
+    // Use injected dependencies (for testing)
     const client = ctx.deps?.apiClient;
     
     return { result: `Processed: ${input}` };
@@ -218,7 +325,7 @@ export const myTool: Tool<{ input: string }> = {
 
 **Dependency injection for testing:**
 ```ts
-// In your middleware or test setup, inject dependencies via ctx.state.toolDeps
+// Inject dependencies via ctx.state.toolDeps
 ctx.state = {
   toolDeps: {
     apiClient: mockClient,
@@ -226,43 +333,44 @@ ctx.state = {
   }
 };
 
-// Tools will receive these via ctx.deps
+// Tools receive these via ctx.deps
 ```
 
-## Error Handling
+---
 
-Sisu provides structured error types that make debugging easier by including error codes, context, and stack traces.
+## 🚨 Error Handling
+
+Sisu provides **structured errors** with codes, context, and stack traces.
 
 ### Error Types
 
-All Sisu errors extend the `SisuError` base class, which provides:
-- `code` — Machine-readable error code (e.g., `'TOOL_EXECUTION_ERROR'`)
-- `message` — Human-readable error description
-- `context` — Additional structured data about the error
-- `toJSON()` — Serialization for logging and tracing
+All errors extend `SisuError` with:
+- `code` - Machine-readable (e.g., `'TOOL_EXECUTION_ERROR'`)
+- `message` - Human-readable description
+- `context` - Structured error data
+- `toJSON()` - Serialization support
 
-**Available error classes:**
+**Available classes:**
 
 ```ts
 import {
-  SisuError,
-  MiddlewareError,
-  ToolExecutionError,
-  AdapterError,
-  ValidationError,
-  TimeoutError,
-  CancellationError,
-  ConfigurationError,
+  SisuError,           // Base error class
+  MiddlewareError,     // Middleware failures
+  ToolExecutionError,  // Tool failures
+  AdapterError,        // LLM adapter errors
+  ValidationError,     // Schema validation
+  TimeoutError,        // Operation timeouts
+  CancellationError,   // Cancelled operations
+  ConfigurationError,  // Invalid configuration
 } from '@sisu-ai/core';
 ```
 
-### Using Error Types
+### Throwing Errors
 
-**Throwing errors:**
 ```ts
-import { ToolExecutionError, ValidationError } from '@sisu-ai/core';
+import { ToolExecutionError, ValidationError, ConfigurationError } from '@sisu-ai/core';
 
-// In a tool handler
+// Configuration errors
 if (!apiKey) {
   throw new ConfigurationError(
     'API key is required',
@@ -271,7 +379,7 @@ if (!apiKey) {
   );
 }
 
-// When validation fails
+// Validation errors
 const result = schema.safeParse(input);
 if (!result.success) {
   throw new ValidationError(
@@ -281,7 +389,7 @@ if (!result.success) {
   );
 }
 
-// When a tool fails
+// Tool execution errors
 try {
   const data = await fetchData();
 } catch (err) {
@@ -294,7 +402,8 @@ try {
 }
 ```
 
-**Catching and handling errors:**
+### Catching Errors
+
 ```ts
 import { isSisuError, getErrorDetails } from '@sisu-ai/core';
 
@@ -302,8 +411,8 @@ try {
   await app.handler()(ctx);
 } catch (err) {
   if (isSisuError(err)) {
-    // Structured error with code and context
-    console.error('Sisu error:', err.code, err.context);
+    // Structured Sisu error
+    console.error('Error:', err.code, err.context);
   } else {
     // Generic error
     const details = getErrorDetails(err);
@@ -312,49 +421,26 @@ try {
 }
 ```
 
-**In middleware:**
-```ts
-import { MiddlewareError } from '@sisu-ai/core';
-
-const myMiddleware: Middleware = async (ctx, next) => {
-  try {
-    await next();
-  } catch (err) {
-    throw new MiddlewareError(
-      'Middleware chain failed',
-      ctx.state.middlewareIndex || 0,
-      err as Error
-    );
-  }
-};
-```
-
 ### Error Boundary Middleware
 
-The `@sisu-ai/mw-error-boundary` package provides middleware for catching and handling errors:
+Use [`@sisu-ai/mw-error-boundary`](https://github.com/finger-gun/sisu/tree/main/packages/middleware/error-boundary) to catch and handle errors:
 
 ```ts
-import { errorBoundary, logErrors } from '@sisu-ai/mw-error-boundary';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
 
-// Custom error handler
 agent.use(errorBoundary(async (err, ctx) => {
-  const details = getErrorDetails(err);
-  ctx.log.error('Error caught:', details);
+  ctx.log.error('Error caught:', getErrorDetails(err));
   
-  // Add error message to conversation
   ctx.messages.push({
     role: 'assistant',
     content: 'I encountered an error. Please try again.'
   });
 }));
-
-// Simple logging error boundary
-agent.use(logErrors());
 ```
 
 ### Trace Viewer Integration
 
-The trace viewer automatically captures and displays structured error information:
+The trace viewer automatically displays structured error info:
 
 ```ts
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
@@ -362,18 +448,50 @@ import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 agent.use(traceViewer());
 ```
 
-When errors occur, the trace HTML will include:
+**Error traces include:**
 - Error name and code (e.g., `ToolExecutionError [TOOL_EXECUTION_ERROR]`)
 - Error message
 - Structured context (tool name, arguments, etc.)
 - Full stack trace (collapsible)
 
-## Philosophy
-Small, explicit, composable. Sisu's core stays tiny; everything else — tools, control flow, guardrails, usage/cost, tracing — lives in opt-in middlewares and adapters.
+---
 
-# Community & Support
-- [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
-- [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
-- [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
-- [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
-- [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)
+## 🎨 Philosophy
+
+**Small. Explicit. Composable.**
+
+Sisu's core stays intentionally minimal. Everything else—tools, control flow, guardrails, cost tracking, tracing—lives in opt-in middlewares and adapters.
+
+**No magic.** What you write is what runs. Everything flows through a single typed context you can inspect, test, and debug.
+
+---
+
+## 📚 Learn More
+
+- [**Main Documentation**](https://github.com/finger-gun/sisu) - Full framework guide
+- [**Examples**](https://github.com/finger-gun/sisu/tree/main/examples) - Working examples for every use case
+- [**Adapters**](https://github.com/finger-gun/sisu/tree/main/packages/adapters) - OpenAI, Anthropic, Ollama
+- [**Middleware**](https://github.com/finger-gun/sisu/tree/main/packages/middleware) - Control flow, tools, tracing, and more
+- [**Tools**](https://github.com/finger-gun/sisu/tree/main/packages/tools) - Ready-to-use tools for common tasks
+
+---
+
+## 🤝 Community & Support
+
+- [**Contributing Guide**](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md) - Start here
+- [**Code of Conduct**](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
+- [**Report a Bug**](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
+- [**Request a Feature**](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)
+- [**License (Apache 2.0)**](https://github.com/finger-gun/sisu/blob/main/LICENSE)
+
+---
+
+<div align="center">
+
+**Built with ❤️ and sisu.**
+
+*Quiet, determined, relentlessly useful.*
+
+[⭐ Star on GitHub](https://github.com/finger-gun/sisu) • [📦 View on npm](https://www.npmjs.com/package/@sisu-ai/core)
+
+</div>
