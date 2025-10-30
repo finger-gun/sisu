@@ -1,5 +1,15 @@
 # ollama-vision
 
+## 0.1.10
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@2.2.1
+  - @sisu-ai/adapter-ollama@8.0.1
+  - @sisu-ai/mw-trace-viewer@9.0.1
+  - @sisu-ai/mw-usage-tracker@8.0.1
+
 ## 0.1.9
 
 ### Patch Changes

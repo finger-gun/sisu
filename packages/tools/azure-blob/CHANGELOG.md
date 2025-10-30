@@ -1,5 +1,12 @@
 # @sisu-ai/tool-azure-blob
 
+## 8.0.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@2.2.1
+
 ## 8.0.1
 
 ### Patch Changes

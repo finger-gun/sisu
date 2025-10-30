@@ -1,5 +1,12 @@
 # @sisu-ai/adapter-anthropic
 
+## 6.0.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@2.2.1
+
 ## 6.0.0
 
 ### Patch Changes

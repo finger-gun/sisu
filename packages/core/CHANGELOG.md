@@ -1,5 +1,11 @@
 # @sisu-ai/core
 
+## 2.2.1
+
+### Patch Changes
+
+- Improved README documentation with better user experience, clearer examples, and more engaging copy. Updated Quick Start to use createCtx() helper and enhanced visual hierarchy with emojis and tables for better scannability.
+
 ## 2.2.0
 
 ### Minor Changes

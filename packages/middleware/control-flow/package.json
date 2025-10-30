@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/mw-control-flow",
-  "version": "8.0.0",
+  "version": "8.0.1",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -24,7 +24,7 @@
     "build": "tsc -b"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "2.2.0"
+    "@sisu-ai/core": "2.2.1"
   },
   "keywords": [
     "sisu",

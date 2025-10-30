@@ -1,17 +1,17 @@
 {
   "name": "openai-vision",
   "private": true,
-  "version": "0.2.19",
+  "version": "0.2.20",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sisu-ai/core": "2.2.0",
-    "@sisu-ai/mw-usage-tracker": "8.0.0",
-    "@sisu-ai/mw-trace-viewer": "9.0.0",
-    "@sisu-ai/adapter-openai": "8.0.0",
+    "@sisu-ai/core": "2.2.1",
+    "@sisu-ai/mw-usage-tracker": "8.0.1",
+    "@sisu-ai/mw-trace-viewer": "9.0.1",
+    "@sisu-ai/adapter-openai": "8.0.1",
     "dotenv": "^16.4.5"
   }
 }

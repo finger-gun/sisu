@@ -1,5 +1,17 @@
 # openai-error-handling
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@2.2.1
+  - @sisu-ai/adapter-openai@8.0.1
+  - @sisu-ai/mw-error-boundary@8.0.1
+  - @sisu-ai/mw-register-tools@8.0.1
+  - @sisu-ai/mw-tool-calling@8.0.1
+  - @sisu-ai/mw-trace-viewer@9.0.1
+
 ## 0.1.1
 
 ### Patch Changes
