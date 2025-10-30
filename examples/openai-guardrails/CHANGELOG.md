@@ -1,5 +1,18 @@
 # openai-guardrails
 
+## 0.2.16
+
+### Patch Changes
+
+- Updated dependencies [de89201]
+  - @sisu-ai/core@2.0.0
+  - @sisu-ai/adapter-openai@6.0.0
+  - @sisu-ai/mw-conversation-buffer@6.0.0
+  - @sisu-ai/mw-error-boundary@6.0.0
+  - @sisu-ai/mw-guardrails@6.0.0
+  - @sisu-ai/mw-trace-viewer@7.0.0
+  - @sisu-ai/mw-usage-tracker@6.0.0
+
 ## 0.2.15
 
 ### Patch Changes

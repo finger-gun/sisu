@@ -1,5 +1,53 @@
 # @sisu-ai/tool-vec-chroma
 
+## 4.0.0
+
+### Patch Changes
+
+- de89201: Implement tool handler sandboxing with restricted ToolContext
+
+  **Security Enhancement:**
+  Tool handlers now receive a sandboxed `ToolContext` instead of full `Ctx`, preventing:
+  - Tools from calling other tools (no `tools` registry access)
+  - Tools from manipulating conversation history (no `messages` access)
+  - Tools from accessing middleware state (no `state` access)
+  - Tools from interfering with user I/O (no `input`/`stream` access)
+
+  **New Types:**
+  - `ToolContext` interface with restricted properties: `memory`, `signal`, `log`, `model`, `deps`
+  - `Tool` interface updated to use `ToolContext` in handler signature
+
+  **Breaking Changes:**
+  - Tool handlers must now accept `ToolContext` instead of `Ctx`
+  - Custom tools need to update their handler signatures
+  - AWS S3 tool now uses `ctx.deps` for dependency injection instead of `ctx.state`
+
+  **Dependency Injection:**
+  - New `deps` property in `ToolContext` for proper dependency injection
+  - Middleware can provide dependencies via `ctx.state.toolDeps`
+  - Tools access dependencies via `ctx.deps?.dependencyName`
+
+  **Migration Guide:**
+
+  ```typescript
+  // Before
+  const myTool: Tool = {
+    handler: async (args, ctx: Ctx) => {
+      // had access to full context
+    },
+  };
+
+  // After
+  const myTool: Tool = {
+    handler: async (args, ctx: ToolContext) => {
+      // restricted context with memory, signal, log, model, deps
+    },
+  };
+  ```
+
+- Updated dependencies [de89201]
+  - @sisu-ai/core@2.0.0
+
 ## 3.0.0
 
 ### Patch Changes

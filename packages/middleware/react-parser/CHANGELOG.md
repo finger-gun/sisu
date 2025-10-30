@@ -1,5 +1,12 @@
 # @sisu-ai/mw-react-parser
 
+## 6.0.0
+
+### Patch Changes
+
+- Updated dependencies [de89201]
+  - @sisu-ai/core@2.0.0
+
 ## 5.0.0
 
 ### Patch Changes

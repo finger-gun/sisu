@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/example-openai-rag-chroma",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "type": "module",
   "private": true,
   "main": "dist/index.js",
@@ -9,12 +9,12 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sisu-ai/core": "1.2.0",
-    "@sisu-ai/adapter-openai": "5.0.0",
-    "@sisu-ai/mw-trace-viewer": "6.0.0",
-    "@sisu-ai/mw-register-tools": "5.0.0",
-    "@sisu-ai/mw-rag": "4.0.0",
-    "@sisu-ai/tool-vec-chroma": "3.0.0",
+    "@sisu-ai/core": "2.0.0",
+    "@sisu-ai/adapter-openai": "6.0.0",
+    "@sisu-ai/mw-trace-viewer": "7.0.0",
+    "@sisu-ai/mw-register-tools": "6.0.0",
+    "@sisu-ai/mw-rag": "5.0.0",
+    "@sisu-ai/tool-vec-chroma": "4.0.0",
     "dotenv": "^16.4.5"
   }
 }
