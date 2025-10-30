@@ -10,7 +10,7 @@ test('getBlob downloads content (static tool)', async () => {
       })
     })
   } as any;
-  const ctx = { state: { azureBlob: { serviceClient: service } } } as any;
+  const ctx = { deps: { azureBlob: { serviceClient: service } } } as any;
   const res = await azureGetBlob.handler({ container: 'c', blobName: 'b' } as any, ctx);
   expect((res as { content: string }).content).toBe('hello');
 });
@@ -22,11 +22,11 @@ test('uploadBlob respects allowWrite flag (static tool)', async () => {
       getBlockBlobClient: () => ({ upload })
     })
   } as any;
-  const ctxAllow = { state: { azureBlob: { serviceClient: service, allowWrite: true } } } as any;
+  const ctxAllow = { deps: { azureBlob: { serviceClient: service, allowWrite: true } } } as any;
   await azureUploadBlob.handler({ container: 'c', blobName: 'b', content: 'x' } as any, ctxAllow);
   expect(upload).toHaveBeenCalled();
 
-  const ctxDeny = { state: { azureBlob: { serviceClient: service, allowWrite: false } } } as any;
+  const ctxDeny = { deps: { azureBlob: { serviceClient: service, allowWrite: false } } } as any;
   const res = await azureUploadBlob.handler({ container: 'c', blobName: 'b', content: 'x' } as any, ctxDeny) as any;
   expect(res?.ok).toBe(false);
   expect(String(res?.error || '')).toMatch(/write/i);
@@ -39,11 +39,11 @@ test('deleteBlob deletes when allowed and returns error when disabled', async ()
       getBlockBlobClient: () => ({ delete: del })
     })
   } as any;
-  const ctxAllow = { state: { azureBlob: { serviceClient: service, allowWrite: true } } } as any;
+  const ctxAllow = { deps: { azureBlob: { serviceClient: service, allowWrite: true } } } as any;
   await azureDeleteBlob.handler({ container: 'c', blobName: 'b' } as any, ctxAllow);
   expect(del).toHaveBeenCalled();
 
-  const ctxDeny = { state: { azureBlob: { serviceClient: service, allowWrite: false } } } as any;
+  const ctxDeny = { deps: { azureBlob: { serviceClient: service, allowWrite: false } } } as any;
   const res = await azureDeleteBlob.handler({ container: 'c', blobName: 'b' } as any, ctxDeny) as any;
   expect(res?.ok).toBe(false);
   expect(String(res?.error || '')).toMatch(/write/i);
@@ -57,7 +57,7 @@ test('listBlobsDetailed returns names with lastModified ISO', async () => {
   const service = {
     getContainerClient: () => ({ listBlobsFlat: () => makeIter() })
   } as any;
-  const ctx = { state: { azureBlob: { serviceClient: service } } } as any;
+  const ctx = { deps: { azureBlob: { serviceClient: service } } } as any;
   const res = await azureListBlobsDetailed.handler({ container: 'c' } as any, ctx);
   expect(res).toEqual([
     { name: 'a.txt', lastModified: '2020-01-01T00:00:00.000Z' },
@@ -73,7 +73,7 @@ test('static tools read config from ctx.state and guard writes', async () => {
       getBlockBlobClient: () => ({ upload, downloadToBuffer, setMetadata: vi.fn(), getProperties: vi.fn(async () => ({ metadata: {} })) })
     })
   } as any;
-  const ctx = { state: { azureBlob: { serviceClient: service, allowWrite: true } } } as any;
+  const ctx = { deps: { azureBlob: { serviceClient: service, allowWrite: true } } } as any;
   await azureUploadBlob.handler({ container: 'c', blobName: 'b', content: 'x' } as any, ctx);
   expect(upload).toHaveBeenCalled();
   const text = await azureGetBlob.handler({ container: 'c', blobName: 'b' } as any, ctx) as { content: string };

@@ -1,4 +1,4 @@
-import type { Tool } from '@sisu-ai/core';
+import type { Tool, ToolContext } from '@sisu-ai/core';
 import { z } from 'zod';
 import { BlobServiceClient, type BlobServiceClient as BlobServiceClientType } from '@azure/storage-blob';
 
@@ -8,25 +8,25 @@ export interface AzureBlobToolOptions {
   allowWrite?: boolean;
 }
 
-type AzureCtx = { state?: any } | undefined;
-
-function resolveServiceFromCtx(ctx: AzureCtx): BlobServiceClientType {
-  const s = (ctx as any)?.state?.azureBlob?.serviceClient as BlobServiceClientType | undefined;
-  if (s) return s;
-  const conn = (ctx as any)?.state?.azureBlob?.connectionString || process.env.AZURE_STORAGE_CONNECTION_STRING;
-  if (!conn) throw new Error('AZURE_STORAGE_CONNECTION_STRING is not set (or ctx.state.azureBlob.connectionString)');
+function resolveServiceFromCtx(ctx: ToolContext): BlobServiceClientType {
+  const config = ctx.deps?.azureBlob as AzureBlobToolOptions | undefined;
+  if (config?.serviceClient) return config.serviceClient;
+  
+  const conn = config?.connectionString || process.env.AZURE_STORAGE_CONNECTION_STRING;
+  if (!conn) throw new Error('AZURE_STORAGE_CONNECTION_STRING is not set (or provide via ctx.deps.azureBlob.connectionString)');
   return BlobServiceClient.fromConnectionString(conn);
 }
 
-function allowWriteFromCtx(ctx: AzureCtx): boolean {
-  const v = (ctx as any)?.state?.azureBlob?.allowWrite;
-  if (typeof v === 'boolean') return v;
+function allowWriteFromCtx(ctx: ToolContext): boolean {
+  const config = ctx.deps?.azureBlob as AzureBlobToolOptions | undefined;
+  if (typeof config?.allowWrite === 'boolean') return config.allowWrite;
+  
   const env = process.env.AZURE_BLOB_ALLOW_WRITE;
   return !!(env && /^(1|true|yes)$/i.test(env));
 }
 
 const base = {
-  containerClient(ctx: AzureCtx, container: string) {
+  containerClient(ctx: ToolContext, container: string) {
     return resolveServiceFromCtx(ctx).getContainerClient(container);
   }
 };

@@ -15,7 +15,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "chromadb": "^1.8.0",
+    "chromadb": "^1.10.5",
     "zod": "^3.23.8"
   },
   "peerDependencies": {

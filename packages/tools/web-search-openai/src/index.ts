@@ -1,4 +1,4 @@
-import type { Tool } from '@sisu-ai/core';
+import type { Tool, ToolContext } from '@sisu-ai/core';
 import { z } from 'zod';
 
 export interface OpenAIWebSearchArgs { query: string; }
@@ -8,23 +8,23 @@ export const openAIWebSearch: Tool<OpenAIWebSearchArgs> = {
   name: 'webSearch',
   description: 'Search the web using OpenAI\'s built-in web search tool.',
   schema: z.object({ query: z.string() }),
-  handler: async ({ query }, ctx) => {
-    const st: any = (ctx?.state ?? {});
-    const stOpenAI = (st.openai ?? {}) as any;
-    const cliApiKey = stOpenAI.apiKey ?? st.apiKey;
+  handler: async ({ query }, ctx: ToolContext) => {
+    const deps: any = (ctx?.deps ?? {});
+    const depsOpenAI = (deps.openai ?? {}) as any;
+    const cliApiKey = depsOpenAI.apiKey ?? deps.apiKey;
     const apiKey = cliApiKey || (process.env.OPENAI_API_KEY || process.env.API_KEY);
     if (!apiKey) throw new Error('Missing OPENAI_API_KEY or API_KEY');
 
-    const cliRespBase = stOpenAI.responsesBaseUrl ?? st.responsesBaseUrl;
-    const cliBase = stOpenAI.baseUrl ?? st.baseUrl;
+    const cliRespBase = depsOpenAI.responsesBaseUrl ?? deps.responsesBaseUrl;
+    const cliBase = depsOpenAI.baseUrl ?? deps.baseUrl;
     const envBase = process.env.OPENAI_RESPONSES_BASE_URL || process.env.OPENAI_BASE_URL || process.env.BASE_URL;
     const baseUrl = ((cliRespBase || cliBase || envBase) ?? 'https://api.openai.com').replace(/\/$/, '');
     const fromMeta = (ctx?.model as any)?.meta?.responseModel || (ctx?.model as any)?.responseModel;
     const fromAdapterName = typeof ctx?.model?.name === 'string' && ctx.model.name.startsWith('openai:')
       ? ctx.model.name.slice('openai:'.length)
       : undefined;
-    const cliRespModel = stOpenAI.responsesModel ?? st.responsesModel;
-    const cliModel = stOpenAI.model ?? st.model;
+    const cliRespModel = depsOpenAI.responsesModel ?? deps.responsesModel;
+    const cliModel = depsOpenAI.model ?? deps.model;
     let model = cliRespModel || cliModel || process.env.OPENAI_RESPONSES_MODEL || process.env.OPENAI_MODEL || fromMeta || fromAdapterName || 'gpt-4.1-mini';
 
     const url = `${baseUrl}/v1/responses`;

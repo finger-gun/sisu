@@ -23,9 +23,9 @@ export const vectorUpsert: Tool<z.infer<typeof UpsertSchema>> = {
   description: 'Upsert embeddings into ChromaDB',
   schema: UpsertSchema,
   handler: async ({ records }, ctx) => {
-    const ns = (ctx?.state as any)?.vectorNamespace || undefined;
+    const ns = (ctx?.deps as any)?.vectorNamespace || undefined;
     const collectionName = ns || 'sisu';
-    const collection = await getCollection(collectionName, (ctx?.state as any)?.chromaUrl);
+    const collection = await getCollection(collectionName, (ctx?.deps as any)?.chromaUrl);
     await collection.add({
       ids: records.map(r => r.id),
       embeddings: records.map(r => r.embedding),
@@ -47,8 +47,8 @@ export const vectorQuery: Tool<z.infer<typeof QuerySchema>> = {
   description: 'Query ChromaDB for nearest neighbors',
   schema: QuerySchema,
   handler: async ({ embedding, topK, filter, namespace }, ctx) => {
-    const collectionName = namespace || (ctx?.state as any)?.vectorNamespace || 'sisu';
-    const collection = await getCollection(collectionName, (ctx?.state as any)?.chromaUrl);
+    const collectionName = namespace || (ctx?.deps as any)?.vectorNamespace || 'sisu';
+    const collection = await getCollection(collectionName, (ctx?.deps as any)?.chromaUrl);
     const res = await collection.query({
       queryEmbeddings: [embedding],
       nResults: topK,
@@ -72,8 +72,8 @@ export const vectorDelete: Tool<z.infer<typeof DeleteSchema>> = {
   description: 'Delete embeddings by id from ChromaDB',
   schema: DeleteSchema,
   handler: async ({ ids }, ctx) => {
-    const collectionName = (ctx?.state as any)?.vectorNamespace || 'sisu';
-    const collection = await getCollection(collectionName, (ctx?.state as any)?.chromaUrl);
+    const collectionName = (ctx?.deps as any)?.vectorNamespace || 'sisu';
+    const collection = await getCollection(collectionName, (ctx?.deps as any)?.chromaUrl);
     await collection.delete({ ids });
     return { count: ids.length };
   }
