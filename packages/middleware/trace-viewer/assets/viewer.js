@@ -22,12 +22,12 @@
   // --- Utils: normalize a run object from .json or .js shapes ---
   function normalizeAndPushRun(obj) {
     try {
-      // In your .json, meta carries timing/status/model; in .js it's already flattened.  
+      // In your .json, meta carries timing/status/model; in .js it's already flattened.
       var meta = obj.meta || {};
       var id = obj.id || meta.id || ('run-' + (meta.start || Date.now()));
       var events = (obj.events || []).map(function (ev) {
         return { time: ev.time || ev.ts || null, level: ev.level || '', args: ev.args };
-      }); // .json uses `ts`, .js uses `time`.  
+      }); // .json uses `ts`, .js uses `time`.
 
       var run = {
         id,
@@ -42,7 +42,8 @@
         start: obj.start || meta.start || null,
         end: obj.end || meta.end || null,
         messages: obj.messages || [],
-        events
+        events,
+        meta: meta  // Preserve full meta object for error info
       };
 
       (window.SISU_TRACES.runs = window.SISU_TRACES.runs || []).push(run);
@@ -171,6 +172,9 @@
     $('#startTime').textContent = currentRun.start ? formatDateTime(currentRun.start) : '—';
     $('#endTime').textContent = currentRun.end ? formatDateTime(currentRun.end) : '—';
 
+    // Error display (if status is failed and error info exists)
+    renderErrorDisplay(currentRun);
+
     // Usage metrics (if present)
     renderUsageMetrics(currentRun.usage || {});
     renderCodeInto($('#inputPre'), currentRun.input, { lines: true });
@@ -181,6 +185,139 @@
     currentLevel = '*';
     renderLevelTags();
     applyEventFilter();
+  }
+
+  function renderErrorDisplay(run) {
+    var errorDisplay = $('#errorDisplay');
+    if (!errorDisplay) return;
+    
+    // Check for error in meta (from newer runs) or directly on run object
+    var error = (run.meta && run.meta.error) || run.error;
+    
+    // Also check if status is 'failed' (old traces used 'failed' instead of 'error')
+    var isFailed = run.status === 'failed' || run.status === 'error';
+    
+    if (isFailed && error) {
+      errorDisplay.style.display = 'flex';
+      
+      // Populate error details
+      var errorNameEl = $('#errorName');
+      if (errorNameEl) errorNameEl.textContent = error.name || 'Error';
+      
+      var codeEl = $('#errorCode');
+      if (codeEl) {
+        if (error.code) {
+          codeEl.textContent = error.code;
+          codeEl.style.display = 'inline-block';
+        } else {
+          codeEl.style.display = 'none';
+        }
+      }
+      
+      var errorMessageEl = $('#errorMessage');
+      if (errorMessageEl) errorMessageEl.textContent = error.message || 'An error occurred';
+      
+      // Parse stack trace to extract pipeline context
+      var pipelineContext = extractPipelineContext(error.stack, run.events);
+      
+      // Context (enhanced with pipeline info)
+      var contextEl = $('#errorContext');
+      if (contextEl) {
+        var contextHTML = '';
+        
+        // Show pipeline location if available
+        if (pipelineContext) {
+          contextHTML += '<h4>Pipeline Context</h4>';
+          contextHTML += '<div style="margin-bottom:12px">';
+          if (pipelineContext.middleware) {
+            contextHTML += '<div><b>Middleware:</b> ' + escapeHTML(pipelineContext.middleware) + '</div>';
+          }
+          if (pipelineContext.lastEvents.length > 0) {
+            contextHTML += '<div style="margin-top:8px"><b>Recent Events:</b></div>';
+            contextHTML += '<ul style="margin:4px 0;padding-left:20px;font-size:12px">';
+            pipelineContext.lastEvents.forEach(function(evt) {
+              var level = evt.level || 'info';
+              var color = level === 'error' ? '#fb7185' : (level === 'warn' ? '#fbbf24' : '#a0a3b4');
+              contextHTML += '<li style="color:' + color + '">';
+              if (Array.isArray(evt.args) && evt.args.length > 0) {
+                contextHTML += escapeHTML(String(evt.args[0]));
+              } else {
+                contextHTML += escapeHTML(JSON.stringify(evt.args));
+              }
+              contextHTML += '</li>';
+            });
+            contextHTML += '</ul></div>';
+          }
+          contextHTML += '</div>';
+        }
+        
+        if (error.context) {
+          contextHTML += '<h4>Error Context</h4><pre>' + prettyJson(error.context) + '</pre>';
+        }
+        
+        if (contextHTML) {
+          contextEl.innerHTML = contextHTML;
+          contextEl.style.display = 'block';
+        } else {
+          contextEl.style.display = 'none';
+        }
+      }
+      
+      // Stack trace
+      var stackEl = $('#errorStack');
+      if (stackEl) {
+        if (error.stack) {
+          var stackText = String(error.stack).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          stackEl.innerHTML = '<h4>Stack Trace</h4><pre>' + stackText + '</pre>';
+          stackEl.style.display = 'block';
+        } else {
+          stackEl.style.display = 'none';
+        }
+      }
+    } else {
+      errorDisplay.style.display = 'none';
+    }
+  }
+  
+  // Helper to extract pipeline context from stack trace and events
+  function extractPipelineContext(stack, events) {
+    if (!stack) return null;
+    
+    var result = { middleware: null, lastEvents: [] };
+    
+    // Extract middleware from stack trace
+    var stackLines = String(stack).split('\n');
+    for (var i = 0; i < stackLines.length; i++) {
+      var line = stackLines[i];
+      // Look for middleware names in the stack
+      if (line.includes('tool-calling')) { result.middleware = 'tool-calling'; break; }
+      if (line.includes('register-tools')) { result.middleware = 'register-tools'; break; }
+      if (line.includes('error-boundary')) { result.middleware = 'error-boundary'; break; }
+      if (line.includes('trace-viewer')) { result.middleware = 'trace-viewer'; break; }
+      if (line.includes('usage-tracker')) { result.middleware = 'usage-tracker'; break; }
+      if (line.includes('control-flow')) { result.middleware = 'control-flow'; break; }
+      if (line.includes('/openai/') || line.includes('/anthropic/') || line.includes('/ollama/')) {
+        result.middleware = 'LLM adapter';
+        break;
+      }
+    }
+    
+    // Get last 5 events before error (helps show what was happening)
+    if (events && events.length > 0) {
+      // Filter for info/warn/error level events (skip debug spam)
+      var relevantEvents = events.filter(function(e) {
+        return e.level && (e.level === 'info' || e.level === 'warn' || e.level === 'error');
+      });
+      result.lastEvents = relevantEvents.slice(-5);
+    }
+    
+    return result;
+  }
+  
+  function escapeHTML(s) {
+    return String(s).replace(/[&<>"]/g, function(c) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c];
+    });
   }
 
   function renderUsageMetrics(usage){

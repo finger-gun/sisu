@@ -74,7 +74,8 @@
     "ex:openai:openai-azure-blob": "TRACE_HTML=1 npm run dev -w examples/openai-azure-blob -- --trace",
     "ex:openai:extract-urls": "TRACE_HTML=1 npm run dev -w examples/openai-extract-urls -- --trace",
     "ex:openai:aws-s3": "TRACE_HTML=1 npm run dev -w examples/openai-aws-s3 -- --trace",
-    "ex:openai:server": "TRACE_HTML=1 npm run dev -w examples/openai-server -- --trace"
+    "ex:openai:server": "TRACE_HTML=1 npm run dev -w examples/openai-server -- --trace",
+    "ex:openai:error-handling": "TRACE_HTML=1 npm run dev -w examples/openai-error-handling -- --trace"
   },
   "keywords": [
     "sisu",

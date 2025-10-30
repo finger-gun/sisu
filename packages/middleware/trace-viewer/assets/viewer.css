@@ -211,6 +211,126 @@ body{
 /* Responsive: auto-fill handles wrapping; keep .wide spanning at least 2 columns when space allows */
 @media (max-width:1000px){ .metric.wide{ grid-column: span 2; } }
 
+/* ---------- Error Display ---------- */
+.error-display {
+  background: linear-gradient(135deg, rgba(251,113,133,.15), rgba(239,68,68,.12));
+  border: 1px solid rgba(251,113,133,.35);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.error-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.error-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.error-name {
+  font-weight: 700;
+  font-size: 16px;
+  color: #fb7185;
+}
+
+.error-code {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(251,113,133,.20);
+  border: 1px solid rgba(251,113,133,.40);
+  color: #fca5a5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+}
+
+.error-message {
+  color: var(--text);
+  margin-bottom: 12px;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.error-details {
+  margin-top: 12px;
+}
+
+.error-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+  user-select: none;
+  padding: 6px 0;
+  list-style-position: outside;
+}
+
+.error-details summary:hover {
+  color: var(--text);
+}
+
+.error-context,
+.error-stack {
+  margin-top: 10px;
+  background: var(--code);
+  border: 1px solid rgba(251,113,133,.25);
+  border-radius: 8px;
+  padding: 12px;
+  overflow: auto;
+}
+
+.error-context pre,
+.error-stack pre {
+  margin: 0;
+  color: var(--code-text);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-context h4,
+.error-stack h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+[data-theme="light"] .error-display {
+  background: linear-gradient(135deg, rgba(254,202,202,.40), rgba(254,226,226,.35));
+  border-color: rgba(239,68,68,.30);
+}
+
+[data-theme="light"] .error-name {
+  color: #dc2626;
+}
+
+[data-theme="light"] .error-code {
+  background: rgba(254,202,202,.50);
+  border-color: rgba(239,68,68,.35);
+  color: #991b1b;
+}
+
+[data-theme="light"] .error-context,
+[data-theme="light"] .error-stack {
+  border-color: rgba(239,68,68,.20);
+}
+
 /* ---------- Accordion ---------- */
 .accordion{ border-top:1px solid rgba(255,255,255,.08); }
 .acc{ border-bottom:1px solid rgba(255,255,255,.08); }

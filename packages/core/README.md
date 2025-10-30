@@ -37,6 +37,17 @@ Discover what you can do through examples or documentation. Check it out at http
   - `NullStream` — no-op token sink
   - `stdoutStream` — writes tokens to stdout (CLI streaming)
   - `SimpleTools` — in-memory tool registry (name → handler)
+- Error handling
+  - `SisuError` — base error class with structured error codes and context
+  - `MiddlewareError` — thrown when middleware execution fails
+  - `ToolExecutionError` — thrown when tool execution fails
+  - `AdapterError` — thrown when LLM adapter operations fail
+  - `ValidationError` — thrown when validation fails (e.g., schema validation)
+  - `TimeoutError` — thrown when operations timeout
+  - `CancellationError` — thrown when operations are cancelled
+  - `ConfigurationError` — thrown when configuration is invalid
+  - `isSisuError(error)` — type guard to check if error is a SisuError
+  - `getErrorDetails(error)` — extract structured error details for logging
 
 ## Creating a Context
 
@@ -218,8 +229,147 @@ ctx.state = {
 // Tools will receive these via ctx.deps
 ```
 
+## Error Handling
+
+Sisu provides structured error types that make debugging easier by including error codes, context, and stack traces.
+
+### Error Types
+
+All Sisu errors extend the `SisuError` base class, which provides:
+- `code` — Machine-readable error code (e.g., `'TOOL_EXECUTION_ERROR'`)
+- `message` — Human-readable error description
+- `context` — Additional structured data about the error
+- `toJSON()` — Serialization for logging and tracing
+
+**Available error classes:**
+
+```ts
+import {
+  SisuError,
+  MiddlewareError,
+  ToolExecutionError,
+  AdapterError,
+  ValidationError,
+  TimeoutError,
+  CancellationError,
+  ConfigurationError,
+} from '@sisu-ai/core';
+```
+
+### Using Error Types
+
+**Throwing errors:**
+```ts
+import { ToolExecutionError, ValidationError } from '@sisu-ai/core';
+
+// In a tool handler
+if (!apiKey) {
+  throw new ConfigurationError(
+    'API key is required',
+    { provided: config },
+    'apiKey must be a non-empty string'
+  );
+}
+
+// When validation fails
+const result = schema.safeParse(input);
+if (!result.success) {
+  throw new ValidationError(
+    'Invalid tool arguments',
+    result.error.errors,
+    input
+  );
+}
+
+// When a tool fails
+try {
+  const data = await fetchData();
+} catch (err) {
+  throw new ToolExecutionError(
+    'Failed to fetch data',
+    'fetchData',
+    { url: args.url },
+    err as Error
+  );
+}
+```
+
+**Catching and handling errors:**
+```ts
+import { isSisuError, getErrorDetails } from '@sisu-ai/core';
+
+try {
+  await app.handler()(ctx);
+} catch (err) {
+  if (isSisuError(err)) {
+    // Structured error with code and context
+    console.error('Sisu error:', err.code, err.context);
+  } else {
+    // Generic error
+    const details = getErrorDetails(err);
+    console.error('Error:', details);
+  }
+}
+```
+
+**In middleware:**
+```ts
+import { MiddlewareError } from '@sisu-ai/core';
+
+const myMiddleware: Middleware = async (ctx, next) => {
+  try {
+    await next();
+  } catch (err) {
+    throw new MiddlewareError(
+      'Middleware chain failed',
+      ctx.state.middlewareIndex || 0,
+      err as Error
+    );
+  }
+};
+```
+
+### Error Boundary Middleware
+
+The `@sisu-ai/mw-error-boundary` package provides middleware for catching and handling errors:
+
+```ts
+import { errorBoundary, logErrors } from '@sisu-ai/mw-error-boundary';
+
+// Custom error handler
+agent.use(errorBoundary(async (err, ctx) => {
+  const details = getErrorDetails(err);
+  ctx.log.error('Error caught:', details);
+  
+  // Add error message to conversation
+  ctx.messages.push({
+    role: 'assistant',
+    content: 'I encountered an error. Please try again.'
+  });
+}));
+
+// Simple logging error boundary
+agent.use(logErrors());
+```
+
+### Trace Viewer Integration
+
+The trace viewer automatically captures and displays structured error information:
+
+```ts
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+
+agent.use(traceViewer());
+```
+
+When errors occur, the trace HTML will include:
+- Error name and code (e.g., `ToolExecutionError [TOOL_EXECUTION_ERROR]`)
+- Error message
+- Structured context (tool name, arguments, etc.)
+- Full stack trace (collapsible)
+
 ## Philosophy
-Small, explicit, composable. Sisu’s core stays tiny; everything else — tools, control flow, guardrails, usage/cost, tracing — lives in opt-in middlewares and adapters.
+Small, explicit, composable. Sisu's core stays tiny; everything else — tools, control flow, guardrails, usage/cost, tracing — lives in opt-in middlewares and adapters.
 
 # Community & Support
 - [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)

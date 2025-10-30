@@ -73,6 +73,23 @@
             </div>
           </div>
 
+          <!-- Error display (shown when status is 'failed') -->
+          <div id="errorDisplay" class="error-display" style="display:none">
+            <div class="error-icon">⚠️</div>
+            <div class="error-content">
+              <div class="error-header">
+                <span class="error-name" id="errorName"></span>
+                <span class="error-code" id="errorCode"></span>
+              </div>
+              <div class="error-message" id="errorMessage"></div>
+              <details class="error-details">
+                <summary>Error Details</summary>
+                <div class="error-context" id="errorContext"></div>
+                <div class="error-stack" id="errorStack"></div>
+              </details>
+            </div>
+          </div>
+
           <div class="metrics">
             <div class="metric"><b>Duration</b><span id="duration">—</span></div>
             <div class="metric"><b>Start</b><span id="startTime">—</span></div>

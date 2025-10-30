@@ -1,5 +1,5 @@
 import type { Ctx, Middleware } from '@sisu-ai/core';
-import { createTracingLogger } from '@sisu-ai/core';
+import { createTracingLogger, getErrorDetails } from '@sisu-ai/core';
 import { fileURLToPath } from 'node:url';
 
 export type TraceStyle = 'light' | 'dark';
@@ -10,6 +10,13 @@ export interface TraceMeta {
   durationMs: number;
   status: 'success' | 'error';
   model?: string;
+  error?: {
+    name: string;
+    message: string;
+    code?: string;
+    context?: unknown;
+    stack?: string;
+  };
   usage?: {
     promptTokens?: number;
     completionTokens?: number;
@@ -87,12 +94,36 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
 
     const start = Date.now();
     let status: 'success' | 'error' = 'success';
+    let errorDetails: ReturnType<typeof getErrorDetails> | undefined;
     try {
       await next();
     } catch (err) {
       status = 'error';
+      errorDetails = getErrorDetails(err);
+      
+      // Inject error event into trace so it appears in the events timeline
+      ctx.log.error('[trace-viewer] Error caught in middleware pipeline', {
+        error: errorDetails.name,
+        message: errorDetails.message,
+        code: errorDetails.code,
+      });
+      
       throw err;
     } finally {
+      // Check if error-boundary middleware has already captured error details
+      if (!errorDetails && (ctx.state as any)._error) {
+        errorDetails = (ctx.state as any)._error;
+        status = 'error';
+        
+        // Also inject error event if coming from error-boundary
+        if (errorDetails) {
+          ctx.log.error('[trace-viewer] Error captured from error-boundary', {
+            error: errorDetails.name,
+            message: errorDetails.message,
+            code: errorDetails.code,
+          });
+        }
+      }
       const end = Date.now();
       const final = ctx.messages.filter(m => m.role === 'assistant').pop();
       const pre = (((ctx as any).state?._tracePreamble) || []) as any[];
@@ -108,6 +139,7 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
           durationMs: end - start,
           status,
           model: ctx.model?.name,
+          error: errorDetails,
           usage: (ctx.state as any)?.usage,
         },
       };
@@ -214,6 +246,7 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
           events: normalizedEvents,
         };
         if ((out.meta as any).usage) (runObj as any).usage = (out.meta as any).usage;
+        if ((out.meta as any).error) (runObj as any).error = (out.meta as any).error;
         const jsName = id + '.js';
         const code = 'window.SISU_TRACES = window.SISU_TRACES || { runs: [], logo: "" };\n'
           + 'window.SISU_TRACES.runs.push(' + JSON.stringify(runObj).replace(/<\/script/g, '<\\/script') + ');\n';
@@ -345,14 +378,35 @@ function renderTraceHtml(out: TraceDoc, _style: TraceStyle = 'light', _logoDataU
   const events = (out.events || []).map((e: any) => `<tr><td>${esc(e.ts || e.time || '')}</td><td>${esc(e.level || '')}</td><td><pre>${esc(JSON.stringify(e.args, null, 2))}</pre></td></tr>`).join('\n');
   const usage = (out.meta as any).usage || {};
   const transport = (out.meta as any).transport || undefined;
+  const error = (out.meta as any).error;
+  
   return `<!doctype html><html><head><meta charset="utf-8"/><title>Trace</title>
-    <style>body{font-family:system-ui,Arial,sans-serif;margin:16px;color:#111} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ddd;padding:6px;vertical-align:top} th{background:#f6f6f6} pre{white-space:pre-wrap}</style>
+    <style>
+      body{font-family:system-ui,Arial,sans-serif;margin:16px;color:#111}
+      table{border-collapse:collapse;width:100%}
+      th,td{border:1px solid #ddd;padding:6px;vertical-align:top}
+      th{background:#f6f6f6}
+      pre{white-space:pre-wrap}
+      .error-box{background:#fee;border:1px solid #fcc;padding:12px;margin:12px 0;border-radius:4px}
+      .error-title{color:#c00;font-weight:bold;margin-bottom:8px}
+      .error-code{background:#fdd;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:0.9em}
+      .status-error{color:#c00;font-weight:bold}
+      .status-success{color:#060;font-weight:bold}
+    </style>
   </head><body>
     <h1>Trace</h1>
-    <div><b>Status:</b> ${esc(out.meta.status)} • <b>Model:</b> ${esc(out.meta.model || '')} • <b>Duration:</b> ${(out.meta.durationMs / 1000).toFixed(2)}s</div>
+    <div><b>Status:</b> <span class="status-${esc(out.meta.status)}">${esc(out.meta.status)}</span> • <b>Model:</b> ${esc(out.meta.model || '')} • <b>Duration:</b> ${(out.meta.durationMs / 1000).toFixed(2)}s</div>
     <div><b>Start:</b> ${esc(out.meta.start)} • <b>End:</b> ${esc(out.meta.end)}</div>
     ${transport ? `<div><b>Transport:</b> ${esc(transport.method || '')} ${esc(transport.url || '')}${transport.pipeline ? ` • <b>Pipeline:</b> ${esc(transport.pipeline)}` : ''}${transport.runId ? ` • <b>RunId:</b> ${esc(transport.runId)}` : ''}</div>` : ''}
     ${usage && (usage.promptTokens || usage.totalTokens) ? `<div><b>Usage:</b> prompt=${usage.promptTokens ?? 0}, completion=${usage.completionTokens ?? 0}, total=${usage.totalTokens ?? 0}${usage.costUSD != null ? `, cost=$${usage.costUSD}` : ''}</div>` : ''}
+    ${error ? `
+      <div class="error-box">
+        <div class="error-title">${esc(error.name)}${error.code ? ` <span class="error-code">${esc(error.code)}</span>` : ''}</div>
+        <div><b>Message:</b> ${esc(error.message)}</div>
+        ${error.context ? `<div><b>Context:</b><pre>${esc(JSON.stringify(error.context, null, 2))}</pre></div>` : ''}
+        ${error.stack ? `<details><summary><b>Stack Trace</b></summary><pre>${esc(error.stack)}</pre></details>` : ''}
+      </div>
+    ` : ''}
     <h2>Input</h2><pre>${esc(String(out.input || ''))}</pre>
     <h2>Final</h2><pre>${esc(String(out.final || ''))}</pre>
     <h2>Messages</h2><table><thead><tr><th>role</th><th>content</th></tr></thead><tbody>${messages}</tbody></table>
