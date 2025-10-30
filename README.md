@@ -1,122 +1,253 @@
 ![sisu](./sisu-light.svg)
-> Grit‑powered agents. Quiet, determined, relentlessly useful.
 
-**Sisu** is a lightweight TypeScript framework for turning intent into action. Inspired by the Finnish idea of sisu—calm resolve under pressure—Sisu favors explicit tools, predictable plans, and built‑in guardrails. No ceremony, no mystery: compose, decide, do.
+# Build AI agents that just work.
+
+**Sisu** is a TypeScript framework for building reliable AI agents. Inspired by the Finnish concept of *sisu*—calm determination under pressure—it brings predictability, composability, and transparency to AI development.
+
+🎯 **No surprises.** Explicit middleware, typed tools, deterministic control flow.  
+🔧 **Full control.** Compose planning, routing, safety like Express apps.  
+🔍 **Total visibility.** Built-in tracing, logging, and debugging out of the box.  
+🚀 **Provider-agnostic.** OpenAI, Anthropic, Ollama, or bring your own.
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
-[![Downloads (core)](https://img.shields.io/npm/dm/%40sisu-ai%2Fcore)](https://www.npmjs.com/package/@sisu-ai/core)
+[![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcore)](https://www.npmjs.com/package/@sisu-ai/core)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
-
-## Why Sisu?
-- Everything is middleware: compose planning, tools, routing, safety like you compose Express/Koa apps.
-- One ctx, zero magic: a single typed context flows through; what you see is what runs.
-- Typed tools, explicit loops: tool calls and control flow are first‑class and deterministic.
-- Provider‑agnostic, adapter‑friendly: OpenAI, Anthropic, Ollama (local), or your own HTTP client.
-- Built‑in observability: structured logs, redaction, and an HTML trace viewer per run.
-
-![Get feedback from your runs in HTML View](html-trace-log.jpg)
-
-### Trace Viewer
-
-**Understand, debug, and optimize every AI run.**
-
-Sisu Trace Viewer gives you full visibility into your AI workflows — from token usage and costs, to tool calls and debugging details.
-
-✅ **Track performance with precision** – see exactly how tokens and costs are spent.   
-✅ **Debug with confidence** – inspect tool calls and spot issues instantly.   
-✅ **Search & filter across traces** – find the run you need, faster.   
-✅ **Iterate at lightning speed** – optimize workflows and shorten feedback loops.   
-
-Whether you’re building prototypes or scaling production systems, Sisu Trace Viewer makes AI development **transparent, efficient, and reliable.**
 
 ---
 
-![Get feedback from your runs in your terminal](cli-trace-logs.png)
+## Why Developers Choose Sisu
 
-### CLI Trace Logs
-Stay in flow with structured, color-coded logs right in your terminal. Perfect for rapid iteration and debugging.
+**Tired of black-box AI frameworks?** Sisu gives you full transparency and control.
 
+| Problem                                      | Sisu Solution                                                   |
+|----------------------------------------------|-----------------------------------------------------------------|
+| 🤔 "Where did my tokens go?"                 | **Built-in trace viewer** shows every token, cost, and decision |
+| 😤 "Why did the tool loop break?"            | **Explicit control flow** you can read, test, and debug        |
+| 😓 "Can't swap providers without rewriting"  | **Provider-agnostic adapters** - change 1 line                  |
+| 🔒 "Secrets in my logs again?"               | **Automatic redaction** of API keys and sensitive data          |
+| 🐛 "Production bugs are impossible to debug" | **Structured logging & HTML traces** for every run              |
 
-## 90‑Second Example
-Turn intent into action with a clear, inspectable pipeline.
+---
 
-**Install the packages used below:**
+## ⚡ Quick Start (2 Minutes)
+
+### Install
 ```bash
-npm i \
-  @sisu-ai/core @sisu-ai/adapter-openai \
-  @sisu-ai/mw-register-tools @sisu-ai/mw-conversation-buffer \
-  @sisu-ai/mw-tool-calling \
-  @sisu-ai/mw-trace-viewer @sisu-ai/mw-error-boundary \
-  zod dotenv
+npm i @sisu-ai/core @sisu-ai/adapter-openai \
+      @sisu-ai/mw-register-tools @sisu-ai/mw-tool-calling \
+      @sisu-ai/mw-conversation-buffer @sisu-ai/mw-trace-viewer \
+      @sisu-ai/mw-error-boundary zod dotenv
 ```
 
-**Write something awesome with code:**
-
+### Build Your First Agent
 ```ts
 import 'dotenv/config';
-import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Tool, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, type Tool } from '@sisu-ai/core';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
-import { toolCalling /* or iterativeToolCalling */ } from '@sisu-ai/mw-tool-calling';
+import { toolCalling } from '@sisu-ai/mw-tool-calling';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { z } from 'zod';
 
-// Tool
-interface WeatherArgs { city: string }
-const weather: Tool<WeatherArgs> = {
+// 1. Define a tool (any async function with a schema)
+const weather: Tool<{ city: string }> = {
   name: 'getWeather',
   description: 'Get weather for a city',
   schema: z.object({ city: z.string() }),
   handler: async ({ city }) => ({ city, tempC: 21, summary: 'Sunny' }),
 };
 
-// Model
-const model = openAIAdapter({ model: 'openai/gpt-oss-20b', baseUrl: 'http://127.0.0.1:1234/' });
+// 2. Create your context with model and settings
+const ctx = createCtx({
+  model: openAIAdapter({ model: 'gpt-4o-mini' }),
+  input: 'What is the weather in Stockholm?',
+  systemPrompt: 'You are a helpful assistant.',
+});
 
-// Ctx
-const ctx: Ctx = {
-  input: process.argv.slice(2).join(' ') || 'What is the weather in Malmö?',
-  messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-  model,
-  tools: new SimpleTools(),
-  memory: new InMemoryKV(),
-  stream: new NullStream(),
-  state: {},
-  signal: new AbortController().signal,
-  log: createConsoleLogger(),
-};
-
-// Minimal pipeline: no classifier, no switch, no manual loop
+// 3. Build your agent pipeline
 const app = new Agent()
-  .use(errorBoundary(async (err, c) => {
-    c.log.error(err);
-    c.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' });
-  }))
-  .use(traceViewer())
-  .use(registerTools([weather]))
-  .use(inputToMessage)
-  .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling); // 1) generate(..., auto) → maybe run tools → 2) finalize with none
+  .use(errorBoundary())           // Handle errors gracefully
+  .use(traceViewer())             // Auto-generate debug traces
+  .use(registerTools([weather]))  // Give the agent your tools
+  .use(inputToMessage)            // Convert input to messages
+  .use(conversationBuffer({ window: 8 })) // Manage context window
+  .use(toolCalling);              // Handle tool loops automatically
 
+// 4. Run it!
 await app.handler()(ctx);
-const final = ctx.messages.filter(m => m.role === 'assistant').pop();
-console.log('\nAssistant:\n', final?.content);
+console.log('\n✅ Result:', ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
 ```
 
-## Core Ideas
-- Koa‑style middleware: `(ctx, next) => { …; await next(); … }` gives “onion” control—before/after work is explicit and composable.
-- Single ctx: no hidden globals. Everything lives on `ctx` so it’s easy to reason about and test.
-- Typed tools: tool schemas inform tool loops and protect your handlers.
-- Control flow is code: `sequence`, `branch`, `switchCase`, `loopUntil`, `parallel`, `graph`—you read the plan in the code.
-- Deterministic modes: timeouts, bounded loops, retries are explicit—in your hands.
-- Observability by default: leveled logs, redaction, and a trace viewer that writes `traces/run-*.html`.
+**That's it!** Open `traces/viewer.html` to see exactly what happened.
 
-## How it works
-This is a typical use case flow. However, as SIsu is very flexible by nature, it can vary. But this is the core idea.
+---
+
+## 🎨 Built-in Observability
+
+### HTML Trace Viewer
+**Stop guessing. Start knowing.**
+
+![HTML Trace Viewer](html-trace-log.jpg)
+
+Every run auto-generates an interactive HTML trace showing:
+- 💰 **Token usage & costs** per turn
+- 🔧 **Tool calls & results** with timing
+- 🔍 **Full conversation history** with diffs
+- 🐛 **Error details & stack traces** when things break
+
+Perfect for debugging, optimization, and understanding your agent's behavior.
+
+---
+
+### CLI Trace Logs
+**Stay in flow with terminal-native logging.**
+
+![CLI Trace Logs](cli-trace-logs.png)
+
+Structured, color-coded logs that make sense. No more parsing walls of JSON.
+
+---
+
+## 💡 Core Concepts
+
+Sisu is built on **5 simple ideas**:
+
+### 1️⃣ Everything is Middleware
+```ts
+// Compose your agent like an Express app
+const app = new Agent()
+  .use(errorBoundary())
+  .use(traceViewer())
+  .use(registerTools([...]))
+  .use(toolCalling);
+```
+
+### 2️⃣ One Context, Zero Magic
+```ts
+// Everything flows through a single typed context
+(ctx, next) => {
+  ctx.messages.push(...)  // Modify state
+  await next()            // Pass to next middleware
+  console.log(ctx.result) // React to changes
+}
+```
+
+### 3️⃣ Typed Tools = Safe Tools
+```ts
+// Zod schemas validate inputs automatically
+const tool: Tool = {
+  name: 'searchDocs',
+  schema: z.object({ query: z.string() }),
+  handler: async ({ query }) => { /* ... */ }
+};
+```
+
+### 4️⃣ Control Flow is Just Code
+```ts
+import { sequence, branch, loopUntil, parallel, graph } from '@sisu-ai/mw-control-flow';
+
+// Read the plan, no hidden behavior
+.use(sequence([
+  classifyIntent,
+  branch({
+    'search': searchPipeline,
+    'chat': conversationPipeline
+  })
+]))
+```
+
+### 5️⃣ Provider-Agnostic by Design
+```ts
+// Swap providers by changing one line
+const model = openAIAdapter({ model: 'gpt-4o-mini' });
+// const model = anthropicAdapter({ model: 'claude-sonnet-4' });
+// const model = ollamaAdapter({ model: 'llama3.1' }); // local!
+```
+
+---
+
+## 🏃 Run Your First Example
+
+**OpenAI Hello World:**
+```bash
+cp examples/openai-hello/.env.example examples/openai-hello/.env
+npm run ex:openai:hello
+open examples/openai-hello/traces/trace.html  # 👀 See the magic
+```
+
+**Local with Ollama (no API key needed!):**
+```bash
+ollama serve && ollama pull llama3.1
+npm run ex:ollama:hello
+open examples/ollama-hello/traces/trace.html
+```
+
+**More examples:** Vision, RAG, Multi-agent, Streaming, and more in [`/examples`](examples/)
+
+---
+
+## 🔧 Key Features
+
+### 🛡️ Production-Ready Safety
+- ✅ **Automatic secret redaction** in logs
+- ✅ **Error boundaries** with custom handlers
+- ✅ **Guardrails middleware** for content filtering
+- ✅ **Invariants validation** in development
+- ✅ **AbortSignal** support for cancellation
+
+### 🎯 Developer Experience
+- ✅ **TypeScript-first** with strict mode
+- ✅ **Minimal API surface** - learn once, use everywhere
+- ✅ **Composable patterns** - build complex from simple
+- ✅ **Zero hidden state** - what you see is what runs
+- ✅ **Extensive examples** for every use case
+
+### 🚀 Performance & Flexibility
+- ✅ **Streaming support** for real-time responses
+- ✅ **Conversation buffering** for long contexts
+- ✅ **Context compression** when needed
+- ✅ **Parallel tool execution** where safe
+- ✅ **RAG & vector search** ready
+
+---
+
+## 📦 Ecosystem
+
+### Adapters
+| Provider | Package | Tools | Streaming | Vision |
+|----------|---------|:-----:|:---------:|:------:|
+| **OpenAI** | [`@sisu-ai/adapter-openai`](packages/adapters/openai/) | ✅ | ✅ | ✅ |
+| **Anthropic** | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/) | ✅ | ✅ | ❌ |
+| **Ollama** (local) | [`@sisu-ai/adapter-ollama`](packages/adapters/ollama/) | ✅ | ✅ | ✅ |
+
+💡 **Tip:** OpenAI adapter works with **any OpenAI-compatible API** (LM Studio, vLLM, etc.)
+
+### Middleware (Mix & Match)
+- 🎯 **Control Flow**: [`sequence`](packages/middleware/control-flow/), [`branch`](packages/middleware/control-flow/), [`parallel`](packages/middleware/control-flow/), [`graph`](packages/middleware/control-flow/)
+- 🔧 **Tool Management**: [`registerTools`](packages/middleware/register-tools/), [`toolCalling`](packages/middleware/tool-calling/)
+- 💬 **Conversation**: [`conversationBuffer`](packages/middleware/conversation-buffer/), [`contextCompressor`](packages/middleware/context-compressor/)
+- 🛡️ **Safety**: [`errorBoundary`](packages/middleware/error-boundary/), [`guardrails`](packages/middleware/guardrails/), [`invariants`](packages/middleware/invariants/)
+- 📊 **Observability**: [`traceViewer`](packages/middleware/trace-viewer/), [`usageTracker`](packages/middleware/usage-tracker/)
+- 🧠 **Advanced**: [`rag`](packages/middleware/rag/), [`reactParser`](packages/middleware/react-parser/)
+
+### Ready-to-Use Tools
+- 🌐 **Web**: [`webFetch`](packages/tools/web-fetch/), [`webSearch`](packages/tools/web-search-google/), [`wikipedia`](packages/tools/wikipedia/)
+- ☁️ **Cloud**: [`awsS3`](packages/tools/aws-s3/), [`azureBlob`](packages/tools/azure-blob/)
+- 🔧 **DevOps**: [`terminal`](packages/tools/terminal/), [`githubProjects`](packages/tools/github-projects/)
+- 🔍 **Data**: [`vectorChroma`](packages/tools/vec-chroma/), [`extractUrls`](packages/tools/extract-urls/), [`summarizeText`](packages/tools/summarize-text/)
+
+[**📚 Full package list →**](#find-your-inner-strength)
+
+---
+
+## 🎓 Learn More
+
+### How It Works
+Sisu uses a **Koa-style middleware pipeline** that flows through a single typed context:
 
 ```mermaid
 flowchart TD
@@ -190,290 +321,257 @@ flowchart TD
   MWE -.-> Guard
 ```
 
-* **Middleware pipeline**: your `Agent` runs a Koa-style chain (`ctx`, `next`). Each middleware reads or updates `ctx` and calls `await next()` unless it short-circuits. Core stays tiny; everything else is opt-in middleware.
-* **Adapters**: middleware like `toolCalling` and control-flow ultimately call `ctx.model.generate(...)`. The model is provided by an adapter (e.g. OpenAI, Ollama or Anthropic), but any provider can implement the `LLM.generate` contract.
-* **Tools**: the tools registry holds named handlers with zod schemas. `toolCalling` does a first turn with `toolChoice auto`, runs each unique tool pick, then a final completion with `toolChoice none`. `iterativeToolCalling` repeats the “auto” turn until no more tool calls.
-* **Core services**: `Ctx` carries messages, tools, memory, logger, stream, state; `InMemoryKV` and `SimpleTools` are minimal defaults.
-* **Observability**: tracing, usage, invariants, guardrails are middlewares that tap the flow without changing behavior.
-
-
-## Run your first mile
-- OpenAI hello:
-  - `cp examples/openai-hello/.env.example examples/openai-hello/.env`
-  - `npm run ex:openai:hello`
-  - Open `examples/openai-hello/traces/trace.html`
-- Ollama hello (local):
-  - `ollama serve && ollama pull llama3.1:latest`
-  - `npm run ex:ollama:hello`
-  - Open `examples/ollama-hello/traces/trace.html`
-
-- OpenAI vision:
-  - `cp examples/openai-vision/.env.example examples/openai-vision/.env`
-  - `npm run ex:openai:vision`
-  - Open `examples/openai-vision/traces/trace.html`
-
-- Ollama vision (local):
-  - `ollama serve && ollama pull llava:latest` (or another vision-capable model)
-  - `npm run ex:ollama:vision`
-  - Open `examples/ollama-vision/traces/trace.html`
-  - The Ollama adapter auto-fetches http(s) image URLs and inlines them as base64.
-
-
-## Find your inner strength
-- [packages/core](packages/core/README.md)
-- Adapters: [Anthropic](packages/adapters/anthropic/README.md), [Ollama](packages/adapters/ollama/README.md), [OpenAI](packages/adapters/openai/README.md)
-- Middlewares:
-  - [@sisu-ai/mw-agent-run-api](packages/middleware/agent-run-api/README.md)
-  - [@sisu-ai/mw-context-compressor](packages/middleware/context-compressor/README.md)
-  - [@sisu-ai/mw-control-flow](packages/middleware/control-flow/README.md)
-  - [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md)
-  - [@sisu-ai/mw-cors](packages/middleware/cors/README.md)
-  - [@sisu-ai/mw-error-boundary](packages/middleware/error-boundary/README.md)
-  - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md)
-  - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md)
-  - [@sisu-ai/mw-rag](packages/middleware/rag/README.md)
-  - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md)
-  - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md)
-  - [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md)
-  - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md)
-  - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
-- Tools:
-  - [@sisu-ai/tool-aws-s3](packages/tools/aws-s3/README.md)
-  - [@sisu-ai/tool-azure-blob](packages/tools/azure-blob/README.md)
-  - [@sisu-ai/tool-extract-urls](packages/tools/extract-urls/README.md)
-  - [@sisu-ai/tool-github-projects](packages/tools/github-projects/README.md)
-  - [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md)
-  - [@sisu-ai/tool-terminal](packages/tools/terminal/README.md)
-  - [@sisu-ai/tool-vec-chroma](packages/tools/vec-chroma/README.md)
-  - [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md)
-  - [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md)
-  - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)
-  - [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md)
-  - [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md)
-- Examples:
-  - [anthropic-control-flow](examples/anthropic-control-flow/README.md)
-  - [anthropic-hello](examples/anthropic-hello/README.md)
-  - [anthropic-stream](examples/anthropic-stream/README.md)
-  - [anthropic-weather](examples/anthropic-weather/README.md)
-  - [ollama-hello](examples/ollama-hello/README.md)
-  - [ollama-stream](examples/ollama-stream/README.md)
-  - [ollama-weather](examples/ollama-weather/README.md)
-  - [ollama-web-search](examples/ollama-web-search/README.md)
-  - [openai-aws-s3](examples/openai-aws-s3/README.md)
-  - [openai-azure-blob](examples/openai-azure-blob/README.md)
-  - [openai-branch](examples/openai-branch/README.md)
-  - [openai-control-flow](examples/openai-control-flow/README.md)
-  - [openai-extract-urls](examples/openai-extract-urls/README.md)
-  - [openai-github-projects](examples/openai-github-projects/README.md)
-  - [openai-google-search](examples/openai-google-search)
-  - [openai-graph](examples/openai-graph/README.md)
-  - [openai-guardrails](examples/openai-guardrails/README.md)
-  - [openai-hello](examples/openai-hello/README.md)
-  - [openai-parallel](examples/openai-parallel/README.md)
-  - [openai-rag-chroma](examples/openai-rag-chroma/README.md)
-  - [openai-react](examples/openai-react/README.md)
-  - [openai-search-fetch](examples/openai-search-fetch)
-  - [openai-server](examples/openai-server/README.md)
-  - [openai-stream](examples/openai-stream/README.md)
-  - [openai-terminal](examples/openai-terminal/README.md)
-  - [openai-vision](examples/openai-vision/README.md)
-  - [openai-weather](examples/openai-weather/README.md)
-  - [openai-web-fetch](examples/openai-web-fetch/README.md)
-  - [openai-web-search](examples/openai-web-search/README.md)
-  - [openai-wikipedia](examples/openai-wikipedia/README.md)
----
-
-# Adapters
-
-Adapters are small shims that let Sisu talk to different LLM providers in a **normalized way**.
-Every adapter implements the same `LLM.generate(messages, opts)` contract so you can swap providers without changing your agent code.
-
-| Adapter       | Package                      | Features                                                                               | Notes                                                                                                                         |
-|---------------|------------------------------|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-| **OpenAI**    | `@sisu-ai/adapter-openai`    | ✅ Tool calling, ✅ JSON mode, ✅ Streaming, ✅ Vision (multi-part input), ✅ Usage reporting | Works with OpenAI API and *any service that is OpenAI-compatible* (e.g. **LM Studio**, **vLLM**, some **OpenRouter** models). |
-| **Ollama**    | `@sisu-ai/adapter-ollama`    | ✅ Local inference, ✅ Tool calling, ✅ Streaming, ✅ Vision (multi-part input)                                   | Run local models via [`ollama serve`](https://ollama.com).                                                                    |
-| **Anthropic** | `@sisu-ai/adapter-anthropic` | ✅ Tool calling, ✅ Streaming, ✅ Usage reporting                                         | Claude family models. Slightly different tool-call semantics are normalized for you.                                          |
-
-### When to re-use vs. add a new adapter
-
-* If a provider exposes an **OpenAI-compatible API** (LM Studio, vLLM server, some OpenRouter models), you can just use the **OpenAI adapter** with a custom `baseUrl`.
-
-  ```ts
-  import { openAIAdapter } from '@sisu-ai/adapter-openai';
-
-  const model = openAIAdapter({
-    model: 'gpt-4o-mini',
-    baseUrl: 'http://localhost:1234/v1', // e.g. LM Studio
-  });
-  ```
-* A **dedicated adapter** is only needed when a provider:
-
-  * has **different request/response shapes** (e.g. Anthropic),
-  * exposes **extra metadata or headers** (usage, rate-limits),
-  * or supports **special features** you want to surface in `GenerateOptions`.
-
-## OpenAI
-
-```ts
-import { openAIAdapter } from '@sisu-ai/adapter-openai';
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
-// ctx.model = model
-```
-
-| Feature       | Details                                                                                                                                                    |
-|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Env Vars**  | - `OPENAI_API_KEY` or `API_KEY`<br>- `OPENAI_BASE_URL` or `BASE_URL`                                                                                       |
-| **Tools**     | ✅                                                                                                                                                          |
-| **Images**    | - Multi-part arrays: `{ type: 'text' \| 'image_url' }`<br>- Example: `[{ type: 'text', ...}, { type: 'image_url', ...}]`<br>- See `examples/openai-vision` |
-| **Streaming** | ✅                                                                                                                                                          |
+**Key flow:**
+1. **Middleware pipeline** → Your `Agent` runs a Koa-style chain. Each middleware updates `ctx` and calls `await next()`.
+2. **Adapters** → Middleware calls `ctx.model.generate()`. Any provider can implement the contract.
+3. **Tools** → The registry holds handlers with Zod schemas. `toolCalling` handles the auto/none loop.
+4. **Observability** → Tracing, usage tracking, and guardrails tap the flow transparently.
 
 ---
 
-## Ollama (local)
+## 🔐 Security & Redaction
 
-```ts
-import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
-const model = ollamaAdapter({ model: 'llama3.1' });
-// ctx.model = model
-```
+**Never log secrets accidentally.**
 
-| Feature       | Details                                                              |
-|---------------|----------------------------------------------------------------------|
-| **Env Vars**  | - `OLLAMA_BASE_URL` or `BASE_URL` (default `http://localhost:11434`) |
-| **Tools**     | ✅                                                                    |
-| **Images**    | - Multi-part arrays: `{ type: 'text' \| 'image_url' }`<br>- Example: `[{ type: 'text', ...}, { type: 'image_url', ...}]`<br>- See `examples/ollama-vision` |
-| **Streaming** | ✅                                                                    |
+Sisu automatically detects and redacts:
+- 🔑 API keys (OpenAI `sk-...`, Google `AIza...`, AWS `AKIA...`)
+- 🎫 Auth tokens (JWT, GitHub PAT, OAuth)
+- 🔒 Passwords and secrets in common key names
 
----
-
-## Anthropic
-
-```ts
-import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
-const model = anthropicAdapter({ model: 'claude-sonnet-4-20250514' });
-// ctx.model = model
-```
-
-| Feature       | Details                                                                    |
-|---------------|----------------------------------------------------------------------------|
-| **Env Vars**  | - `ANTHROPIC_API_KEY` or `API_KEY`<br>- `ANTHROPIC_BASE_URL` or `BASE_URL` |
-| **Tools**     | ✅                                                                          |
-| **Images**    | –                                                                          |
-| **Streaming** | ✅                                                                          |
-
----
-
-
-## Configuration (Env & Flags)
-- Env vars (adapters)
-  - `OPENAI_API_KEY` or `API_KEY`: API key for OpenAI/gateway
-  - `OPENAI_BASE_URL` or `BASE_URL`: override base URL for OpenAI adapter
-  - `OLLAMA_BASE_URL` or `BASE_URL`: override base URL for Ollama adapter
-- Env vars (OpenAI Responses tool)
-  - `OPENAI_RESPONSES_BASE_URL`: specific base URL for the Responses API (defaults to `https://api.openai.com`)
-  - `OPENAI_RESPONSES_MODEL`: model for Responses (defaults to `gpt-4.1-mini`)
-- Env vars (runtime)
-  - `LOG_LEVEL`: `debug|info|warn|error` (default `info`)
-  - `DEBUG_LLM`: `1|true` to log adapter request/response summaries on errors
-- Trace viewer flags
-  - CLI: `--trace` (optional `--trace=run.json|run.html`), `--trace-style=light|dark`
-  - Env: `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=light|dark`
-- Notes
-  - Precedence in examples: CLI flags > env vars. At library level, adapter options in code override env.
-  - Adapters accept `baseUrl` in code; env overrides are convenient for examples and scripts.
-  - Examples accept a trailing prompt string; use quotes to preserve spaces.
-
-### CLI helpers (core)
-- `parseFlags(argv)`: Parses `--k=v`, `--k v`, and boolean flags into a map.
-- `firstConfigValue([ENV1, ENV2], flags, env)`: Returns the first defined value by checking CLI flags (kebab-case of env var names) before environment variables.
-- Convention: Any env var `FOO_BAR` can be provided as CLI flag `--foo-bar`.
-
-## Debugging Tips
-- Set `LOG_LEVEL=debug` to see control‑flow, tool loop, and invariant logs.
-- Set `DEBUG_LLM=1` to log redacted HTTP payloads from the OpenAI adapter when a call fails (status + body snippet).
-- The trace viewer writes `run.json` and `run.html` for quick scanning of messages and events.
-
-## Security & Redaction
-Sisu includes built-in protection against accidentally logging sensitive data:
-
-### Automatic Secret Detection
-The `createRedactingLogger` uses **pattern-based detection** to automatically identify and redact common sensitive formats:
-- API keys (OpenAI: `sk-...`, Google: `AIza...`, AWS: `AKIA...`)
-- Authentication tokens (JWT, GitHub PAT, GitLab, Slack)
-- OAuth tokens
-
-### Key-Based Redaction
-Additionally redacts values for known sensitive key names:
-- `api_key`, `apiKey`, `authorization`, `auth`, `token`, `password`, `secret`, etc.
-
-### Example
 ```ts
 import { createRedactingLogger, createConsoleLogger } from '@sisu-ai/core';
 
-// Automatic protection with default patterns
 const logger = createRedactingLogger(createConsoleLogger());
-
-// Custom patterns for your domain
-const customLogger = createRedactingLogger(createConsoleLogger(), {
-  patterns: [/custom-secret-\d{4}/],  // Add custom regex
-  mask: '[HIDDEN]'  // Customize redaction text
-});
 
 logger.info({ apiKey: 'sk-1234567890abcdef...' });
 // Output: { apiKey: '***REDACTED***' }
 ```
 
-See [@sisu-ai/core](packages/core/README.md#redacting-sensitive-data) for complete documentation.
+[**🔒 Learn more about security →**](packages/core/README.md#redacting-sensitive-data)
 
-# Community & Support
-- [Code of Conduct](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
-- [Contributing Guide](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
-- [License](https://github.com/finger-gun/sisu/blob/main/LICENSE)
-- [Report a Bug](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
-- [Request a Feature](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)
+---
 
-# Developers
-You are free to help out. Built an awesome middleware? Found a bug? Lets go! Send me an email, [jamie.telin@gmail.com](mailto:jamie.telin@gmail.com), or contact me on some socials.
+## ⚙️ Configuration
 
-## Publishing
-We use Changesets to manage versioning and releases for each package.
-
-Prereqs
-- Ensure you are logged in to npm: `npm whoami` (or `npm login`)
-- Have publish rights for the `@sisu-ai/*` scopes and 2FA if required
-
-Flow
-1) Create a changeset for your changes
+### Environment Variables
 ```bash
+# LLM Providers
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com  # Optional override
+OLLAMA_BASE_URL=http://localhost:11434
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Logging & Debugging
+LOG_LEVEL=info  # debug|info|warn|error
+DEBUG_LLM=1     # Log adapter requests on errors
+
+# Tracing
+TRACE_HTML=1          # Auto-generate HTML traces
+TRACE_JSON=1          # Auto-generate JSON traces
+TRACE_STYLE=dark      # light|dark
+```
+
+### CLI Flags (Override env vars)
+```bash
+npm run script -- --openai-api-key=sk-... --log-level=debug --trace
+```
+
+[**⚙️ Full configuration docs →**](#configuration-env--flags)
+
+---
+
+## 🐛 Debugging Tips
+
+**Problem:** "Where did it break?"  
+✅ **Solution:** Set `LOG_LEVEL=debug` and check `traces/run.html`
+
+**Problem:** "What did the LLM actually receive?"  
+✅ **Solution:** Set `DEBUG_LLM=1` to see redacted payloads
+
+**Problem:** "Why did the tool loop repeat?"  
+✅ **Solution:** Check invariants middleware logs for validation failures
+
+**Problem:** "Production error, no clue why"  
+✅ **Solution:** Always use `errorBoundary()` + `traceViewer()` in production
+
+---
+
+## 🤝 Community & Contribution
+
+We're building Sisu in the open and welcome contributions!
+
+- 📖 [**Contributing Guide**](CONTRIBUTING.md) - Start here
+- 🐛 [**Report a Bug**](https://github.com/finger-gun/sisu/issues/new?template=bug_report.md)
+- 💡 [**Request a Feature**](https://github.com/finger-gun/sisu/issues/new?template=feature_request.md)
+- 📜 [**Code of Conduct**](CODE_OF_CONDUCT.md)
+- 📄 [**License (Apache 2.0)**](LICENSE)
+
+**Built something cool?** Email [jamie.telin@gmail.com](mailto:jamie.telin@gmail.com) or open a PR!
+
+---
+
+## 📚 Documentation
+
+### Core
+- [**Core Package**](packages/core/README.md) - Types, utilities, context
+- [**Error Types**](packages/core/ERROR_TYPES.md) - Error handling guide
+
+### Adapters
+- [Anthropic](packages/adapters/anthropic/README.md) - Claude models
+- [Ollama](packages/adapters/ollama/README.md) - Local inference
+- [OpenAI](packages/adapters/openai/README.md) - OpenAI & compatible APIs
+
+### Middleware
+<details>
+<summary>View all middleware packages →</summary>
+
+- [@sisu-ai/mw-agent-run-api](packages/middleware/agent-run-api/README.md)
+- [@sisu-ai/mw-context-compressor](packages/middleware/context-compressor/README.md)
+- [@sisu-ai/mw-control-flow](packages/middleware/control-flow/README.md)
+- [@sisu-ai/mw-conversation-buffer](packages/middleware/conversation-buffer/README.md)
+- [@sisu-ai/mw-cors](packages/middleware/cors/README.md)
+- [@sisu-ai/mw-error-boundary](packages/middleware/error-boundary/README.md)
+- [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md)
+- [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md)
+- [@sisu-ai/mw-rag](packages/middleware/rag/README.md)
+- [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md)
+- [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md)
+- [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md)
+- [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md)
+- [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
+</details>
+
+### Tools
+<details>
+<summary>View all tool packages →</summary>
+
+- [@sisu-ai/tool-aws-s3](packages/tools/aws-s3/README.md)
+- [@sisu-ai/tool-azure-blob](packages/tools/azure-blob/README.md)
+- [@sisu-ai/tool-extract-urls](packages/tools/extract-urls/README.md)
+- [@sisu-ai/tool-github-projects](packages/tools/github-projects/README.md)
+- [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md)
+- [@sisu-ai/tool-terminal](packages/tools/terminal/README.md)
+- [@sisu-ai/tool-vec-chroma](packages/tools/vec-chroma/README.md)
+- [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md)
+- [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md)
+- [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)
+- [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md)
+- [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md)
+</details>
+
+### Examples
+<details>
+<summary>View all examples →</summary>
+
+**Anthropic:**
+- [anthropic-control-flow](examples/anthropic-control-flow/README.md)
+- [anthropic-hello](examples/anthropic-hello/README.md)
+- [anthropic-stream](examples/anthropic-stream/README.md)
+- [anthropic-weather](examples/anthropic-weather/README.md)
+
+**Ollama (Local):**
+- [ollama-hello](examples/ollama-hello/README.md)
+- [ollama-stream](examples/ollama-stream/README.md)
+- [ollama-weather](examples/ollama-weather/README.md)
+- [ollama-web-search](examples/ollama-web-search/README.md)
+
+**OpenAI:**
+- [openai-aws-s3](examples/openai-aws-s3/README.md)
+- [openai-azure-blob](examples/openai-azure-blob/README.md)
+- [openai-branch](examples/openai-branch/README.md)
+- [openai-control-flow](examples/openai-control-flow/README.md)
+- [openai-extract-urls](examples/openai-extract-urls/README.md)
+- [openai-github-projects](examples/openai-github-projects/README.md)
+- [openai-google-search](examples/openai-google-search)
+- [openai-graph](examples/openai-graph/README.md)
+- [openai-guardrails](examples/openai-guardrails/README.md)
+- [openai-hello](examples/openai-hello/README.md)
+- [openai-parallel](examples/openai-parallel/README.md)
+- [openai-rag-chroma](examples/openai-rag-chroma/README.md)
+- [openai-react](examples/openai-react/README.md)
+- [openai-search-fetch](examples/openai-search-fetch)
+- [openai-server](examples/openai-server/README.md)
+- [openai-stream](examples/openai-stream/README.md)
+- [openai-terminal](examples/openai-terminal/README.md)
+- [openai-vision](examples/openai-vision/README.md)
+- [openai-weather](examples/openai-weather/README.md)
+- [openai-web-fetch](examples/openai-web-fetch/README.md)
+- [openai-web-search](examples/openai-web-search/README.md)
+- [openai-wikipedia](examples/openai-wikipedia/README.md)
+</details>
+
+---
+
+## Find Your Inner Strength
+
+### Adapters
+| Provider | Package | Features | Notes |
+|----------|---------|----------|-------|
+| **OpenAI** | [`@sisu-ai/adapter-openai`](packages/adapters/openai/README.md) | ✅ Tools, ✅ JSON mode, ✅ Streaming, ✅ Vision, ✅ Usage | Works with **any** OpenAI-compatible API |
+| **Ollama** | [`@sisu-ai/adapter-ollama`](packages/adapters/ollama/README.md) | ✅ Local inference, ✅ Tools, ✅ Streaming, ✅ Vision | Run models locally with `ollama serve` |
+| **Anthropic** | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/README.md) | ✅ Tools, ✅ Streaming, ✅ Usage | Claude family models |
+
+### When to Reuse vs. Create an Adapter
+
+**Reuse OpenAI adapter if:**
+- Provider has OpenAI-compatible API (LM Studio, vLLM, OpenRouter)
+
+```ts
+const model = openAIAdapter({
+  model: 'gpt-4o-mini',
+  baseUrl: 'http://localhost:1234/v1' // LM Studio
+});
+```
+
+**Create new adapter if:**
+- Different request/response shapes (e.g., Anthropic)
+- Special provider features to expose
+- Custom metadata or headers
+
+---
+
+## 🚢 Publishing (For Maintainers)
+
+We use [Changesets](https://github.com/changesets/changesets) for versioning.
+
+### Quick Publish
+```bash
+npm run release:publish  # version → publish
+```
+
+### Full Workflow
+```bash
+npm run release:full     # changeset → version → publish
+```
+
+### Manual Steps
+```bash
+# 1. Create changeset
 npm run changeset
-# pick packages, write a summary
-git add . && git commit -m "chore: changeset"
-```
-2) Version the packages (applies the changesets)
-```bash
+
+# 2. Version packages
 npm run version-packages
-git add . && git commit -m "chore: version packages"
-git push
-```
-3) Publish to npm
-```bash
+
+# 3. Publish to npm
 npm run release
-# If 2FA enabled, enter OTP when prompted
 ```
 
-Convenience Scripts
-- If changesets already exist (manually created or by AI agents):
-```bash
-npm run release:publish
-# Runs: version-packages → release
-```
-- To run the full workflow (create changeset → version → publish):
-```bash
-npm run release:full
-# Runs: changeset → version-packages → release
-```
+**Note:** Packages ship `dist/` only with `publishConfig.access = public`
 
-Notes
-- Packages are configured with `publishConfig.access = public` and ship `dist/` only.
-- `.changeset/config.json` ignores `examples/*` when computing releases.
-- CI can run `npm run release` on the `main` branch if desired; Changesets supports automated publishing.
+---
+
+## ⭐ Star Us!
+
+If Sisu helps you build better AI agents, give us a star on GitHub! It helps others discover the project.
+
+**[⭐ Star on GitHub →](https://github.com/finger-gun/sisu)**
+
+---
+
+<div align="center">
+
+**Built with ❤️ and sisu.**
+
+*Quiet, determined, relentlessly useful.*
+
+</div>
