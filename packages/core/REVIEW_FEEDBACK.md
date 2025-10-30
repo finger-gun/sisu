@@ -16,6 +16,7 @@ The Sisu core package demonstrates excellent architectural decisions with its Ko
 
 #### 1. Fix Redaction Logic Bug
 **Location**: [`util.ts:62-81`](packages/core/src/util.ts:62)
+**Status**: ✅ **COMPLETED**
 
 **Issue**: Duplicate array check in `redactObject` function (line 69-70).
 
@@ -49,6 +50,7 @@ function redactObject(input: any, keysSet: Set<string>, mask: string): any {
 
 #### 2. Add Sensitive Data Detection
 **Priority**: High
+**Status**: ✅ **COMPLETED**
 
 **Issue**: Redaction only works on known key names, not on patterns or values.
 

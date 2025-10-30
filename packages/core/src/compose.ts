@@ -4,6 +4,12 @@ export type Middleware<C extends Ctx = Ctx> =
   (ctx: C, next: () => Promise<void>) => unknown | Promise<unknown>;
 
 export function compose<C extends Ctx>(stack: Middleware<C>[]) {
+  if (!Array.isArray(stack)) {
+    throw new TypeError('Middleware stack must be an array');
+  }
+  if (stack.some(fn => typeof fn !== 'function')) {
+    throw new TypeError('Middleware must be composed of functions');
+  }
   return (ctx: C, nextOuter?: () => Promise<void>) => {
     let index = -1;
     async function dispatch(i: number): Promise<void> {
