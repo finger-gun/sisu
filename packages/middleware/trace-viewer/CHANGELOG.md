@@ -1,5 +1,51 @@
 # @sisu-ai/mw-trace-viewer
 
+## 10.0.0
+
+### Minor Changes
+
+- feat: Enhanced trace viewer with reasoning details visualization
+
+  Add comprehensive support for displaying reasoning details from thinking/reasoning models (o1, o3, ChatGPT 5.1) in the trace viewer:
+
+  **Features:**
+  - Display reasoning details in standalone HTML traces with collapsible sections
+  - Show reasoning summaries with character counts for quick overview
+  - Indicate encrypted contexts that are preserved for multi-turn conversations
+  - Add styled reasoning boxes with light blue background for clear visual distinction
+  - Support both `reasoning.summary` and `reasoning.encrypted` detail types
+  - Responsive design with max-height scrolling for large reasoning outputs
+
+  **Visual Enhancements:**
+  - Distinctive 🧠 emoji indicator for messages with reasoning
+  - Collapsible details to keep traces compact
+  - Styled with `.reasoning-box` CSS class for consistent appearance
+  - Hover effects on summary elements for better interaction
+
+  This enhancement makes it easier to understand and debug the reasoning process of advanced AI models when viewing execution traces.
+
+### Patch Changes
+
+- chore: Update peer dependencies to use caret ranges
+
+  Changed all peer dependencies from exact versions to caret ranges (e.g., `"2.2.1"` → `"^2.2.1"`).
+
+  **Benefits:**
+  - Prevents unnecessary major version bumps when core package receives minor/patch updates
+  - Follows semantic versioning best practices
+  - Aligns with standard npm ecosystem conventions
+  - Reduces version number inflation across the monorepo
+
+  **Technical Details:**
+  - `^2.2.1` accepts any version ≥2.2.1 and <3.0.0 (backwards compatible updates)
+  - Only breaking changes (major version bumps) will now trigger major bumps in dependent packages
+  - No runtime behavior changes - this is purely a metadata update
+
+  This is a non-breaking change that improves the maintainability of the monorepo.
+
+- Updated dependencies
+  - @sisu-ai/core@2.3.0
+
 ## 9.0.1
 
 ### Patch Changes

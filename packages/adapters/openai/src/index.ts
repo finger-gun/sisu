@@ -3,12 +3,13 @@ import { firstConfigValue } from '@sisu-ai/core';
 
 // Small typed helpers for parsing OpenAI shapes without using `any`
 type OpenAITool = { type: 'function'; function: { name: string; description?: string; parameters?: Record<string, unknown> } };
-type OpenAIStreamChunk = { choices?: Array<{ delta?: { content?: string } }> };
+type OpenAIStreamChunk = { choices?: Array<{ delta?: { content?: string }; message?: OpenAIMessageShape }> };
 type OpenAIMessageShape = {
   role?: string;
   content?: string | null;
-  tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }>;
+  tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }>;  
   function_call?: { name: string; arguments: string };
+  reasoning_details?: unknown;
 };
 type OpenAIResponse = { choices?: Array<{ message?: OpenAIMessageShape }>; usage?: Record<string, unknown> };
 type OpenAIContentPart =
@@ -21,6 +22,7 @@ type OpenAIChatMessage = {
   name?: string;
   tool_calls?: Array<{ id?: string; type: 'function'; function: { name: string; arguments: string } }>;
   tool_call_id?: string;
+  reasoning_details?: unknown;
 };
 type ToolCall = { id?: string; function?: { name?: string; arguments?: string } };
 type ZodLike = { _def?: { typeName?: string; type?: unknown; innerType?: unknown; shape?: unknown } };
@@ -48,6 +50,12 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
       ...(genOpts?.parallelToolCalls !== undefined ? { parallel_tool_calls: Boolean(genOpts.parallelToolCalls) } : {}),
       ...(genOpts?.stream ? { stream: true } : {}),
     };
+    
+    // Include reasoning parameter if provided
+    const reasoningParam = normalizeReasoning(genOpts?.reasoning);
+    if (reasoningParam !== undefined) {
+      body.reasoning = reasoningParam;
+    }
     const url = `${baseUrl}/v1/chat/completions`;
     if (DEBUG) {
       try {
@@ -90,6 +98,7 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
         const decoder = new TextDecoder();
         let buf = '';
         let full = '';
+        let reasoningDetails: unknown = undefined;
         for await (const chunk of res.body as AsyncIterable<Uint8Array | string>) {
           const piece = typeof chunk === 'string' ? chunk : decoder.decode(chunk as Uint8Array);
           buf += piece;
@@ -112,13 +121,22 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
                 full += token;
                 yield { type: 'token', token } as ModelEvent;
               }
+              // Capture reasoning_details if present (typically in final chunk)
+              const msgShape = (j?.choices?.[0] as any)?.message as OpenAIMessageShape | undefined;
+              if (msgShape?.reasoning_details !== undefined) {
+                reasoningDetails = msgShape.reasoning_details;
+              }
             } catch (e: unknown) {
               // Some providers may emit non-JSON comment frames; ignore silently unless DEBUG is on
               if (DEBUG) console.error('[DEBUG_LLM] stream_parse_error', { error: e });
             }
           }
         }
-        yield { type: 'assistant_message', message: { role: 'assistant', content: full } } as ModelEvent;
+        const finalMessage: AssistantMessage = { role: 'assistant', content: full };
+        if (reasoningDetails !== undefined) {
+          finalMessage.reasoning_details = reasoningDetails;
+        }
+        yield { type: 'assistant_message', message: finalMessage } as ModelEvent;
       })();
     }
 
@@ -156,6 +174,13 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
       })();
       const msg: AssistantMessage = { role: 'assistant', content: choice?.message?.content ?? '' };
       if (toolCalls) (msg as AssistantMessage).tool_calls = toolCalls;
+      
+      // Capture reasoning_details if present
+      const msgShape = (choice?.message ?? {}) as OpenAIMessageShape;
+      if (msgShape.reasoning_details !== undefined) {
+        msg.reasoning_details = msgShape.reasoning_details;
+      }
+      
       const usage = mapUsage(data?.usage);
       return { message: msg, ...(usage ? { usage } : {}) };
     })();
@@ -216,6 +241,15 @@ function normalizeToolChoice(choice: GenerateOptions['toolChoice']) {
   return { type: 'function', function: { name: choice } } as const;
 }
 
+function normalizeReasoning(reasoning: GenerateOptions['reasoning']): unknown {
+  if (reasoning === undefined) return undefined;
+  if (typeof reasoning === 'boolean') {
+    return { enabled: reasoning };
+  }
+  // Pass through objects as-is (e.g., { enabled: true } or custom provider options)
+  return reasoning;
+}
+
 function toOpenAiMessage(m: Message): OpenAIChatMessage {
   const base: OpenAIChatMessage = { role: m.role as OpenAIChatMessage['role'] };
 
@@ -230,7 +264,15 @@ function toOpenAiMessage(m: Message): OpenAIChatMessage {
     };
   }
 
-  const anyM = m as Message & { tool_calls?: Array<{ id?: string; name?: string; arguments?: unknown }>; contentParts?: unknown; images?: unknown; image_urls?: unknown; image_url?: unknown; image?: unknown };
+  const anyM = m as Message & { 
+    tool_calls?: Array<{ id?: string; name?: string; arguments?: unknown }>; 
+    contentParts?: unknown; 
+    images?: unknown; 
+    image_urls?: unknown; 
+    image_url?: unknown; 
+    image?: unknown;
+    reasoning_details?: unknown;
+  };
   const toolCalls = Array.isArray(anyM.tool_calls)
     ? anyM.tool_calls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name ?? '', arguments: JSON.stringify(tc.arguments ?? {}) } }))
     : undefined;
@@ -240,11 +282,18 @@ function toOpenAiMessage(m: Message): OpenAIChatMessage {
 
   // Prefer null content if only tool_calls are present and no content parts
   if (m.role === 'assistant') {
-    return {
+    const result: OpenAIChatMessage = {
       ...base,
       content: (toolCalls && (!hasTextOrImages(parts) && (m.content === undefined || m.content === ''))) ? null : (parts ?? m.content ?? ''),
       ...(toolCalls ? { tool_calls: toolCalls } : {}),
     };
+    
+    // Preserve reasoning_details
+    if (anyM.reasoning_details !== undefined) {
+      result.reasoning_details = anyM.reasoning_details;
+    }
+    
+    return result;
   }
 
   return {

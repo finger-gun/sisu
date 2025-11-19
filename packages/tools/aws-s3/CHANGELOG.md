@@ -1,5 +1,13 @@
 # @sisu-ai/tool-aws-s3
 
+## 2.0.1
+
+### Patch Changes
+
+- chore: Update peer dependency versions
+
+  Update peer dependencies to align with latest core package versions. No functional changes to the AWS S3 tool implementation.
+
 ## 2.0.0
 
 ### Major Changes

@@ -125,3 +125,164 @@ test('openAIAdapter throws on HTTP error with message', async () => {
   await expect(llm.generate([], {})).rejects.toThrow(/OpenAI API error: 400/);
 });
 
+test('openAIAdapter sends reasoning parameter as object when boolean true', async () => {
+  process.env.OPENAI_API_KEY = 'test-reasoning';
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (url, init) => {
+    const req = JSON.parse((init as any).body);
+    expect(req.reasoning).toEqual({ enabled: true });
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: 'The answer is 3' } }]
+      })
+    } as any;
+  });
+
+  const llm = openAIAdapter({ model: 'gpt-5.1' });
+  await llm.generate([{ role: 'user', content: 'test' }], { reasoning: true });
+  expect(fetchMock).toHaveBeenCalledOnce();
+});
+
+test('openAIAdapter sends reasoning parameter as-is when object provided', async () => {
+  process.env.OPENAI_API_KEY = 'test-reasoning-obj';
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (url, init) => {
+    const req = JSON.parse((init as any).body);
+    expect(req.reasoning).toEqual({ enabled: true });
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: 'response' } }]
+      })
+    } as any;
+  });
+
+  const llm = openAIAdapter({ model: 'gpt-5.1' });
+  await llm.generate([{ role: 'user', content: 'test' }], { reasoning: { enabled: true } });
+  expect(fetchMock).toHaveBeenCalledOnce();
+});
+
+test('openAIAdapter captures reasoning_details from response', async () => {
+  process.env.OPENAI_API_KEY = 'test-reasoning-details';
+  const mockReasoningDetails = {
+    thinking_time: 5.2,
+    effort: 'high',
+    steps: ['analyze', 'count', 'verify']
+  };
+  
+  vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({
+      choices: [{
+        message: {
+          role: 'assistant',
+          content: 'There are 3 rs',
+          reasoning_details: mockReasoningDetails
+        }
+      }]
+    })
+  } as any);
+
+  const llm = openAIAdapter({ model: 'gpt-5.1' });
+  const out = await llm.generate([{ role: 'user', content: 'test' }], { reasoning: true });
+  
+  expect(out.message.reasoning_details).toEqual(mockReasoningDetails);
+});
+
+test('openAIAdapter preserves reasoning_details in multi-turn conversation', async () => {
+  process.env.OPENAI_API_KEY = 'test-multi-turn';
+  const mockReasoningDetails = {
+    thinking_time: 3.1,
+    confidence: 0.95
+  };
+
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (url, init) => {
+    const req = JSON.parse((init as any).body);
+    const assistantMsg = req.messages.find((m: any) => m.role === 'assistant');
+    
+    // Verify reasoning_details was preserved in the request
+    expect(assistantMsg).toBeDefined();
+    expect(assistantMsg.reasoning_details).toEqual(mockReasoningDetails);
+    
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: 'Follow-up response' } }]
+      })
+    } as any;
+  });
+
+  const llm = openAIAdapter({ model: 'gpt-5.1' });
+  const messages: Message[] = [
+    { role: 'user', content: 'How many rs in strawberry?' },
+    { role: 'assistant', content: 'There are 3', reasoning_details: mockReasoningDetails } as any,
+    { role: 'user', content: 'Are you sure?' },
+  ];
+
+  await llm.generate(messages, { reasoning: true });
+  expect(fetchMock).toHaveBeenCalledOnce();
+});
+
+test('openAIAdapter works without reasoning parameter (backward compatible)', async () => {
+  process.env.OPENAI_API_KEY = 'test-no-reasoning';
+  const fetchMock = vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (url, init) => {
+    const req = JSON.parse((init as any).body);
+    expect(req.reasoning).toBeUndefined();
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: 'Normal response' } }]
+      })
+    } as any;
+  });
+
+  const llm = openAIAdapter({ model: 'gpt-4o' });
+  const out = await llm.generate([{ role: 'user', content: 'test' }]);
+  
+  expect(out.message.content).toBe('Normal response');
+  expect(out.message.reasoning_details).toBeUndefined();
+  expect(fetchMock).toHaveBeenCalledOnce();
+});
+
+test('openAIAdapter captures reasoning_details in streaming mode', async () => {
+  process.env.OPENAI_API_KEY = 'test-reasoning-stream';
+  const mockReasoningDetails = {
+    thinking_time: 2.8,
+    steps: ['understand', 'analyze', 'respond']
+  };
+  
+  const { Readable } = await import('stream');
+  const s = Readable.from([
+    'data: {"choices":[{"delta":{"content":"I"}}]}\n\n',
+    'data: {"choices":[{"delta":{"content":" think"}}]}\n\n',
+    'data: {"choices":[{"message":{"reasoning_details":' + JSON.stringify(mockReasoningDetails) + '}}]}\n\n',
+    'data: [DONE]\n\n',
+  ]);
+  
+  vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, body: s } as any);
+  
+  const llm = openAIAdapter({ model: 'gpt-5.1' });
+  const events: any[] = [];
+  const iter = await llm.generate([{ role: 'user', content: 'test' }], { stream: true, reasoning: true }) as AsyncIterable<any>;
+  
+  for await (const ev of iter) {
+    events.push(ev);
+  }
+  
+  // Should have token events plus final assistant message
+  const tokenEvents = events.filter(e => e.type === 'token');
+  const assistantEvents = events.filter(e => e.type === 'assistant_message');
+  
+  expect(tokenEvents).toHaveLength(2);
+  expect(tokenEvents[0].token).toBe('I');
+  expect(tokenEvents[1].token).toBe(' think');
+  
+  expect(assistantEvents).toHaveLength(1);
+  expect(assistantEvents[0].message.content).toBe('I think');
+  expect(assistantEvents[0].message.reasoning_details).toEqual(mockReasoningDetails);
+});
+

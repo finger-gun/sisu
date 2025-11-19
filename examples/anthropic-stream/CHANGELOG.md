@@ -1,5 +1,14 @@
 # anthropic-stream
 
+## 0.1.15
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @sisu-ai/adapter-anthropic@7.0.0
+  - @sisu-ai/core@2.3.0
+
 ## 0.1.14
 
 ### Patch Changes

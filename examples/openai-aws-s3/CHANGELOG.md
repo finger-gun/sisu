@@ -1,5 +1,22 @@
 # openai-aws-s3
 
+## 0.1.22
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+  - @sisu-ai/tool-aws-s3@2.0.1
+  - @sisu-ai/adapter-openai@9.0.0
+  - @sisu-ai/mw-conversation-buffer@9.0.0
+  - @sisu-ai/mw-error-boundary@9.0.0
+  - @sisu-ai/mw-register-tools@9.0.0
+  - @sisu-ai/mw-tool-calling@9.0.0
+  - @sisu-ai/mw-trace-viewer@10.0.0
+  - @sisu-ai/core@2.3.0
+
 ## 0.1.21
 
 ### Patch Changes
