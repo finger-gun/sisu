@@ -12,7 +12,7 @@ console.log('🚀 OpenAI Reasoning Model Example');
 console.log('═'.repeat(50));
 console.log(`Model: ${model}`);
 console.log(`Base URL: ${baseUrl || 'default OpenAI'}`);
-console.log(`API Key: ${apiKey ? `${apiKey.substring(0, 8)}...` : '❌ MISSING'}`);
+console.log(`API Key: ${apiKey ? '✅ SET' : '❌ MISSING'}`);
 console.log('═'.repeat(50));
 console.log();
 

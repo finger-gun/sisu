@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.2
+
+### Patch Changes
+
+- security: Remove API key partial logging from console output
+
+  **Security Fix:**
+  - Removed logging of API key's first 8 characters to prevent potential key exposure
+  - Changed from `apiKey.substring(0, 8)...` to simple `✅ SET` / `❌ MISSING` indicator
+  - Even partial API key exposure can be a security risk in logs, screenshots, or error reports
+
+  **Impact:**
+  - No behavioral changes to the example functionality
+  - Improves security posture by eliminating unnecessary credential exposure
+  - Maintains user-friendly feedback about API key configuration status
+
 ## 0.1.1
 
 ### Patch Changes
