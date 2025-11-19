@@ -22,11 +22,16 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "zod": "^3.23.8",
-    "@aws-sdk/client-s3": "^3.0.0"
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@sisu-ai/core": "2.3.0",
+    "zod": "^3.23.8"
   },
   "keywords": [
     "sisu",

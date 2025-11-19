@@ -1,0 +1,56 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**/*.ts", "src/**/*.js", "package.json", "tsconfig.json"],
+      "outputs": ["dist/**"]
+    },
+    "lint": {
+      "inputs": ["src/**/*.ts", "src/**/*.js", "*.json", ".eslintrc*", "eslint.config.*"],
+      "outputs": []
+    },
+    "lint:fix": {
+      "inputs": ["src/**/*.ts", "src/**/*.js", "*.json", ".eslintrc*", "eslint.config.*"],
+      "outputs": ["src/**/*.ts", "src/**/*.js"],
+      "cache": false
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**/*.ts", "package.json", "tsconfig.json"],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "inputs": ["src/**/*.ts", "src/**/*.js", "test/**/*", "tests/**/*", "**/*.test.*", "**/*.spec.*", "package.json", "vitest.config.*"],
+      "outputs": ["coverage/**"]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true,
+      "inputs": ["src/**/*.ts", "src/**/*.js", "test/**/*", "tests/**/*", "**/*.test.*", "**/*.spec.*"]
+    },
+    "test:coverage": {
+      "dependsOn": ["build"],
+      "inputs": ["src/**/*.ts", "src/**/*.js", "test/**/*", "tests/**/*", "**/*.test.*", "**/*.spec.*", "package.json", "vitest.config.*"],
+      "outputs": ["coverage/**"]
+    },
+    "clean": {
+      "cache": false,
+      "inputs": [],
+      "outputs": ["dist/**"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true,
+      "inputs": ["src/**/*.ts", "src/**/*.js"]
+    }
+  },
+  "globalDependencies": ["tsconfig.base.json", "vitest.config.ts"],
+  "globalEnv": ["NODE_ENV", "TRACE_HTML"],
+  "remoteCache": {
+    "signature": true
+  }
+}

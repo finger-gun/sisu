@@ -5,11 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sisu-ai/core": "2.3.0",
     "@sisu-ai/adapter-openai": "9.0.0",
+    "@sisu-ai/core": "2.3.0",
+    "@sisu-ai/mw-conversation-buffer": "9.0.0",
     "dotenv": "^16.4.5"
   }
 }

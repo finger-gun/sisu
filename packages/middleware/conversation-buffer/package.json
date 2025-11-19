@@ -12,7 +12,11 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "@sisu-ai/core": "^2.3.0"
