@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/mw-cors",
-  "version": "6.0.1",
+  "version": "7.0.0",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
     "build": "tsc -b"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "2.2.1"
+    "@sisu-ai/core": "^2.3.0"
   },
   "repository": {
     "type": "git",

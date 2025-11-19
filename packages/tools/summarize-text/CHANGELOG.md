@@ -1,5 +1,29 @@
 # @sisu-ai/tool-summarize-text
 
+## 9.0.0
+
+### Patch Changes
+
+- chore: Update peer dependencies to use caret ranges
+
+  Changed all peer dependencies from exact versions to caret ranges (e.g., `"2.2.1"` → `"^2.2.1"`).
+
+  **Benefits:**
+  - Prevents unnecessary major version bumps when core package receives minor/patch updates
+  - Follows semantic versioning best practices
+  - Aligns with standard npm ecosystem conventions
+  - Reduces version number inflation across the monorepo
+
+  **Technical Details:**
+  - `^2.2.1` accepts any version ≥2.2.1 and <3.0.0 (backwards compatible updates)
+  - Only breaking changes (major version bumps) will now trigger major bumps in dependent packages
+  - No runtime behavior changes - this is purely a metadata update
+
+  This is a non-breaking change that improves the maintainability of the monorepo.
+
+- Updated dependencies
+  - @sisu-ai/core@2.3.0
+
 ## 8.0.1
 
 ### Patch Changes

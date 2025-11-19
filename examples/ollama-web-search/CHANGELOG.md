@@ -1,5 +1,21 @@
 # ollama-web-search
 
+## 0.1.22
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+  - @sisu-ai/adapter-ollama@9.0.0
+  - @sisu-ai/mw-conversation-buffer@9.0.0
+  - @sisu-ai/mw-error-boundary@9.0.0
+  - @sisu-ai/mw-register-tools@9.0.0
+  - @sisu-ai/mw-tool-calling@9.0.0
+  - @sisu-ai/mw-trace-viewer@10.0.0
+  - @sisu-ai/tool-web-search-duckduckgo@8.0.0
+  - @sisu-ai/core@2.3.0
+
 ## 0.1.21
 
 ### Patch Changes

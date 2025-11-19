@@ -1,5 +1,50 @@
 # @sisu-ai/adapter-openai
 
+## 9.0.0
+
+### Minor Changes
+
+- feat: Add comprehensive reasoning model support
+
+  Enhanced OpenAI adapter and core library to fully support reasoning models (o1, o3, ChatGPT 5.1):
+
+  **Core (@sisu-ai/core):**
+  - Add `reasoning` parameter to `GenerateOptions` interface
+  - Support multiple formats: boolean, `{ enabled: boolean }`, or provider-specific objects
+  - Add `reasoning_details` field to `AssistantMessage` with proper JSDoc documentation
+  - Preserve reasoning context automatically across multi-turn conversations
+
+  **OpenAI Adapter (@sisu-ai/adapter-openai):**
+  - Implement `normalizeReasoning()` helper to handle reasoning parameter variations
+  - Capture and preserve `reasoning_details` in both streaming and non-streaming responses
+  - Automatically include reasoning parameter in API requests when provided
+  - Add comprehensive README documentation with examples and troubleshooting
+  - Include integration tests for reasoning model support
+
+  This enables seamless use of advanced reasoning models with proper context preservation for multi-turn conversations.
+
+### Patch Changes
+
+- chore: Update peer dependencies to use caret ranges
+
+  Changed all peer dependencies from exact versions to caret ranges (e.g., `"2.2.1"` → `"^2.2.1"`).
+
+  **Benefits:**
+  - Prevents unnecessary major version bumps when core package receives minor/patch updates
+  - Follows semantic versioning best practices
+  - Aligns with standard npm ecosystem conventions
+  - Reduces version number inflation across the monorepo
+
+  **Technical Details:**
+  - `^2.2.1` accepts any version ≥2.2.1 and <3.0.0 (backwards compatible updates)
+  - Only breaking changes (major version bumps) will now trigger major bumps in dependent packages
+  - No runtime behavior changes - this is purely a metadata update
+
+  This is a non-breaking change that improves the maintainability of the monorepo.
+
+- Updated dependencies
+  - @sisu-ai/core@2.3.0
+
 ## 8.0.1
 
 ### Patch Changes
