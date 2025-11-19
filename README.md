@@ -35,6 +35,13 @@
 
 ### Install
 ```bash
+# Using pnpm (recommended)
+pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
+         @sisu-ai/mw-register-tools @sisu-ai/mw-tool-calling \
+         @sisu-ai/mw-conversation-buffer @sisu-ai/mw-trace-viewer \
+         @sisu-ai/mw-error-boundary zod dotenv
+
+# Or using npm
 npm i @sisu-ai/core @sisu-ai/adapter-openai \
       @sisu-ai/mw-register-tools @sisu-ai/mw-tool-calling \
       @sisu-ai/mw-conversation-buffer @sisu-ai/mw-trace-viewer \
@@ -170,19 +177,50 @@ const model = openAIAdapter({ model: 'gpt-4o-mini' });
 
 ---
 
+## 🏗️ Monorepo Development
+
+Sisu is built with modern tooling for efficient development:
+
+- **🚀 [Turbo](https://turbo.build/)** - Fast, incremental builds with smart caching
+- **📦 [pnpm](https://pnpm.io/)** - Efficient package management with workspace support
+- **🧪 [Vitest](https://vitest.dev/)** - Lightning-fast testing with coverage
+- **📝 [Changesets](https://github.com/changesets/changesets)** - Version management and publishing
+
+### Development Commands
+```bash
+# Install dependencies
+pnpm install
+
+# Build all packages (with caching)
+pnpm build
+
+# Run tests with coverage
+pnpm test:coverage
+
+# Run specific example
+pnpm run ex:openai:hello
+
+# Development workflow
+pnpm dev                 # Watch mode for all packages
+pnpm lint:fix           # Fix linting issues
+pnpm typecheck          # Check TypeScript
+```
+
+---
+
 ## 🏃 Run Your First Example
 
 **OpenAI Hello World:**
 ```bash
 cp examples/openai-hello/.env.example examples/openai-hello/.env
-npm run ex:openai:hello
+pnpm run ex:openai:hello
 open examples/openai-hello/traces/trace.html  # 👀 See the magic
 ```
 
 **Local with Ollama (no API key needed!):**
 ```bash
 ollama serve && ollama pull llama3.1
-npm run ex:ollama:hello
+pnpm run ex:ollama:hello
 open examples/ollama-hello/traces/trace.html
 ```
 
@@ -371,12 +409,31 @@ TRACE_JSON=1          # Auto-generate JSON traces
 TRACE_STYLE=dark      # light|dark
 ```
 
-### CLI Flags (Override env vars)
+### Runtime Configuration
+
+You can configure Sisu examples and scripts in multiple ways:
+
+**1. Inline environment variables (temporary):**
 ```bash
-npm run script -- --openai-api-key=sk-... --log-level=debug --trace
+# Override settings for a single run
+MODEL=gpt-4o LOG_LEVEL=debug TRACE_HTML=1 pnpm run ex:openai:hello
 ```
 
-[**⚙️ Full configuration docs →**](#configuration-env--flags)
+**2. .env files (persistent):**
+```bash
+# Copy and edit example .env file
+cp examples/openai-hello/.env.example examples/openai-hello/.env
+# Edit .env file with your settings, then run:
+pnpm run ex:openai:hello
+```
+
+**3. Shell environment (session-wide):**
+```bash
+# Set for current terminal session
+export OPENAI_API_KEY=sk-...
+export LOG_LEVEL=debug
+pnpm run ex:openai:hello
+```
 
 ---
 
@@ -472,6 +529,7 @@ We're building Sisu in the open and welcome contributions!
 **Ollama (Local):**
 - [ollama-hello](examples/ollama-hello/README.md)
 - [ollama-stream](examples/ollama-stream/README.md)
+- [ollama-vision](examples/ollama-vision/README.md)
 - [ollama-weather](examples/ollama-weather/README.md)
 - [ollama-web-search](examples/ollama-web-search/README.md)
 
@@ -480,6 +538,7 @@ We're building Sisu in the open and welcome contributions!
 - [openai-azure-blob](examples/openai-azure-blob/README.md)
 - [openai-branch](examples/openai-branch/README.md)
 - [openai-control-flow](examples/openai-control-flow/README.md)
+- [openai-error-handling](examples/openai-error-handling/README.md)
 - [openai-extract-urls](examples/openai-extract-urls/README.md)
 - [openai-github-projects](examples/openai-github-projects/README.md)
 - [openai-google-search](examples/openai-google-search)
@@ -489,6 +548,7 @@ We're building Sisu in the open and welcome contributions!
 - [openai-parallel](examples/openai-parallel/README.md)
 - [openai-rag-chroma](examples/openai-rag-chroma/README.md)
 - [openai-react](examples/openai-react/README.md)
+- [openai-reasoning](examples/openai-reasoning/README.md)
 - [openai-search-fetch](examples/openai-search-fetch)
 - [openai-server](examples/openai-server/README.md)
 - [openai-stream](examples/openai-stream/README.md)
@@ -534,26 +594,38 @@ const model = openAIAdapter({
 
 We use [Changesets](https://github.com/changesets/changesets) for versioning.
 
+### Automated Changeset Creation
+Use GitHub Copilot prompt files to automate changeset creation:
+
+```bash
+# In VS Code, open Copilot Chat and use:
+/create-changesets          # Full analysis and changeset creation
+/quick-changeset            # Quick analysis for simple changes  
+/breaking-changes           # Analyze breaking changes specifically
+```
+
+Prompt files are located in [`.github/prompts/`](.github/prompts/) and work directly in VS Code.
+
 ### Quick Publish
 ```bash
-npm run release:publish  # version → publish
+pnpm run release:publish  # version → publish
 ```
 
 ### Full Workflow
 ```bash
-npm run release:full     # changeset → version → publish
+pnpm run release:full     # changeset → version → publish
 ```
 
 ### Manual Steps
 ```bash
-# 1. Create changeset
-npm run changeset
+# 1. Create changeset (or use Copilot automation above)
+pnpm run changeset
 
 # 2. Version packages
-npm run version-packages
+pnpm run version-packages
 
 # 3. Publish to npm
-npm run release
+pnpm run release
 ```
 
 **Note:** Packages ship `dist/` only with `publishConfig.access = public`
