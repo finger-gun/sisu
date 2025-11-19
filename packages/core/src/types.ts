@@ -32,6 +32,13 @@ export interface AssistantMessage {
   name?: string;
   /** When the model wants to call tools, it returns one or more tool calls */
   tool_calls?: ToolCall[];
+  /** 
+   * Reasoning details from thinking/reasoning models (e.g., o1, o3, ChatGPT 5.1).
+   * This field must be preserved when passing the message back to the model 
+   * for multi-turn conversations to maintain reasoning context.
+   * @internal The structure is provider-specific and should be treated as opaque.
+   */
+  reasoning_details?: unknown;
 }
 
 export interface ToolMessage {
@@ -59,6 +66,21 @@ export interface GenerateOptions {
   tools?: Tool[];              // schemas surfaced to the provider
   parallelToolCalls?: boolean; // hint for providers supporting parallelism
   stream?: boolean;            // request token streaming when supported
+  /**
+   * Enable extended reasoning/thinking for models that support it (e.g., o1, o3, ChatGPT 5.1).
+   * - `true` or `false`: Simple enable/disable
+   * - `{ enabled: true }`: OpenAI-style object notation
+   * - Custom object: Provider-specific options
+   * 
+   * @example
+   * // Enable reasoning
+   * { reasoning: true }
+   * 
+   * @example
+   * // OpenAI format
+   * { reasoning: { enabled: true } }
+   */
+  reasoning?: boolean | { enabled: boolean } | Record<string, unknown>;
   // providerMeta?: Record<string, unknown>; // (optional) adapter-specific knob pass-through
 }
 

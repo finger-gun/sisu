@@ -52,6 +52,7 @@
     "ex:openai:hello": "TRACE_HTML=1 npm run dev -w examples/openai-hello -- --trace",
     "ex:openai:weather": "TRACE_HTML=1 npm run dev -w examples/openai-weather -- --trace",
     "ex:openai:react": "TRACE_HTML=1 npm run dev -w examples/openai-react -- --trace",
+    "ex:openai:reasoning": "TRACE_HTML=1 npm run dev -w examples/openai-reasoning -- --trace",
     "ex:openai:guardrails": "TRACE_HTML=1 npm run dev -w examples/openai-guardrails -- --trace",
     "ex:openai:vision": "TRACE_HTML=1 npm run dev -w examples/openai-vision -- --trace",
     "ex:openai:control": "TRACE_HTML=1 npm run dev -w examples/openai-control-flow -- --trace",

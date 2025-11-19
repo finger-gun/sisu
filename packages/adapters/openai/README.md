@@ -69,7 +69,61 @@ const res = await model.generate(messages, { toolChoice: 'none' });
 - gpt-4o-mini: inputPer1M ≈ 0.15, outputPer1M ≈ 0.60
 - Images: Prefer `imagePer1K` (e.g., ≈0.217 per 1K images). Alternatively, use `imageInputPer1K` + `imageTokenPerImage`.
 
- 
+## Reasoning Models Support
+
+The OpenAI adapter supports reasoning/thinking models like o1, o3, and ChatGPT 5.1 that provide extended chain-of-thought capabilities.
+
+### Enabling Reasoning
+
+```typescript
+import { openAIAdapter } from '@sisu-ai/openai';
+
+const llm = openAIAdapter({ model: 'gpt-5.1' });
+
+// Enable reasoning with boolean
+const response = await llm.generate(
+  [{ role: 'user', content: 'Complex problem requiring deep thought' }],
+  { reasoning: true }
+);
+
+// Or use object notation (OpenAI format)
+const response = await llm.generate(
+  [{ role: 'user', content: 'Complex problem' }],
+  { reasoning: { enabled: true } }
+);
+```
+
+### Preserving Reasoning Context
+
+When a model returns `reasoning_details`, **you must preserve this field** when continuing the conversation:
+
+```typescript
+const response1 = await llm.generate(
+  [{ role: 'user', content: 'Initial question' }],
+  { reasoning: true }
+);
+
+// IMPORTANT: Include the full response message with reasoning_details
+const messages = [
+  { role: 'user', content: 'Initial question' },
+  response1.message, // Contains reasoning_details
+  { role: 'user', content: 'Follow-up question' },
+];
+
+const response2 = await llm.generate(messages, { reasoning: true });
+```
+
+The adapter automatically:
+- Sends the `reasoning` parameter to the API when provided
+- Captures `reasoning_details` from the response
+- Preserves `reasoning_details` when sending messages back to the API
+
+### Supported Models
+
+- OpenAI o1, o3 series
+- ChatGPT 5.1 (via OpenRouter)
+- Any OpenAI-compatible API that supports reasoning parameters
+
 ## Debugging
 - `DEBUG_LLM=1` prints sanitized payloads and error bodies.
 - Combine with `LOG_LEVEL=debug` to see middleware events.
