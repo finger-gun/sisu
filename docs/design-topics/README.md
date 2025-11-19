@@ -6,9 +6,9 @@ Architecture design documents and technical specifications for Sisu features.
 
 ## Active Design Topics
 
-### DT 20241119-0800: Reasoning Production Readiness
+### DT 20251119-0800: Reasoning Production Readiness
 
-**[dt-20241119-0800-reasoning-production-readiness.md](./dt-20241119-0800-reasoning-production-readiness.md)**
+**[dt-20251119-0800-reasoning-production-readiness.md](./dt-20251119-0800-reasoning-production-readiness.md)**
 
 **Date:** 2025-11-19  
 **Status:** Analysis Complete  
@@ -25,9 +25,9 @@ Deep technical analysis of reasoning support production readiness. Identifies ga
 
 ---
 
-### DT 20241119-0700: Reasoning Model Support
+### DT 20251119-0700: Reasoning Model Support
 
-**[dt-20241119-0700-reasoning-model-support.md](./dt-20241119-0700-reasoning-model-support.md)**
+**[dt-20251119-0700-reasoning-model-support.md](./dt-20251119-0700-reasoning-model-support.md)**
 
 **Date:** 2025-11-19  
 **Status:** ✅ Implementation Complete  
@@ -45,9 +45,9 @@ Complete technical design for OpenAI reasoning model support (o1, o3, ChatGPT 5.
 
 ---
 
-### DT 20241119-0700: Reasoning Implementation Summary
+### DT 20251119-0700: Reasoning Implementation Summary
 
-**[dt-20241119-0700-reasoning-implementation-summary.md](./dt-20241119-0700-reasoning-implementation-summary.md)**
+**[dt-20251119-0700-reasoning-implementation-summary.md](./dt-20251119-0700-reasoning-implementation-summary.md)**
 
 **Date:** 2025-11-19  
 **Status:** ✅ Reference Document  
@@ -67,11 +67,11 @@ Quick reference guide with architecture diagrams, data flows, and implementation
 ## Design Topics by Status
 
 ### ✅ Complete & Implemented
-- DT 20241119-0700: Reasoning Model Support
-- DT 20241119-0700: Reasoning Implementation Summary
+- DT 20251119-0700: Reasoning Model Support
+- DT 20251119-0700: Reasoning Implementation Summary
 
 ### 🔄 Analysis/In Progress
-- DT 20241119-0800: Reasoning Production Readiness
+- DT 20251119-0800: Reasoning Production Readiness
 
 ### 📝 Planned
 - None currently
@@ -83,18 +83,18 @@ Quick reference guide with architecture diagrams, data flows, and implementation
 ### By Topic Area
 
 **Reasoning Models:**
-- [dt-20241119-0700-reasoning-model-support.md](./dt-20241119-0700-reasoning-model-support.md) - Design
-- [dt-20241119-0700-reasoning-implementation-summary.md](./dt-20241119-0700-reasoning-implementation-summary.md) - Summary
-- [dt-20241119-0800-reasoning-production-readiness.md](./dt-20241119-0800-reasoning-production-readiness.md) - Analysis
+- [dt-20251119-0700-reasoning-model-support.md](./dt-20251119-0700-reasoning-model-support.md) - Design
+- [dt-20251119-0700-reasoning-implementation-summary.md](./dt-20251119-0700-reasoning-implementation-summary.md) - Summary
+- [dt-20251119-0800-reasoning-production-readiness.md](./dt-20251119-0800-reasoning-production-readiness.md) - Analysis
 
 ### By Priority
 
 **High:**
-- DT 20241119-0800: Reasoning Production Readiness 🔴
-- DT 20241119-0700: Reasoning Model Support ✅
+- DT 20251119-0800: Reasoning Production Readiness 🔴
+- DT 20251119-0700: Reasoning Model Support ✅
 
 **Medium:**
-- DT 20241119-0700: Reasoning Implementation Summary
+- DT 20251119-0700: Reasoning Implementation Summary
 
 ---
 
@@ -104,7 +104,7 @@ Quick reference guide with architecture diagrams, data flows, and implementation
 
 `dt-YYYYMMDD-HHMM-short-descriptive-title.md`
 
-**Example:** `dt-20241119-1430-multi-provider-reasoning.md`
+**Example:** `dt-20251119-1430-multi-provider-reasoning.md`
 
 ### Template
 
