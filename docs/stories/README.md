@@ -41,8 +41,8 @@ This directory tracks implementation work for Sisu features using numbered stori
 
 | # | Story | Status | Priority | Effort | Completed | Dependencies |
 |---|-------|--------|----------|--------|-----------|--------------|
-| 001 | [Reasoning Model Support Implementation](./story-001-reasoning-model-support.md) | ✅ Complete | **High** | 3-4 days | 2024-11-19 | None |
-| 002 | [Reasoning Production Validation](./story-002-reasoning-production-validation.md) | ✅ Complete | **High** | 4-5 days | 2024-11-19 | Story 001 |
+| 001 | [Reasoning Model Support Implementation](./story-001-reasoning-model-support.md) | ✅ Complete | **High** | 3-4 days | 2025-11-19 | None |
+| 002 | [Reasoning Production Validation](./story-002-reasoning-production-validation.md) | ✅ Complete | **High** | 4-5 days | 2025-11-19 | Story 001 |
 
 **Phase 1 & 2 Status:** ✅ BOTH COMPLETE! Reasoning support fully production-ready.
 
@@ -78,7 +78,7 @@ This directory tracks implementation work for Sisu features using numbered stori
 - 📝 **Phase 3 Planned:** Future enhancements (TBD)
 
 ### Velocity
-- **Stories Completed:** 2 in 1 day (2024-11-19)
+- **Stories Completed:** 2 in 1 day (2025-11-19)
 - **Lines Added:** ~784 lines (334 from Story 001, 450 from Story 002)
 - **Zero Breaking Changes:** All work backward compatible ✅
 

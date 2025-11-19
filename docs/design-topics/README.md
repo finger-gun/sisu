@@ -10,7 +10,7 @@ Architecture design documents and technical specifications for Sisu features.
 
 **[dt-20241119-0800-reasoning-production-readiness.md](./dt-20241119-0800-reasoning-production-readiness.md)**
 
-**Date:** 2024-11-19  
+**Date:** 2025-11-19  
 **Status:** Analysis Complete  
 **Priority:** High  
 **Related Stories:** [Story 002](../stories/story-002-reasoning-production-validation.md)
@@ -29,7 +29,7 @@ Deep technical analysis of reasoning support production readiness. Identifies ga
 
 **[dt-20241119-0700-reasoning-model-support.md](./dt-20241119-0700-reasoning-model-support.md)**
 
-**Date:** 2024-11-19  
+**Date:** 2025-11-19  
 **Status:** ✅ Implementation Complete  
 **Priority:** High  
 **Related Stories:** [Story 001](../stories/story-001-reasoning-model-support.md) (Complete)
@@ -49,7 +49,7 @@ Complete technical design for OpenAI reasoning model support (o1, o3, ChatGPT 5.
 
 **[dt-20241119-0700-reasoning-implementation-summary.md](./dt-20241119-0700-reasoning-implementation-summary.md)**
 
-**Date:** 2024-11-19  
+**Date:** 2025-11-19  
 **Status:** ✅ Reference Document  
 **Priority:** Medium  
 **Related Stories:** [Story 001](../stories/story-001-reasoning-model-support.md)
