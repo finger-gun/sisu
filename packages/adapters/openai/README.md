@@ -71,58 +71,204 @@ const res = await model.generate(messages, { toolChoice: 'none' });
 
 ## Reasoning Models Support
 
-The OpenAI adapter supports reasoning/thinking models like o1, o3, and ChatGPT 5.1 that provide extended chain-of-thought capabilities.
+The OpenAI adapter supports reasoning/thinking models (o1-preview, o1-mini, o3, ChatGPT 5.1) that provide extended chain-of-thought capabilities through internal reasoning that can be preserved across conversation turns.
 
-### Enabling Reasoning
+### Quick Start
+
+Enable reasoning with a simple boolean flag:
 
 ```typescript
-import { openAIAdapter } from '@sisu-ai/openai';
+import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
-const llm = openAIAdapter({ model: 'gpt-5.1' });
+const llm = openAIAdapter({ model: 'o1-preview' });
 
-// Enable reasoning with boolean
 const response = await llm.generate(
-  [{ role: 'user', content: 'Complex problem requiring deep thought' }],
+  [{ role: 'user', content: 'How many "r"s are in "strawberry"?' }],
   { reasoning: true }
 );
 
-// Or use object notation (OpenAI format)
-const response = await llm.generate(
-  [{ role: 'user', content: 'Complex problem' }],
-  { reasoning: { enabled: true } }
-);
+console.log(response.message.content); // "There are 3 'r's in 'strawberry'"
+console.log(response.message.reasoning_details); // Contains reasoning context
 ```
 
-### Preserving Reasoning Context
+### Reasoning Parameter Formats
 
-When a model returns `reasoning_details`, **you must preserve this field** when continuing the conversation:
+The adapter accepts two formats for the `reasoning` parameter:
 
 ```typescript
+// Boolean (recommended) - automatically normalized to { enabled: true }
+{ reasoning: true }
+
+// Object format (OpenAI native) - passed through as-is
+{ reasoning: { enabled: true } }
+```
+
+### Understanding reasoning_details
+
+When reasoning is enabled, the API returns a `reasoning_details` field in the assistant message. This field is **opaque** (provider-specific) and typically contains:
+
+```typescript
+// Example structure (actual format may vary by provider)
+{
+  reasoning_details: [
+    {
+      type: 'reasoning.summary',
+      summary: '...human-readable reasoning process...'
+    },
+    {
+      type: 'reasoning.encrypted',
+      data: '...encrypted internal state...'
+    }
+  ]
+}
+```
+
+**Important characteristics:**
+
+- **Summary**: Contains a human-readable explanation of the model's thinking process (when available)
+- **Encrypted contexts**: Preserve internal model state for improved multi-turn coherence
+- **Opaque format**: Treat as a black box; do not modify or parse
+- **Preservation required**: Must be included in subsequent turns for optimal performance
+
+### Multi-Turn Conversations
+
+For multi-turn conversations with reasoning, you **must** preserve the entire assistant message including `reasoning_details`:
+
+```typescript
+const llm = openAIAdapter({ model: 'o1-preview' });
+
+// First turn
 const response1 = await llm.generate(
-  [{ role: 'user', content: 'Initial question' }],
+  [{ role: 'user', content: 'Solve this complex math problem...' }],
   { reasoning: true }
 );
 
-// IMPORTANT: Include the full response message with reasoning_details
+// Build conversation history - CRITICAL: include full message with reasoning_details
 const messages = [
-  { role: 'user', content: 'Initial question' },
-  response1.message, // Contains reasoning_details
-  { role: 'user', content: 'Follow-up question' },
+  { role: 'user', content: 'Solve this complex math problem...' },
+  response1.message, // Complete message with reasoning_details
+  { role: 'user', content: 'Now explain your reasoning step-by-step' }
 ];
 
+// Second turn - reasoning context is automatically preserved
 const response2 = await llm.generate(messages, { reasoning: true });
 ```
 
-The adapter automatically:
-- Sends the `reasoning` parameter to the API when provided
-- Captures `reasoning_details` from the response
-- Preserves `reasoning_details` when sending messages back to the API
+**Why preservation matters:**
+- Improves response accuracy on follow-up questions
+- Maintains reasoning coherence across turns
+- Enables the model to reference its previous thinking
+- Required by some models for optimal performance
 
 ### Supported Models
 
-- OpenAI o1, o3 series
-- ChatGPT 5.1 (via OpenRouter)
-- Any OpenAI-compatible API that supports reasoning parameters
+| Model | Provider | Reasoning Support | Notes |
+|-------|----------|-------------------|-------|
+| o1-preview | OpenAI | ✅ Full | Extended reasoning, higher cost |
+| o1-mini | OpenAI | ✅ Full | Faster reasoning, lower cost |
+| o3-preview | OpenAI | ✅ Full | Next-gen reasoning (limited access) |
+| gpt-5.1 | OpenRouter | ✅ Full | Via OpenRouter with `baseUrl` |
+| gpt-4o | OpenAI | ⚠️ Partial | Accepts parameter but limited reasoning |
+| gpt-4o-mini | OpenAI | ⚠️ Partial | Accepts parameter but limited reasoning |
+
+**Usage with OpenRouter:**
+```typescript
+const llm = openAIAdapter({
+  model: 'gpt-5.1',
+  baseUrl: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY
+});
+```
+
+### Cost Considerations
+
+Reasoning models typically have higher costs due to extended thinking time:
+
+| Model | Input (per 1M tokens) | Output (per 1M tokens) | Notes |
+|-------|----------------------|------------------------|-------|
+| o1-preview | ~$15-20 | ~$60-80 | Premium reasoning |
+| o1-mini | ~$3-5 | ~$12-15 | Cost-effective reasoning |
+| gpt-5.1 | Varies | Varies | Check OpenRouter pricing |
+
+**Tips for cost optimization:**
+- Use `o1-mini` for most reasoning tasks
+- Reserve `o1-preview` for complex problems requiring deep analysis
+- Enable reasoning only when needed (not for simple queries)
+- Use `temperature: 0.1` or lower for deterministic output
+
+### Streaming Support
+
+Reasoning is fully supported in streaming mode:
+
+```typescript
+const stream = await llm.generate(
+  [{ role: 'user', content: 'Complex question...' }],
+  { reasoning: true, stream: true }
+);
+
+for await (const event of stream) {
+  if (event.type === 'token') {
+    process.stdout.write(event.token);
+  } else if (event.type === 'assistant_message') {
+    // reasoning_details available in final message
+    console.log('\nReasoning captured:', event.message.reasoning_details);
+  }
+}
+```
+
+### Troubleshooting
+
+**Error: 400/405 when enabling reasoning**
+
+Some models don't support the reasoning parameter. Try:
+- Verify you're using a reasoning-capable model (o1-preview, o1-mini, etc.)
+- Check that your API key has access to reasoning models
+- Ensure `baseUrl` is correct (especially for OpenRouter)
+
+```typescript
+try {
+  const res = await llm.generate(messages, { reasoning: true });
+} catch (error) {
+  if (error.message.includes('405') || error.message.includes('400')) {
+    console.error('Model may not support reasoning parameter');
+    console.error('Try: o1-preview, o1-mini, or gpt-5.1 via OpenRouter');
+  }
+  throw error;
+}
+```
+
+**No reasoning_details in response**
+
+This is normal for non-reasoning models:
+- Standard GPT-4/GPT-3.5 models accept the parameter but don't return reasoning details
+- The adapter handles this gracefully - no error, just no `reasoning_details` field
+
+**Multi-turn context lost**
+
+Ensure you're preserving the complete message:
+```typescript
+// ✅ Correct - preserves reasoning_details
+messages.push(response.message);
+
+// ❌ Wrong - loses reasoning_details
+messages.push({ role: 'assistant', content: response.message.content });
+```
+
+**High costs**
+
+Reasoning models use more tokens:
+- Monitor usage with `@sisu-ai/mw-usage-tracker`
+- Use `o1-mini` instead of `o1-preview` when possible
+- Enable reasoning only for complex tasks
+
+### Complete Example
+
+See the [openai-reasoning example](../../../examples/openai-reasoning/) for a full working demonstration including:
+- Basic reasoning usage
+- Multi-turn conversations with preserved context
+- Error handling
+- Usage tracking
+- Trace visualization
 
 ## Debugging
 - `DEBUG_LLM=1` prints sanitized payloads and error bodies.

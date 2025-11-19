@@ -374,7 +374,37 @@ function writeIndexAssets(fs: any, pathMod: any, dir: string, _style: TraceStyle
 // Minimal HTML renderer used for side-by-side .html files next to JSON
 function renderTraceHtml(out: TraceDoc, _style: TraceStyle = 'light', _logoDataUrl = ''): string {
   const esc = (s: string) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
-  const messages = (out.messages || []).map((m: any) => `<tr><td>${esc(m.role || '')}</td><td><pre>${esc(typeof m.content === 'string' ? m.content : JSON.stringify(m.content, null, 2))}</pre></td></tr>`).join('\n');
+  
+  // Helper to render individual message with reasoning support
+  const renderMessage = (m: any) => {
+    const hasReasoning = m.reasoning_details && (Array.isArray(m.reasoning_details) || typeof m.reasoning_details === 'object');
+    let html = `<tr><td>${esc(m.role || '')}</td><td>`;
+    
+    if (hasReasoning) {
+      const details = Array.isArray(m.reasoning_details) ? m.reasoning_details : [m.reasoning_details];
+      const summary = details.find((d: any) => d?.type === 'reasoning.summary');
+      const encrypted = details.filter((d: any) => d?.type === 'reasoning.encrypted');
+      
+      html += `<div class="reasoning-box">`;
+      html += `<strong>🧠 Reasoning Details</strong><br>`;
+      
+      if (summary?.summary) {
+        const text = String(summary.summary);
+        html += `<details><summary>View Reasoning (${text.length} chars)</summary>`;
+        html += `<pre class="reasoning-content">${esc(text)}</pre></details>`;
+      }
+      
+      if (encrypted.length > 0) {
+        html += `<small>🔒 ${encrypted.length} encrypted context(s) preserved</small>`;
+      }
+      html += `</div>`;
+    }
+    
+    html += `<pre>${esc(typeof m.content === 'string' ? m.content : JSON.stringify(m.content, null, 2))}</pre></td></tr>`;
+    return html;
+  };
+  
+  const messages = (out.messages || []).map(renderMessage).join('\n');
   const events = (out.events || []).map((e: any) => `<tr><td>${esc(e.ts || e.time || '')}</td><td>${esc(e.level || '')}</td><td><pre>${esc(JSON.stringify(e.args, null, 2))}</pre></td></tr>`).join('\n');
   const usage = (out.meta as any).usage || {};
   const transport = (out.meta as any).transport || undefined;
@@ -392,6 +422,13 @@ function renderTraceHtml(out: TraceDoc, _style: TraceStyle = 'light', _logoDataU
       .error-code{background:#fdd;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:0.9em}
       .status-error{color:#c00;font-weight:bold}
       .status-success{color:#060;font-weight:bold}
+      .reasoning-box{background:#f0f8ff;border:1px solid #b3d9ff;padding:10px;margin:8px 0;border-radius:4px}
+      .reasoning-box strong{color:#0066cc}
+      .reasoning-box details{margin-top:8px}
+      .reasoning-box summary{cursor:pointer;color:#0066cc;font-weight:500}
+      .reasoning-box summary:hover{text-decoration:underline}
+      .reasoning-content{background:#fff;border:1px solid #ddd;padding:8px;margin-top:8px;max-height:300px;overflow-y:auto}
+      .reasoning-box small{color:#666;font-size:0.85em}
     </style>
   </head><body>
     <h1>Trace</h1>

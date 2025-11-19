@@ -394,6 +394,33 @@
 
       // Payload
       var pre = node.querySelector('pre.code');
+      
+      // Check for reasoning details and add display before content
+      var hasReasoning = m.reasoning_details && (Array.isArray(m.reasoning_details) || typeof m.reasoning_details === 'object');
+      if (hasReasoning) {
+        var details = Array.isArray(m.reasoning_details) ? m.reasoning_details : [m.reasoning_details];
+        var summary = details.find(function(d) { return d && d.type === 'reasoning.summary'; });
+        var encrypted = details.filter(function(d) { return d && d.type === 'reasoning.encrypted'; });
+        
+        var reasoningBox = document.createElement('div');
+        reasoningBox.className = 'reasoning-box';
+        
+        var html = '<strong>🧠 Reasoning Details</strong><br>';
+        
+        if (summary && summary.summary) {
+          var text = String(summary.summary);
+          html += '<details><summary>▼ View Reasoning (' + text.length + ' chars)</summary>';
+          html += '<pre>' + escapeHTML(text) + '</pre></details>';
+        }
+        
+        if (encrypted.length > 0) {
+          html += '<small>🔒 ' + encrypted.length + ' encrypted context(s) preserved</small>';
+        }
+        
+        reasoningBox.innerHTML = html;
+        pre.parentElement.insertBefore(reasoningBox, pre);
+      }
+      
       var r = renderCodeInto(pre, m && m.content, { pretty: true });
 
       // Action buttons (Copy / Collapse + Raw/Pretty when JSON)
