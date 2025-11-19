@@ -60,12 +60,6 @@ async function getLastCommitForPackage(packagePath) {
   return result || 'No commits';
 }
 
-async function getCommitsSinceTag(packageName, version) {
-  const tag = `${packageName}@${version}`;
-  const result = executeCommand(`git log ${tag}..HEAD --oneline -- ${packagePath} 2>/dev/null`);
-  return result ? result.split('\n').filter(Boolean) : [];
-}
-
 async function main() {
   console.log('🔍 Checking package versions...\n');
   
