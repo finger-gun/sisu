@@ -1,23 +1,86 @@
 # AGENTS Guidelines for This Repository
 
-## Dev environment tips
-- This monorepo uses **pnpm** and **Turbo** for fast, efficient builds and dependency management.
-- Install pnpm globally: `npm install -g pnpm@9`
-- Run `pnpm install` to install dependencies across all workspaces
-- Run `pnpm build` or `turbo build` to build all packages with optimal caching
-- Now it is possible to run any of the examples in /examples, run commands can be found as scripts in `package.json` project root.
-- Use `pnpm --filter=<package-name> <command>` to run commands in specific packages
-- You find project documentation and intent in README.md, there is one overview in the root of project and then specific README.md for each package. Packages are core, middleware, adapters or tools.
+## Project Overview
+**Sisu** is a TypeScript framework for building reliable AI agents with full transparency and control. This monorepo contains:
+- **Core**: The main framework engine and types
+- **Adapters**: Provider integrations (OpenAI, Anthropic, Ollama)
+- **Middleware**: Composable functionality (tracing, tool-calling, error handling, etc.)
+- **Tools**: Pre-built tools for common tasks (web search, file operations, etc.)
+- **Vector**: Vector storage and retrieval capabilities
+- **Server**: HTTP server implementation
+- **Examples**: 25+ working examples demonstrating features
 
-## Testing instructions
-- Find the CI plan in the .github/workflows folder.
-- This monorepo uses **pnpm** and **Turbo** for efficient dependency management and testing.
-- Run `pnpm install` to install dependencies across all workspaces
-- Run `turbo build` to build all packages with optimal caching and dependency resolution
-- From the project root call `turbo test:coverage` to run all tests and see coverage, we have a target of 80% (we use vitest).
-- To focus on one step, add the Vitest pattern: `pnpm vitest run -t "<test name>"`.
-- Fix any test or type errors until the whole suite is green.
-- Add or update tests for the code you change, even if nobody asked.
+## Dev Environment Setup
+- This monorepo uses **pnpm@9** and **Turbo@2** for fast, efficient builds and dependency management.
+- **Node.js**: Requires >= 18.17 (specified in engines)
+- **Package Manager**: Uses pnpm@9.0.0 (see packageManager field)
+
+### Initial Setup
+```bash
+# Install pnpm globally (if not already installed)
+npm install -g pnpm@9
+
+# Install all workspace dependencies
+pnpm install
+
+# Build all packages (required before running examples)
+pnpm build
+```
+
+### Available Commands
+- `pnpm build` - Build all packages with Turbo caching
+- `pnpm test` - Run all tests across workspaces
+- `pnpm test:coverage` - Run tests with coverage (target: ≥80%)
+- `pnpm lint` - Lint all packages
+- `pnpm typecheck` - Type check all packages
+- `pnpm clean` - Clean all build artifacts
+- `pnpm dev` - Run development mode (for server/examples)
+
+### Working with Workspaces
+- Use `pnpm --filter=<package-name> <command>` to run commands in specific packages
+- Examples: `pnpm --filter=openai-hello dev`, `pnpm --filter=@sisu-ai/core build`
+- Each package has its own README.md with specific documentation
+
+## Running Examples
+The repository includes 25+ examples demonstrating different capabilities. All examples support tracing:
+
+### Quick Example Commands
+```bash
+# Basic examples
+pnpm ex:openai:hello        # Simple hello world
+pnpm ex:anthropic:hello     # Anthropic version
+pnpm ex:ollama:hello        # Local Ollama version
+
+# Advanced features
+pnpm ex:openai:reasoning    # O1 reasoning models
+pnpm ex:openai:react        # ReAct pattern
+pnpm ex:openai:control      # Control flow
+pnpm ex:openai:guardrails   # Safety guardrails
+pnpm ex:openai:vision       # Image understanding
+
+# Tool usage
+pnpm ex:openai:weather      # Weather tool
+pnpm ex:openai:web-search   # Web search
+pnpm ex:openai:terminal     # Terminal commands
+pnpm ex:openai:github-projects  # GitHub integration
+
+# Streaming and real-time
+pnpm ex:openai:stream       # Streaming responses
+pnpm ex:openai:server       # HTTP server
+```
+
+All examples generate HTML trace files in `./trace-*.html` for debugging.
+
+## Testing Instructions
+- **Test Framework**: Vitest with ≥80% coverage target
+- **CI/CD**: GitHub Actions (see `.github/workflows/`)
+- **Commands**:
+  - `pnpm test` - Run all tests
+  - `pnpm test:coverage` - Run with coverage report
+  - `pnpm test:watch` - Run in watch mode
+  - `pnpm vitest run -t "<test name>"` - Run specific test
+- **Coverage**: Reports available in `./coverage/` directory
+- **Always**: Add/update tests for any code changes, build and test before commits
 
 ## Code Guidelines (TypeScript)
 
@@ -97,16 +160,71 @@ export const getWeather = {
 * Don’t block the event loop; prefer async I/O and streaming.
 * Cap external fetch sizes; time out I/O using `AbortSignal`.
 
-### 11) Repo Hygiene
+### 11) Repository Structure & Architecture
 
-* One changeset per logical change:
+**Packages Overview:**
+- **`@sisu-ai/core`** - Core framework, types, context management
+- **`@sisu-ai/adapter-*`** - LLM provider adapters (openai, anthropic, ollama)
+- **`@sisu-ai/mw-*`** - Middleware packages (20+ available)
+- **`@sisu-ai/tool-*`** - Pre-built tools (12+ available)
+- **`@sisu-ai/vector-*`** - Vector storage and retrieval
+- **`@sisu-ai/server`** - HTTP server implementation
 
-  * `npm run changeset` → commit → PR
-  * Version & publish handled by release workflow.
-* PR checklist:
+**Key Middleware:**
+- `mw-trace-viewer` - HTML trace generation
+- `mw-tool-calling` - Function calling support
+- `mw-error-boundary` - Error handling
+- `mw-conversation-buffer` - Message management
+- `mw-guardrails` - Safety constraints
+- `mw-rag` - Retrieval augmented generation
+- `mw-control-flow` - Branching and routing
 
-  * [ ] API surface is minimal and documented
-  * [ ] Types precise; zero `any`
-  * [ ] Tests added/updated; coverage OK
-  * [ ] Changelog (changeset) present
-  * [ ] No secrets or noisy logs
+**Available Tools:**
+- Web: `web-search-*`, `web-fetch`, `extract-urls`
+- Storage: `aws-s3`, `azure-blob`, `vec-chroma`
+- Dev: `terminal`, `github-projects`
+- Text: `summarize-text`, `wikipedia`
+
+### 12) Release Management & PR Guidelines
+
+**Changeset Workflow:**
+```bash
+pnpm changeset          # Create changeset
+pnpm version-packages   # Bump versions
+pnpm release            # Publish packages
+```
+
+**Release Commands:**
+- `pnpm release:plan` - Preview upcoming releases
+- `pnpm release:report` - Generate release report
+- `pnpm check-changes-since-publish` - Check for unpublished changes
+
+**PR Checklist:**
+- [ ] API surface is minimal and documented
+- [ ] Types precise; zero `any`
+- [ ] Tests added/updated; coverage ≥80%
+- [ ] Changeset created (`pnpm changeset`)
+- [ ] Examples updated if public API changed
+- [ ] No secrets or API keys in logs
+- [ ] Build passes (`pnpm build`)
+- [ ] All tests pass (`pnpm test`)
+
+### 13) Environment Variables & Configuration
+
+**Required for Examples:**
+```bash
+# OpenAI
+OPENAI_API_KEY=sk-...
+
+# Anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Optional
+LOG_LEVEL=info          # debug, info, warn, error
+TRACE_HTML=1           # Generate HTML traces
+```
+
+**Development:**
+```bash
+NODE_ENV=development    # Enable debug features
+```
