@@ -15,6 +15,8 @@
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcore)](https://www.npmjs.com/package/@sisu-ai/core)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
+**📋 Contributing?** We use [Speckit](https://speckit.dev) for structured development. See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete workflow.
+
 ---
 
 ## Why Developers Choose Sisu
@@ -205,6 +207,33 @@ pnpm dev                 # Watch mode for all packages
 pnpm lint:fix           # Fix linting issues
 pnpm typecheck          # Check TypeScript
 ```
+
+### 📋 Structured Development with Speckit
+
+Sisu uses **[Speckit](https://speckit.dev)** for structured feature development and quality gates:
+
+```bash
+# Create feature specification
+/speckit.spec "Add new middleware for rate limiting"
+
+# Generate implementation plan
+/speckit.plan specs/rate-limiting-middleware/spec.md
+
+# Break down into tasks
+/speckit.tasks specs/rate-limiting-middleware/plan.md
+
+# Update project constitution (when needed)
+/speckit.constitution
+```
+
+**Development Workflow:**
+1. **Spec First** → Define user scenarios with independent testability
+2. **Plan & Research** → Technical design with constitution compliance check
+3. **Test-Driven** → Write failing tests before implementation (≥80% coverage required)
+4. **Build & Validate** → Implement with composable middleware patterns
+5. **Document** → Update examples and README for any public API changes
+
+All features must pass **quality gates** defined in [`.specify/memory/constitution.md`](.specify/memory/constitution.md) before implementation begins.
 
 ---
 

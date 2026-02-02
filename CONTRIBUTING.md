@@ -43,6 +43,68 @@ There are many ways to contribute, and we appreciate them all:
    ```
 4. **Start hacking**: The codebase is organized into `packages/` (adapters, tools, core) and `examples/` for demos.
 
+## 📋 Feature Development with Speckit
+
+**New to the project?** We use [Speckit](https://speckit.dev) for structured development. Here's the recommended workflow:
+
+### 1. Spec-First Development
+
+For any new feature, start with a specification:
+
+```bash
+# Create a detailed feature spec
+/speckit.spec "Your feature description here"
+```
+
+This creates a specification in `specs/` with:
+- User scenarios prioritized by importance
+- Independent testability requirements  
+- Acceptance criteria following Given/When/Then format
+
+### 2. Implementation Planning
+
+```bash
+# Generate implementation plan
+/speckit.plan specs/your-feature/spec.md
+```
+
+This creates:
+- Technical research and context
+- Constitution compliance check
+- Project structure planning
+- Quality gates verification
+
+### 3. Task Breakdown
+
+```bash
+# Break plan into actionable tasks
+/speckit.tasks specs/your-feature/plan.md
+```
+
+This creates granular, testable tasks following our TDD requirements.
+
+### 4. Constitution Compliance
+
+All code must follow our [constitution](.specify/memory/constitution.md):
+- ✅ **≥80% test coverage** (run `pnpm test:coverage`)
+- ✅ **Composable middleware** design
+- ✅ **Provider-agnostic** interfaces
+- ✅ **Full observability** with tracing
+- ✅ **Production-ready** error handling
+
+### 5. Quality Gates
+
+**Before coding:**
+- [ ] Constitution compliance verified
+- [ ] User scenarios defined with independent testability
+- [ ] Technical design approved for composability
+
+**Before PR:**
+- [ ] All tests passing with ≥80% coverage
+- [ ] Integration tests completed
+- [ ] Documentation updated
+- [ ] Changeset added (if API changes)
+
 ---
 
 ## 🌳 Branching & Commits
@@ -85,25 +147,30 @@ Maintainers run `npm release` to publish new versions. Contributors just need to
 ## 🧪 Testing
 
 * We use **Vitest** + **MSW** for tests.
+* **≥80% coverage is mandatory** per our [constitution](.specify/memory/constitution.md)
+* **TDD is required**: Write tests first, get user approval, then implement
 * Run the full suite:
 
   ```bash
   npm test
   ```
-* Please include tests with new features or bug fixes.
-* We aim for 80% coverage:
+* Run with coverage (must be ≥80%):
   ```bash
   npm run test:coverage
   ```
+* Both unit tests (mocked) and integration tests (real APIs) are required for new features
 
 
 ---
 
 ## 💡 Tips for First-Time Contributors
 
-* Start with [good first issues](https://github.com/finger-gun/sisu/labels/good%20first%20issue).
-* Documentation and examples are always welcome improvements.
-* If you’re unsure, open a draft PR early and ask for feedback.
+* **Start with a spec**: Use `/speckit.spec` to plan your contribution, even for small changes
+* Look for [good first issues](https://github.com/finger-gun/sisu/labels/good%20first%20issue)
+* Read our [constitution](.specify/memory/constitution.md) to understand our development principles
+* Documentation and examples are always welcome improvements
+* **Test-first development**: Write failing tests before implementation
+* If you're unsure, open a draft PR early and ask for feedback
 
 ---
 

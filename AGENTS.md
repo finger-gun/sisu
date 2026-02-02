@@ -41,6 +41,41 @@ pnpm build
 - Examples: `pnpm --filter=openai-hello dev`, `pnpm --filter=@sisu-ai/core build`
 - Each package has its own README.md with specific documentation
 
+## Speckit Development Workflow
+
+This project uses **Speckit** for structured development with quality gates defined in [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
+
+### For AI Agents Working on Sisu
+
+When implementing new features, follow this workflow:
+
+1. **Start with specification**: Use `/speckit.spec` to define user scenarios with independent testability
+2. **Generate implementation plan**: Use `/speckit.plan` for technical design with constitution compliance check  
+3. **Create task breakdown**: Use `/speckit.tasks` for granular, testable tasks following TDD requirements
+4. **Follow constitution**: All code must meet the 5 core principles (see constitution file)
+5. **Maintain quality gates**: ≥80% test coverage, composable design, provider-agnostic interfaces
+
+### Constitution Compliance (Non-Negotiable)
+
+- **Principle I**: Transparency - Full observability with HTML trace generation
+- **Principle II**: Composability - Small, focused packages with middleware patterns  
+- **Principle III**: Test-First - ≥80% coverage, TDD cycle required
+- **Principle IV**: Type Safety - Strict TypeScript, provider-agnostic design
+- **Principle V**: Production Ready - Error boundaries, secret redaction, cancellation support
+
+### Quality Gates Checklist
+
+**Pre-Implementation:**
+- [ ] Constitution compliance verified
+- [ ] User scenarios defined with independent testability  
+- [ ] Technical design approved for composability
+
+**Pre-Release:**
+- [ ] Tests passing with ≥80% coverage
+- [ ] Integration tests completed
+- [ ] Documentation updated with examples
+- [ ] Changeset created for version management
+
 ## Running Examples
 The repository includes 25+ examples demonstrating different capabilities. All examples support tracing:
 
