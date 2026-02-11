@@ -117,6 +117,26 @@ Add configurable max-iteration limits to tool-calling middleware with safe defau
 
 ---
 
+### DT 20260212-1100: Agent Skills Support
+
+**[dt-20260212-1100-agent-skills-support.md](./dt-20260212-1100-agent-skills-support.md)**
+
+**Date:** 2026-02-12  
+**Status:** Proposal  
+**Priority:** High  
+**Related:** Anthropic Claude Skills Architecture
+
+Bring Claude's Agent Skills pattern to SISU Framework with middleware-based, type-safe implementation.
+
+**Key Approach:**
+
+- Skills as enhanced system prompts with progressive disclosure
+- Middleware-based registration and activation
+- Type-safe skill definitions with bundled tools
+- Provider-agnostic (works with OpenAI, Anthropic, Ollama)
+
+---
+
 ### DT 20251119-0700: Reasoning Model Support
 
 **[dt-20251119-0700-reasoning-model-support.md](./dt-20251119-0700-reasoning-model-support.md)**
@@ -178,6 +198,7 @@ Quick reference guide with architecture diagrams, data flows, and implementation
 - DT 20260212-0940: Shared Tool Schema Conversion
 - DT 20260212-0950: Adapter Logging via Structured Logger
 - DT 20260212-1000: Configurable Tool-Calling Limits
+- DT 20260212-1100: Agent Skills Support
 
 ---
 
@@ -196,6 +217,7 @@ Quick reference guide with architecture diagrams, data flows, and implementation
 - [dt-20260212-0900-tool-typing-schema-inference.md](./dt-20260212-0900-tool-typing-schema-inference.md) - Proposal
 - [dt-20260212-0930-typed-tool-errors.md](./dt-20260212-0930-typed-tool-errors.md) - Proposal
 - [dt-20260212-0940-shared-schema-conversion.md](./dt-20260212-0940-shared-schema-conversion.md) - Proposal
+- [dt-20260212-1100-agent-skills-support.md](./dt-20260212-1100-agent-skills-support.md) - Proposal
 
 **Adapters and Streaming:**
 
@@ -216,6 +238,7 @@ Quick reference guide with architecture diagrams, data flows, and implementation
 - DT 20260212-0900: Tool Typing and Schema Inference
 - DT 20260212-0910: Type-safe LLM Generate Overloads
 - DT 20260212-0920: End-to-End Cancellation Propagation
+- DT 20260212-1100: Agent Skills Support
 
 **Medium:**
 
