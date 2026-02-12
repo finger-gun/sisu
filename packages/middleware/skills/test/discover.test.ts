@@ -44,6 +44,25 @@ describe("discoverSkills", () => {
     }
   });
 
+  it("supports directory pointing to a skill folder", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "skills-"));
+    try {
+      const skillDir = path.join(root, "deploy");
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(skillDir, "SKILL.md"),
+        `---\nname: deploy\ndescription: Deploy app\n---\n# Deploy\n`,
+        "utf8",
+      );
+
+      const res = await discoverSkills({ directory: skillDir });
+      expect(res.skills.length).toBe(1);
+      expect(res.skills[0].metadata.name).toBe("deploy");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("applies include/exclude filters", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "skills-"));
     try {

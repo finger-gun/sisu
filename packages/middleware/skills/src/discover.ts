@@ -81,6 +81,73 @@ async function collectResources(
   }
 }
 
+async function loadSkillFromDir(
+  skillDir: string,
+  options: SkillsOptions,
+  errors: SkillDiscoveryResult["errors"],
+): Promise<Skill | null> {
+  const skillPath = path.join(skillDir, "SKILL.md");
+  const skillStatFile = await fs.stat(skillPath).catch(() => null);
+  if (!skillStatFile || !skillStatFile.isFile()) return null;
+
+  const raw = await fs.readFile(skillPath, "utf-8").catch(() => null);
+  if (raw === null) {
+    errors.push({ path: skillPath, error: "Failed to read SKILL.md" });
+    return null;
+  }
+
+  const { metadata, body } = parseFrontmatter(raw);
+  const parsed = SkillMetadataSchema.safeParse(metadata);
+  if (!parsed.success) {
+    errors.push({
+      path: skillPath,
+      error: `Invalid skill metadata: ${parsed.error.message}`,
+    });
+    return null;
+  }
+
+  const maxFileSize = options.maxFileSize ?? DEFAULT_MAX_FILE_SIZE;
+  const maxSkillSize = options.maxSkillSize ?? DEFAULT_MAX_SKILL_SIZE;
+
+  const resources = [] as SkillResource[];
+  const sizeTracker = { total: skillStatFile.size, exceeded: false };
+  await collectResources(
+    skillDir,
+    skillDir,
+    resources,
+    maxFileSize,
+    maxSkillSize,
+    sizeTracker,
+    errors,
+  );
+
+  if (sizeTracker.exceeded) {
+    errors.push({
+      path: skillDir,
+      error: `Skill too large (${sizeTracker.total} bytes)`,
+    });
+    return null;
+  }
+
+  const skill: Skill = {
+    metadata: parsed.data,
+    instructions: body,
+    path: skillPath,
+    directory: skillDir,
+    resources,
+  };
+
+  const nameField = skill.metadata.name as string;
+  if (options.include && options.include.length > 0) {
+    if (!options.include.includes(nameField)) return null;
+  }
+  if (options.exclude && options.exclude.length > 0) {
+    if (options.exclude.includes(nameField)) return null;
+  }
+
+  return skill;
+}
+
 export async function discoverSkills(
   options: SkillsOptions,
 ): Promise<SkillDiscoveryResult> {
@@ -98,14 +165,17 @@ export async function discoverSkills(
   const result: Skill[] = [];
   const errors: SkillDiscoveryResult["errors"] = [];
 
-  const maxFileSize = options.maxFileSize ?? DEFAULT_MAX_FILE_SIZE;
-  const maxSkillSize = options.maxSkillSize ?? DEFAULT_MAX_SKILL_SIZE;
-
   for (const dir of absDirs) {
     try {
       const stat = await fs.stat(dir).catch(() => null);
       if (!stat || !stat.isDirectory()) {
         errors.push({ path: dir, error: "Directory not found" });
+        continue;
+      }
+
+      const directSkill = await loadSkillFromDir(dir, options, errors);
+      if (directSkill) {
+        result.push(directSkill);
         continue;
       }
 
@@ -115,65 +185,8 @@ export async function discoverSkills(
         const skillDir = path.join(dir, name);
         const skillStat = await fs.stat(skillDir).catch(() => null);
         if (!skillStat || !skillStat.isDirectory()) continue;
-
-        const skillPath = path.join(skillDir, "SKILL.md");
-        const skillStatFile = await fs.stat(skillPath).catch(() => null);
-        if (!skillStatFile || !skillStatFile.isFile()) continue;
-
-        const raw = await fs.readFile(skillPath, "utf-8").catch(() => null);
-        if (raw === null) {
-          errors.push({ path: skillPath, error: "Failed to read SKILL.md" });
-          continue;
-        }
-
-        const { metadata, body } = parseFrontmatter(raw);
-        const parsed = SkillMetadataSchema.safeParse(metadata);
-        if (!parsed.success) {
-          errors.push({
-            path: skillPath,
-            error: `Invalid skill metadata: ${parsed.error.message}`,
-          });
-          continue;
-        }
-
-        const resources = [] as SkillResource[];
-        const sizeTracker = { total: skillStatFile.size, exceeded: false };
-        await collectResources(
-          skillDir,
-          skillDir,
-          resources,
-          maxFileSize,
-          maxSkillSize,
-          sizeTracker,
-          errors,
-        );
-
-        if (sizeTracker.exceeded) {
-          errors.push({
-            path: skillDir,
-            error: `Skill too large (${sizeTracker.total} bytes)`,
-          });
-          continue;
-        }
-
-        const skill: Skill = {
-          metadata: parsed.data,
-          instructions: body,
-          path: skillPath,
-          directory: skillDir,
-          resources,
-        };
-
-        // apply include/exclude filters
-        const nameField = skill.metadata.name as string;
-        if (options.include && options.include.length > 0) {
-          if (!options.include.includes(nameField)) continue;
-        }
-        if (options.exclude && options.exclude.length > 0) {
-          if (options.exclude.includes(nameField)) continue;
-        }
-
-        result.push(skill);
+        const skill = await loadSkillFromDir(skillDir, options, errors);
+        if (skill) result.push(skill);
       }
     } catch (err) {
       errors.push({ path: dir, error: String(err) });
