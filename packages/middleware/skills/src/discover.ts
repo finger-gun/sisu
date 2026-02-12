@@ -10,6 +10,7 @@ import parseFrontmatter from "./parser";
 import { SkillMetadataSchema } from "./schemas";
 
 const DEFAULT_MAX_FILE_SIZE = 100 * 1024; // 100KB
+const DEFAULT_MAX_SKILL_SIZE = 500 * 1024; // 500KB
 
 function classifyResource(name: string): SkillResource["type"] {
   const ext = path.extname(name).toLowerCase();
@@ -19,7 +20,75 @@ function classifyResource(name: string): SkillResource["type"] {
   return "other";
 }
 
-export async function discoverSkills(options: SkillsOptions): Promise<Skill[]> {
+function toPosixPath(p: string): string {
+  return p.split(path.sep).join("/");
+}
+
+async function collectResources(
+  skillDir: string,
+  dir: string,
+  resources: SkillResource[],
+  maxFileSize: number,
+  maxSkillSize: number,
+  sizeTracker: { total: number; exceeded: boolean },
+  errors: SkillDiscoveryResult["errors"],
+): Promise<void> {
+  const entries = await fs
+    .readdir(dir, { withFileTypes: true })
+    .catch(() => []);
+  for (const entry of entries) {
+    if (sizeTracker.exceeded) return;
+    const fp = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await collectResources(
+        skillDir,
+        fp,
+        resources,
+        maxFileSize,
+        maxSkillSize,
+        sizeTracker,
+        errors,
+      );
+      continue;
+    }
+
+    if (!entry.isFile()) continue;
+    if (entry.name === "SKILL.md") continue;
+
+    const st = await fs.stat(fp).catch(() => null);
+    if (!st || !st.isFile()) continue;
+    if (st.size > maxFileSize) {
+      errors.push({
+        path: fp,
+        error: `Resource too large (${st.size} bytes)`,
+      });
+      continue;
+    }
+
+    sizeTracker.total += st.size;
+    if (sizeTracker.total > maxSkillSize) {
+      sizeTracker.exceeded = true;
+      return;
+    }
+
+    const rel = toPosixPath(path.relative(skillDir, fp));
+    resources.push({
+      name: entry.name,
+      path: rel,
+      absolutePath: fp,
+      type: classifyResource(entry.name),
+    });
+  }
+}
+
+export async function discoverSkills(
+  options: SkillsOptions,
+): Promise<SkillDiscoveryResult> {
+  if (!options.directories && !options.directory) {
+    throw new Error(
+      "skills discovery requires explicit directory configuration",
+    );
+  }
   const dirs: string[] = [];
   if (options.directory) dirs.push(options.directory);
   if (Array.isArray(options.directories)) dirs.push(...options.directories);
@@ -27,13 +96,18 @@ export async function discoverSkills(options: SkillsOptions): Promise<Skill[]> {
   const absDirs = dirs.map((d) => (path.isAbsolute(d) ? d : path.join(cwd, d)));
 
   const result: Skill[] = [];
+  const errors: SkillDiscoveryResult["errors"] = [];
 
   const maxFileSize = options.maxFileSize ?? DEFAULT_MAX_FILE_SIZE;
+  const maxSkillSize = options.maxSkillSize ?? DEFAULT_MAX_SKILL_SIZE;
 
   for (const dir of absDirs) {
     try {
       const stat = await fs.stat(dir).catch(() => null);
-      if (!stat || !stat.isDirectory()) continue;
+      if (!stat || !stat.isDirectory()) {
+        errors.push({ path: dir, error: "Directory not found" });
+        continue;
+      }
 
       // list entries
       const names = await fs.readdir(dir);
@@ -43,44 +117,43 @@ export async function discoverSkills(options: SkillsOptions): Promise<Skill[]> {
         if (!skillStat || !skillStat.isDirectory()) continue;
 
         const skillPath = path.join(skillDir, "SKILL.md");
-        const exists = await fs.stat(skillPath).catch(() => null);
-        if (!exists || !exists.isFile()) continue;
+        const skillStatFile = await fs.stat(skillPath).catch(() => null);
+        if (!skillStatFile || !skillStatFile.isFile()) continue;
 
         const raw = await fs.readFile(skillPath, "utf-8").catch(() => null);
-        if (raw === null) continue;
+        if (raw === null) {
+          errors.push({ path: skillPath, error: "Failed to read SKILL.md" });
+          continue;
+        }
 
         const { metadata, body } = parseFrontmatter(raw);
         const parsed = SkillMetadataSchema.safeParse(metadata);
         if (!parsed.success) {
-          // skip invalid metadata
-          // eslint-disable-next-line no-console
-          console.warn(
-            `Invalid skill metadata in ${skillPath}: ${parsed.error.message}`,
-          );
+          errors.push({
+            path: skillPath,
+            error: `Invalid skill metadata: ${parsed.error.message}`,
+          });
           continue;
         }
 
-        const files = await fs.readdir(skillDir).catch(() => []);
         const resources = [] as SkillResource[];
-        for (const f of files) {
-          if (f === "SKILL.md") continue;
-          const fp = path.join(skillDir, f);
-          const st = await fs.stat(fp).catch(() => null);
-          if (!st || !st.isFile()) continue;
-          if (st.size > maxFileSize) {
-            // skip oversized resource
-            // eslint-disable-next-line no-console
-            console.warn(
-              `Skipping resource ${fp}: file too large (${st.size} bytes)`,
-            );
-            continue;
-          }
-          resources.push({
-            name: f,
-            path: f,
-            absolutePath: fp,
-            type: classifyResource(f),
+        const sizeTracker = { total: skillStatFile.size, exceeded: false };
+        await collectResources(
+          skillDir,
+          skillDir,
+          resources,
+          maxFileSize,
+          maxSkillSize,
+          sizeTracker,
+          errors,
+        );
+
+        if (sizeTracker.exceeded) {
+          errors.push({
+            path: skillDir,
+            error: `Skill too large (${sizeTracker.total} bytes)`,
           });
+          continue;
         }
 
         const skill: Skill = {
@@ -103,13 +176,11 @@ export async function discoverSkills(options: SkillsOptions): Promise<Skill[]> {
         result.push(skill);
       }
     } catch (err) {
-      // ignore directory-level errors
-      // eslint-disable-next-line no-console
-      console.warn(`Failed scanning directory ${dir}: ${String(err)}`);
+      errors.push({ path: dir, error: String(err) });
     }
   }
 
-  return result;
+  return { skills: result, scannedDirectories: absDirs, errors };
 }
 
 export default discoverSkills;
