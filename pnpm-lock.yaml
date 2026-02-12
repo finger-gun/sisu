@@ -1175,10 +1175,10 @@ importers:
         version: 2.3.1
 
   packages/middleware/trace-viewer:
-    dependencies:
+    devDependencies:
       '@sisu-ai/core':
-        specifier: ^2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../core
 
   packages/middleware/usage-tracker:
     dependencies:
