@@ -114,6 +114,45 @@ importers:
         specifier: ^16.4.5
         version: 16.6.1
 
+  examples/anthropic-skills:
+    dependencies:
+      '@sisu-ai/adapter-anthropic':
+        specifier: 7.0.1
+        version: 7.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/core':
+        specifier: 2.3.1
+        version: 2.3.1
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: 9.0.1
+        version: 9.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/mw-error-boundary':
+        specifier: 9.0.1
+        version: 9.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/mw-register-tools':
+        specifier: 9.1.0
+        version: 9.1.0(@sisu-ai/core@2.3.1)
+      '@sisu-ai/mw-skills':
+        specifier: workspace:*
+        version: link:../../packages/middleware/skills
+      '@sisu-ai/mw-tool-calling':
+        specifier: 9.0.1
+        version: 9.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/mw-trace-viewer':
+        specifier: 10.0.1
+        version: 10.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/skill-code-review':
+        specifier: workspace:*
+        version: link:../../packages/skills/skill-code-review
+      '@sisu-ai/skill-debug':
+        specifier: workspace:*
+        version: link:../../packages/skills/skill-debug
+      '@sisu-ai/tool-terminal':
+        specifier: 7.0.1
+        version: 7.0.1(@sisu-ai/core@2.3.1)
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+
   examples/anthropic-stream:
     dependencies:
       '@sisu-ai/adapter-anthropic':
@@ -717,6 +756,45 @@ importers:
         specifier: ^16.4.5
         version: 16.6.1
 
+  examples/openai-skills:
+    dependencies:
+      '@sisu-ai/adapter-openai':
+        specifier: 9.0.1
+        version: 9.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/core':
+        specifier: 2.3.1
+        version: 2.3.1
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: 9.0.1
+        version: 9.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/mw-error-boundary':
+        specifier: 9.0.1
+        version: 9.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/mw-register-tools':
+        specifier: 9.1.0
+        version: 9.1.0(@sisu-ai/core@2.3.1)
+      '@sisu-ai/mw-skills':
+        specifier: workspace:*
+        version: link:../../packages/middleware/skills
+      '@sisu-ai/mw-tool-calling':
+        specifier: 9.0.1
+        version: 9.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/mw-trace-viewer':
+        specifier: 10.0.1
+        version: 10.0.1(@sisu-ai/core@2.3.1)
+      '@sisu-ai/skill-code-review':
+        specifier: workspace:*
+        version: link:../../packages/skills/skill-code-review
+      '@sisu-ai/skill-deploy':
+        specifier: workspace:*
+        version: link:../../packages/skills/skill-deploy
+      '@sisu-ai/tool-terminal':
+        specifier: 7.0.1
+        version: 7.0.1(@sisu-ai/core@2.3.1)
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+
   examples/openai-stream:
     dependencies:
       '@sisu-ai/adapter-openai':
@@ -1113,6 +1191,16 @@ importers:
       '@sisu-ai/core':
         specifier: ^2.3.1
         version: 2.3.1
+
+  packages/skills/skill-code-review: {}
+
+  packages/skills/skill-debug: {}
+
+  packages/skills/skill-deploy: {}
+
+  packages/skills/skill-explain: {}
+
+  packages/skills/skill-test-gen: {}
 
   packages/tools/aws-s3:
     dependencies:

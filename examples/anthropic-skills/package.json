@@ -19,10 +19,10 @@
     "@sisu-ai/mw-register-tools": "9.1.0",
     "@sisu-ai/mw-tool-calling": "9.0.1",
     "@sisu-ai/mw-conversation-buffer": "9.0.1",
-    "@sisu-ai/mw-skills": "0.1.0",
+    "@sisu-ai/mw-skills": "workspace:*",
     "@sisu-ai/tool-terminal": "7.0.1",
-    "@sisu-ai/skill-code-review": "0.1.0",
-    "@sisu-ai/skill-debug": "0.1.0",
+    "@sisu-ai/skill-code-review": "workspace:*",
+    "@sisu-ai/skill-debug": "workspace:*",
     "dotenv": "^16.4.5"
   }
 }
