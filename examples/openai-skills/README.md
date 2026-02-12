@@ -19,5 +19,5 @@ pnpm --filter openai-skills dev
 
 - Registers terminal tools with ecosystem aliases (`bash`, `read_file`, `cd`)
 - Loads skills from `.sisu/skills`
-- Uses `@sisu-ai/skill-deploy` and `@sisu-ai/skill-code-review`
+- Uses `@sisu-ai/skill-explain` and `@sisu-ai/skill-code-review`
 - Generates HTML trace files (`trace-*.html`)

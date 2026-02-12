@@ -28,7 +28,7 @@ function ensureSkill(name: string, pkg: string) {
 }
 
 ensureSkill("code-review", "@sisu-ai/skill-code-review");
-ensureSkill("deploy", "@sisu-ai/skill-deploy");
+ensureSkill("explain", "@sisu-ai/skill-explain");
 
 const terminal = createTerminalTool({
   roots: [process.cwd()],
@@ -41,7 +41,7 @@ const ctx = createCtx({
   model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
   input:
     process.env.USER_INPUT ||
-    "Deploy the app to staging. Use the deploy skill and show the checklist.",
+    "Explain the core architecture of this repo and highlight key modules. Use the explain skill.",
   systemPrompt:
     "You are a helpful assistant. Use skills when they provide structured guidance.",
   logLevel: (process.env.LOG_LEVEL as any) ?? "info",

@@ -785,9 +785,9 @@ importers:
       '@sisu-ai/skill-code-review':
         specifier: workspace:*
         version: link:../../packages/skills/skill-code-review
-      '@sisu-ai/skill-deploy':
+      '@sisu-ai/skill-explain':
         specifier: workspace:*
-        version: link:../../packages/skills/skill-deploy
+        version: link:../../packages/skills/skill-explain
       '@sisu-ai/tool-terminal':
         specifier: 7.0.1
         version: 7.0.1(@sisu-ai/core@2.3.1)

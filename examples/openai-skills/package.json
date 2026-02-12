@@ -22,7 +22,7 @@
     "@sisu-ai/mw-skills": "workspace:*",
     "@sisu-ai/tool-terminal": "7.0.1",
     "@sisu-ai/skill-code-review": "workspace:*",
-    "@sisu-ai/skill-deploy": "workspace:*",
+    "@sisu-ai/skill-explain": "workspace:*",
     "dotenv": "^16.4.5"
   }
 }
