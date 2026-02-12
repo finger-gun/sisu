@@ -15,8 +15,7 @@
     "build": "tsc -b",
     "clean": "rm -rf dist",
     "lint": "eslint src --ext .ts,.js",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "zod": "^3.22.4"
