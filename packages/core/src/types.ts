@@ -1,10 +1,10 @@
-export type Role = 'user' | 'assistant' | 'system' | 'tool';
+export type Role = "user" | "assistant" | "system" | "tool";
 
 /** Tool call envelope normalized across providers */
 export interface ToolCall {
-  id: string;                 // provider's tool_call_id (or synthesized UUID)
-  name: string;               // tool name
-  arguments: unknown;         // provider-parsed args (object) or raw JSON string parsed upstream
+  id: string; // provider's tool_call_id (or synthesized UUID)
+  name: string; // tool name
+  arguments: unknown; // provider-parsed args (object) or raw JSON string parsed upstream
 }
 
 /** Messages are discriminated by role for precision */
@@ -15,26 +15,26 @@ export type Message =
   | ToolMessage;
 
 export interface SystemMessage {
-  role: 'system';
+  role: "system";
   content: string;
   name?: string;
 }
 
 export interface UserMessage {
-  role: 'user';
+  role: "user";
   content: string;
   name?: string;
 }
 
 export interface AssistantMessage {
-  role: 'assistant';
-  content: string;            // final text from the model
+  role: "assistant";
+  content: string; // final text from the model
   name?: string;
   /** When the model wants to call tools, it returns one or more tool calls */
   tool_calls?: ToolCall[];
-  /** 
+  /**
    * Reasoning details from thinking/reasoning models (e.g., o1, o3, ChatGPT 5.1).
-   * This field must be preserved when passing the message back to the model 
+   * This field must be preserved when passing the message back to the model
    * for multi-turn conversations to maintain reasoning context.
    * @internal The structure is provider-specific and should be treated as opaque.
    */
@@ -42,7 +42,7 @@ export interface AssistantMessage {
 }
 
 export interface ToolMessage {
-  role: 'tool';
+  role: "tool";
   /** Tool JSON/string result to be fed back to the model */
   content: string;
   /** Link back to the specific assistant tool call */
@@ -53,29 +53,29 @@ export interface ToolMessage {
 
 /** LLM call options */
 export type ToolChoice =
-  | 'auto'                     // model decides
-  | 'none'                     // forbid tools
-  | 'required'                 // force at least one tool call when supported
-  | { name: string };          // force a specific tool by name (if provider supports)
+  | "auto" // model decides
+  | "none" // forbid tools
+  | "required" // force at least one tool call when supported
+  | { name: string }; // force a specific tool by name (if provider supports)
 
 export interface GenerateOptions {
   temperature?: number;
   maxTokens?: number;
   toolChoice?: ToolChoice;
   signal?: AbortSignal;
-  tools?: Tool[];              // schemas surfaced to the provider
+  tools?: Tool[]; // schemas surfaced to the provider
   parallelToolCalls?: boolean; // hint for providers supporting parallelism
-  stream?: boolean;            // request token streaming when supported
+  stream?: boolean; // request token streaming when supported
   /**
    * Enable extended reasoning/thinking for models that support it (e.g., o1, o3, ChatGPT 5.1).
    * - `true` or `false`: Simple enable/disable
    * - `{ enabled: true }`: OpenAI-style object notation
    * - Custom object: Provider-specific options
-   * 
+   *
    * @example
    * // Enable reasoning
    * { reasoning: true }
-   * 
+   *
    * @example
    * // OpenAI format
    * { reasoning: { enabled: true } }
@@ -86,10 +86,10 @@ export interface GenerateOptions {
 
 /** Streaming events */
 export type ModelEvent =
-  | { type: 'token'; token: string }
-  | { type: 'tool_call'; call: ToolCall }      // normalized, not per-provider delta
-  | { type: 'assistant_message'; message: AssistantMessage }
-  | { type: 'usage'; usage: Usage };           // optional live usage updates
+  | { type: "token"; token: string }
+  | { type: "tool_call"; call: ToolCall } // normalized, not per-provider delta
+  | { type: "assistant_message"; message: AssistantMessage }
+  | { type: "usage"; usage: Usage }; // optional live usage updates
 
 export interface Usage {
   promptTokens?: number;
@@ -100,7 +100,7 @@ export interface Usage {
 
 /** Final response */
 export interface ModelResponse {
-  message: AssistantMessage;  // assistant may or may not have tool_calls
+  message: AssistantMessage; // assistant may or may not have tool_calls
   usage?: Usage;
 }
 
@@ -109,8 +109,14 @@ export interface LLM {
   name: string;
   capabilities: { functionCall?: boolean; streaming?: boolean };
   generate(messages: Message[], opts?: GenerateOptions): Promise<ModelResponse>;
-  generate(messages: Message[], opts?: GenerateOptions): AsyncIterable<ModelEvent>;
-  generate(messages: Message[], opts?: GenerateOptions): Promise<ModelResponse | AsyncIterable<ModelEvent>>;
+  generate(
+    messages: Message[],
+    opts?: GenerateOptions,
+  ): AsyncIterable<ModelEvent>;
+  generate(
+    messages: Message[],
+    opts?: GenerateOptions,
+  ): Promise<ModelResponse | AsyncIterable<ModelEvent>>;
 }
 
 /** Logger, Memory, TokenStream: unchanged */
@@ -125,9 +131,12 @@ export interface Logger {
 export interface Memory {
   get<T = unknown>(key: string): Promise<T | undefined>;
   set(key: string, val: unknown): Promise<void>;
-  retrieval?(
-    index: string
-  ): { search: (q: string, topK?: number) => Promise<Array<{ text: string; score?: number }>> };
+  retrieval?(index: string): {
+    search: (
+      q: string,
+      topK?: number,
+    ) => Promise<Array<{ text: string; score?: number }>>;
+  };
 }
 
 export interface TokenStream {
@@ -182,6 +191,12 @@ export interface Ctx {
   tools: ToolRegistry;
   memory: Memory;
   stream: TokenStream;
+  /**
+   * Extensible state object for middleware to share data.
+   *
+   * Well-known keys used by SISU middleware:
+   * - `toolAliases` (Map<string, string>): Map of tool names to API aliases set by registerTools
+   */
   state: Record<string, unknown>;
   signal: AbortSignal;
   log: Logger;

@@ -1,42 +1,116 @@
-import type { Middleware, Message, ToolContext } from '@sisu-ai/core';
+import type { Middleware, Message, ToolContext, Tool } from "@sisu-ai/core";
+
+/**
+ * Apply user-configured aliases to tools before passing to adapter.
+ * Creates new tool objects with aliased names while keeping originals in registry.
+ */
+function applyAliasesToTools(
+  tools: Tool[],
+  aliasMap?: Map<string, string>,
+): { aliasedTools: Tool[]; reverseMap: Map<string, string> } {
+  if (!aliasMap || aliasMap.size === 0) {
+    // No aliases configured - return tools as-is with identity map
+    const reverseMap = new Map<string, string>();
+    for (const tool of tools) {
+      reverseMap.set(tool.name, tool.name);
+    }
+    return { aliasedTools: tools, reverseMap };
+  }
+
+  const aliasedTools: Tool[] = [];
+  const reverseMap = new Map<string, string>();
+
+  for (const tool of tools) {
+    const alias = aliasMap.get(tool.name);
+    if (alias) {
+      // Create new tool object with aliased name
+      const aliasedTool = { ...tool, name: alias };
+      aliasedTools.push(aliasedTool);
+      reverseMap.set(alias, tool.name); // alias -> canonical
+    } else {
+      // No alias for this tool - use as-is
+      aliasedTools.push(tool);
+      reverseMap.set(tool.name, tool.name); // identity mapping
+    }
+  }
+
+  return { aliasedTools, reverseMap };
+}
+
 export const toolCalling: Middleware = async (ctx, next) => {
   await next();
+  const toolList = ctx.tools.list();
+  const userAliases = ctx.state.toolAliases as Map<string, string> | undefined;
+  const { aliasedTools, reverseMap } = applyAliasesToTools(
+    toolList,
+    userAliases,
+  );
+
   for (let i = 0; i < 6; i++) {
-    ctx.log.debug?.('[tool-calling] iteration start', { i, messages: ctx.messages.length });
-    const toolList = ctx.tools.list();
-    const allowTools = i === 0 ? 'auto' : 'none';
+    ctx.log.debug?.("[tool-calling] iteration start", {
+      i,
+      messages: ctx.messages.length,
+    });
+    const allowTools = i === 0 ? "auto" : "none";
     const genOpts: any = { toolChoice: allowTools, signal: ctx.signal };
-    if (allowTools !== 'none') { genOpts.tools = toolList; genOpts.parallelToolCalls = false; }
-    const out = await ctx.model.generate(ctx.messages, genOpts) as any;
+    if (allowTools !== "none") {
+      genOpts.tools = aliasedTools; // Pass renamed tools to adapter
+      genOpts.parallelToolCalls = false;
+    }
+    const out = (await ctx.model.generate(ctx.messages, genOpts)) as any;
     const msg = out.message as Message;
-    const toolCalls = (msg as any).tool_calls as Array<{ id?: string, name: string, arguments: any }> | undefined;
+    const toolCalls = (msg as any).tool_calls as
+      | Array<{ id?: string; name: string; arguments: any }>
+      | undefined;
     if (toolCalls && toolCalls.length > 0) {
       // Important: include the assistant message that requested tools so tool_call_id has a valid anchor.
       ctx.messages.push(msg);
-      ctx.log.info?.('[tool-calling] model requested tools', toolCalls.map(tc => ({ id: tc.id, name: tc.name, hasArgs: typeof tc.arguments !== 'undefined' })));
+      ctx.log.info?.(
+        "[tool-calling] model requested tools",
+        toolCalls.map((tc) => ({
+          id: tc.id,
+          name: tc.name,
+          hasArgs: typeof tc.arguments !== "undefined",
+        })),
+      );
 
       // Execute each unique (name,args) once, but reply to every tool_call_id.
       const cache = new Map<string, any>();
-      const keyOf = (tc: { name: string; arguments: any }) => `${tc.name}:${safeStableStringify(tc.arguments)}`;
+      const keyOf = (tc: { name: string; arguments: any }) =>
+        `${tc.name}:${safeStableStringify(tc.arguments)}`;
       const lastArgsByName = new Map<string, any>();
 
       // Pre-pass: fill missing arguments from last seen arguments of same tool name (provider quirk)
       const resolvedCalls = toolCalls.map((tc) => {
-        if (typeof tc.arguments === 'undefined' && lastArgsByName.has(tc.name)) {
+        if (
+          typeof tc.arguments === "undefined" &&
+          lastArgsByName.has(tc.name)
+        ) {
           return { ...tc, arguments: lastArgsByName.get(tc.name) };
         }
         return tc;
       });
 
       for (const call of resolvedCalls) {
-        const tool = ctx.tools.get(call.name);
-        if (!tool) throw new Error('Unknown tool: ' + call.name);
+        // Resolve alias back to canonical tool name
+        const canonicalName = reverseMap.get(call.name);
+        if (!canonicalName) throw new Error("Unknown tool: " + call.name);
+
+        const tool = ctx.tools.get(canonicalName);
+        if (!tool) throw new Error("Unknown tool: " + canonicalName);
 
         const key = keyOf(call);
         let result = cache.get(key);
         if (result === undefined) {
-          const args = tool.schema?.parse ? tool.schema.parse(call.arguments) : call.arguments;
-          ctx.log.debug?.('[tool-calling] invoking tool', { name: call.name, id: call.id, args });
+          const args = tool.schema?.parse
+            ? tool.schema.parse(call.arguments)
+            : call.arguments;
+          ctx.log.debug?.("[tool-calling] invoking tool", {
+            aliasName: call.name,
+            canonicalName: canonicalName,
+            id: call.id,
+            args,
+          });
           // Create restricted context for tool execution
           const toolCtx: ToolContext = {
             memory: ctx.memory,
@@ -50,18 +124,28 @@ export const toolCalling: Middleware = async (ctx, next) => {
           cache.set(key, result);
           lastArgsByName.set(call.name, args);
         } else {
-          ctx.log.debug?.('[tool-calling] reusing cached tool result for duplicate call', { name: call.name, id: call.id });
+          ctx.log.debug?.(
+            "[tool-calling] reusing cached tool result for duplicate call",
+            { name: call.name, id: call.id },
+          );
         }
 
         // Prefer tool_call_id when available (tools API)
-        const toolMsg: any = { role: 'tool', content: JSON.stringify(result) };
-        if (call.id) toolMsg.tool_call_id = call.id; else toolMsg.name = call.name;
+        const toolMsg: any = { role: "tool", content: JSON.stringify(result) };
+        if (call.id) toolMsg.tool_call_id = call.id;
+        else toolMsg.name = call.name;
         ctx.messages.push(toolMsg as Message);
-        ctx.log.debug?.('[tool-calling] tool result appended', { name: call.name, id: call.id, contentBytes: (toolMsg.content as string).length });
+        ctx.log.debug?.("[tool-calling] tool result appended", {
+          name: call.name,
+          id: call.id,
+          contentBytes: (toolMsg.content as string).length,
+        });
       }
       continue;
     } else {
-      ctx.log.info?.('[tool-calling] no tool calls; appending assistant message');
+      ctx.log.info?.(
+        "[tool-calling] no tool calls; appending assistant message",
+      );
       ctx.messages.push(msg);
       break;
     }
@@ -71,37 +155,75 @@ export const toolCalling: Middleware = async (ctx, next) => {
 export const iterativeToolCalling: Middleware = async (ctx, next) => {
   await next();
   const maxIters = 12;
+  const toolList = ctx.tools.list();
+  const userAliases = ctx.state.toolAliases as Map<string, string> | undefined;
+  const { aliasedTools, reverseMap } = applyAliasesToTools(
+    toolList,
+    userAliases,
+  );
+
   for (let i = 0; i < maxIters; i++) {
-    ctx.log.debug?.('[iterative-tool-calling] iteration start', { i, messages: ctx.messages.length });
-    const toolList = ctx.tools.list();
-    const genOpts: any = { toolChoice: 'auto', tools: toolList, parallelToolCalls: false, signal: ctx.signal };
-    const out = await ctx.model.generate(ctx.messages, genOpts) as any;
+    ctx.log.debug?.("[iterative-tool-calling] iteration start", {
+      i,
+      messages: ctx.messages.length,
+    });
+    const genOpts: any = {
+      toolChoice: "auto",
+      tools: aliasedTools, // Pass renamed tools to adapter
+      parallelToolCalls: false,
+      signal: ctx.signal,
+    };
+    const out = (await ctx.model.generate(ctx.messages, genOpts)) as any;
     const msg = out.message as Message;
-    const toolCalls = (msg as any).tool_calls as Array<{ id?: string, name: string, arguments: any }> | undefined;
+    const toolCalls = (msg as any).tool_calls as
+      | Array<{ id?: string; name: string; arguments: any }>
+      | undefined;
     if (toolCalls && toolCalls.length > 0) {
       // include the assistant message that requested tools
       ctx.messages.push(msg);
-      ctx.log.info?.('[iterative-tool-calling] model requested tools', toolCalls.map(tc => ({ id: tc.id, name: tc.name, hasArgs: typeof tc.arguments !== 'undefined' })));
+      ctx.log.info?.(
+        "[iterative-tool-calling] model requested tools",
+        toolCalls.map((tc) => ({
+          id: tc.id,
+          name: tc.name,
+          hasArgs: typeof tc.arguments !== "undefined",
+        })),
+      );
 
       const cache = new Map<string, any>();
-      const keyOf = (tc: { name: string; arguments: any }) => `${tc.name}:${safeStableStringify(tc.arguments)}`;
+      const keyOf = (tc: { name: string; arguments: any }) =>
+        `${tc.name}:${safeStableStringify(tc.arguments)}`;
       const lastArgsByName = new Map<string, any>();
 
       const resolvedCalls = toolCalls.map((tc) => {
-        if (typeof tc.arguments === 'undefined' && lastArgsByName.has(tc.name)) {
+        if (
+          typeof tc.arguments === "undefined" &&
+          lastArgsByName.has(tc.name)
+        ) {
           return { ...tc, arguments: lastArgsByName.get(tc.name) };
         }
         return tc;
       });
 
       for (const call of resolvedCalls) {
-        const tool = ctx.tools.get(call.name);
-        if (!tool) throw new Error('Unknown tool: ' + call.name);
+        // Resolve alias back to canonical tool name
+        const canonicalName = reverseMap.get(call.name);
+        if (!canonicalName) throw new Error("Unknown tool: " + call.name);
+
+        const tool = ctx.tools.get(canonicalName);
+        if (!tool) throw new Error("Unknown tool: " + canonicalName);
         const key = keyOf(call);
         let result = cache.get(key);
         if (result === undefined) {
-          const args = tool.schema?.parse ? tool.schema.parse(call.arguments) : call.arguments;
-          ctx.log.debug?.('[iterative-tool-calling] invoking tool', { name: call.name, id: call.id, args });
+          const args = tool.schema?.parse
+            ? tool.schema.parse(call.arguments)
+            : call.arguments;
+          ctx.log.debug?.("[iterative-tool-calling] invoking tool", {
+            aliasName: call.name,
+            canonicalName: canonicalName,
+            id: call.id,
+            args,
+          });
           // Create restricted context for tool execution
           const toolCtx: ToolContext = {
             memory: ctx.memory,
@@ -115,15 +237,21 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
           cache.set(key, result);
           lastArgsByName.set(call.name, args);
         } else {
-          ctx.log.debug?.('[iterative-tool-calling] reusing cached result', { name: call.name, id: call.id });
+          ctx.log.debug?.("[iterative-tool-calling] reusing cached result", {
+            name: call.name,
+            id: call.id,
+          });
         }
-        const toolMsg: any = { role: 'tool', content: JSON.stringify(result) };
-        if (call.id) toolMsg.tool_call_id = call.id; else toolMsg.name = call.name;
+        const toolMsg: any = { role: "tool", content: JSON.stringify(result) };
+        if (call.id) toolMsg.tool_call_id = call.id;
+        else toolMsg.name = call.name;
         ctx.messages.push(toolMsg as Message);
       }
       continue; // next round may call more tools
     } else {
-      ctx.log.info?.('[iterative-tool-calling] no tool calls; appending assistant message');
+      ctx.log.info?.(
+        "[iterative-tool-calling] no tool calls; appending assistant message",
+      );
       ctx.messages.push(msg);
       break;
     }
@@ -132,7 +260,7 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
 
 function safeStableStringify(v: any): string {
   try {
-    if (v && typeof v === 'object' && !Array.isArray(v)) {
+    if (v && typeof v === "object" && !Array.isArray(v)) {
       const keys = Object.keys(v).sort();
       const obj: any = {};
       for (const k of keys) obj[k] = v[k];
