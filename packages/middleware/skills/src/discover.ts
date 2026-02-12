@@ -5,9 +5,9 @@ import {
   Skill,
   SkillResource,
   SkillDiscoveryResult,
-} from "./types";
-import parseFrontmatter from "./parser";
-import { SkillMetadataSchema } from "./schemas";
+} from "./types.js";
+import parseFrontmatter from "./parser.js";
+import { SkillMetadataSchema } from "./schemas.js";
 
 const DEFAULT_MAX_FILE_SIZE = 100 * 1024; // 100KB
 const DEFAULT_MAX_SKILL_SIZE = 500 * 1024; // 500KB

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseFrontmatter } from "../src/parser";
+import { parseFrontmatter } from "../src/parser.js";
 
 describe("parser", () => {
   it("parses simple frontmatter", () => {

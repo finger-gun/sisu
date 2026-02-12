@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { discoverSkills } from "../src/discover";
+import { discoverSkills } from "../src/discover.js";
 
 function writeSkill(dir: string, name: string, content: string) {
   const skillDir = path.join(dir, name);

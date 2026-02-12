@@ -1,6 +1,6 @@
 import type { Tool, ToolContext } from "@sisu-ai/core";
 import { z } from "zod";
-import { Skill } from "./types";
+import { Skill, SkillResource } from "./types.js";
 
 export function createUseSkillTool(skills: Map<string, Skill>): Tool {
   return {
@@ -11,7 +11,9 @@ export function createUseSkillTool(skills: Map<string, Skill>): Tool {
       const skill = skills.get(args.skill_name);
       if (!skill) return `Skill \"${args.skill_name}\" not found.`;
 
-      const resources = skill.resources.map((r) => `- ${r.path}`).join("\n");
+      const resources = skill.resources
+        .map((r: SkillResource) => `- ${r.path}`)
+        .join("\n");
       const list = resources || "- (none)";
       return `Skill: ${skill.metadata.name}\nSkill directory: ${skill.directory}\n\n${skill.instructions}\n\nAvailable resources (relative to skill directory):\n${list}`;
     },

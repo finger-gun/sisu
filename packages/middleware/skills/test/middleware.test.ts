@@ -4,7 +4,7 @@ import { InMemoryKV, NullStream, SimpleTools, compose } from "@sisu-ai/core";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { skillsMiddleware } from "../src/index";
+import { skillsMiddleware } from "../src/index.js";
 
 function makeCtx(): Ctx {
   const ac = new AbortController();

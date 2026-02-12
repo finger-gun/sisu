@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { createUseSkillTool } from "../src/tool-handler";
-import type { Skill } from "../src/types";
+import { createUseSkillTool } from "../src/tool-handler.js";
+import type { Skill } from "../src/types.js";
 
 describe("createUseSkillTool", () => {
   it("returns instructions and resources", async () => {

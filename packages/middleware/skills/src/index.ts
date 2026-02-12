@@ -1,8 +1,8 @@
 import type { Ctx, Middleware, Tool } from "@sisu-ai/core";
-import type { Skill } from "./types";
-import { SkillsOptions } from "./types";
-import discoverSkills from "./discover";
-import createUseSkillTool from "./tool-handler";
+import type { Skill } from "./types.js";
+import { SkillsOptions } from "./types.js";
+import discoverSkills from "./discover.js";
+import createUseSkillTool from "./tool-handler.js";
 
 const STATE_KEY = "skills";
 
@@ -63,8 +63,8 @@ export function skillsMiddleware(options: SkillsOptions): Middleware {
 
 export default skillsMiddleware;
 
-export { discoverSkills } from "./discover";
-export { createUseSkillTool } from "./tool-handler";
-export { parseFrontmatter } from "./parser";
-export * from "./types";
-export { SkillMetadataSchema } from "./schemas";
+export { discoverSkills } from "./discover.js";
+export { createUseSkillTool } from "./tool-handler.js";
+export { parseFrontmatter } from "./parser.js";
+export * from "./types.js";
+export { SkillMetadataSchema } from "./schemas.js";
