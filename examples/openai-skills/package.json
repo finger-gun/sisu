@@ -1,0 +1,28 @@
+{
+  "name": "openai-skills",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sisu-ai/core": "2.3.1",
+    "@sisu-ai/adapter-openai": "9.0.1",
+    "@sisu-ai/mw-error-boundary": "9.0.1",
+    "@sisu-ai/mw-trace-viewer": "10.0.1",
+    "@sisu-ai/mw-register-tools": "9.1.0",
+    "@sisu-ai/mw-tool-calling": "9.0.1",
+    "@sisu-ai/mw-conversation-buffer": "9.0.1",
+    "@sisu-ai/mw-skills": "0.1.0",
+    "@sisu-ai/tool-terminal": "7.0.1",
+    "@sisu-ai/skill-code-review": "0.1.0",
+    "@sisu-ai/skill-deploy": "0.1.0",
+    "dotenv": "^16.4.5"
+  }
+}
