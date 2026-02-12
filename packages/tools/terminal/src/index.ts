@@ -632,13 +632,22 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     const session = getSession(args.sessionId);
     const cwd = session?.cwd ?? cfg.roots[0];
     const abs = canonicalize(path.resolve(cwd, args.path));
-    if (!isPathAllowed(abs, cfg, "read"))
-      throw new Error("path outside allowed roots");
+    if (!isPathAllowed(abs, cfg, "read")) {
+      return {
+        contents: "",
+        policy: {
+          allowed: false,
+          reason: "path outside allowed roots",
+          allowedRoots: cfg.roots,
+        },
+        message: `Path denied by policy. Allowed roots: ${cfg.roots.join(", ")}.`,
+      } as any;
+    }
     const buf = await fs.readFile(abs);
     const encoding = args.encoding ?? "utf8";
     const contents =
       encoding === "base64" ? buf.toString("base64") : buf.toString("utf8");
-    return { contents };
+    return { contents, policy: { allowed: true } } as any;
   }
 
   const runCommandTool: Tool<

@@ -53,7 +53,9 @@ test("run_command denies network tools like curl", async () => {
 });
 
 test("read_file refuses outside roots", async () => {
-  await expect(tool.read_file({ path: "/etc/passwd" })).rejects.toThrow();
+  const res = await tool.read_file({ path: "/etc/passwd" });
+  expect((res as any).policy.allowed).toBe(false);
+  expect((res as any).message).toContain("Allowed roots");
 });
 
 test("cd cannot escape root", async () => {
