@@ -28,7 +28,7 @@ function ensureSkill(name: string, pkg: string) {
 }
 
 ensureSkill("code-review", "@sisu-ai/skill-code-review");
-ensureSkill("debug", "@sisu-ai/skill-debug");
+ensureSkill("repo-search", "@sisu-ai/skill-repo-search");
 
 const terminal = createTerminalTool({
   roots: [process.cwd()],
@@ -43,7 +43,7 @@ const ctx = createCtx({
   }),
   input:
     process.env.USER_INPUT ||
-    "Review the recent changes for safety and correctness. Use the code-review skill.",
+    "Find where skills middleware is initialized and summarize its configuration. Use the repo-search skill.",
   systemPrompt:
     "You are a helpful assistant. Use skills when they provide structured guidance.",
   logLevel: (process.env.LOG_LEVEL as any) ?? "info",

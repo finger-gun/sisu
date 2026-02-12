@@ -19,5 +19,5 @@ pnpm --filter anthropic-skills dev
 
 - Registers terminal tools with ecosystem aliases (`bash`, `read_file`, `cd`)
 - Loads skills from `.sisu/skills`
-- Uses `@sisu-ai/skill-code-review` and `@sisu-ai/skill-debug`
+- Uses `@sisu-ai/skill-code-review` and `@sisu-ai/skill-repo-search`
 - Generates HTML trace files (`trace-*.html`)

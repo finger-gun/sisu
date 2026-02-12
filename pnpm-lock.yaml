@@ -143,9 +143,9 @@ importers:
       '@sisu-ai/skill-code-review':
         specifier: workspace:*
         version: link:../../packages/skills/skill-code-review
-      '@sisu-ai/skill-debug':
+      '@sisu-ai/skill-repo-search':
         specifier: workspace:*
-        version: link:../../packages/skills/skill-debug
+        version: link:../../packages/skills/skill-repo-search
       '@sisu-ai/tool-terminal':
         specifier: 7.0.1
         version: 7.0.1(@sisu-ai/core@2.3.1)
@@ -785,9 +785,9 @@ importers:
       '@sisu-ai/skill-code-review':
         specifier: workspace:*
         version: link:../../packages/skills/skill-code-review
-      '@sisu-ai/skill-explain':
+      '@sisu-ai/skill-repo-search':
         specifier: workspace:*
-        version: link:../../packages/skills/skill-explain
+        version: link:../../packages/skills/skill-repo-search
       '@sisu-ai/tool-terminal':
         specifier: 7.0.1
         version: 7.0.1(@sisu-ai/core@2.3.1)
@@ -1199,6 +1199,8 @@ importers:
   packages/skills/skill-deploy: {}
 
   packages/skills/skill-explain: {}
+
+  packages/skills/skill-repo-search: {}
 
   packages/skills/skill-test-gen: {}
 

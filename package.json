@@ -41,7 +41,7 @@
     "release:full": "npm run changeset && npm run version-packages && npm run release",
     "check-changes-since-publish": "node ./tools/check-changes-since-publish.mjs",
     "release:report": "node ./tools/release-report.cjs",
-    "release:report:since": "node ./tools/release-report.cjs --since=origin/main", 
+    "release:report:since": "node ./tools/release-report.cjs --since=origin/main",
     "release:plan": "changeset status --output=markdown",
     "release:plan:since": "changeset status --since=origin/main --output=markdown",
     "test": "vitest run",
@@ -83,7 +83,9 @@
     "ex:openai:extract-urls": "TRACE_HTML=1 pnpm --filter=openai-extract-urls dev -- --trace",
     "ex:openai:aws-s3": "TRACE_HTML=1 pnpm --filter=openai-aws-s3 dev -- --trace",
     "ex:openai:server": "TRACE_HTML=1 pnpm --filter=openai-server dev -- --trace",
-    "ex:openai:error-handling": "TRACE_HTML=1 pnpm --filter=openai-error-handling dev -- --trace"
+    "ex:openai:error-handling": "TRACE_HTML=1 pnpm --filter=openai-error-handling dev -- --trace",
+    "ex:openai:skills": "TRACE_HTML=1 pnpm --filter=openai-skills dev -- --trace",
+    "ex:anthropic:skills": "TRACE_HTML=1 pnpm --filter=anthropic-skills dev -- --trace"
   },
   "keywords": [
     "sisu",
