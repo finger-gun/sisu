@@ -1,5 +1,37 @@
 # @sisu-ai/tool-github-projects
 
+## 9.0.1
+
+### Patch Changes
+
+- Infrastructure migration to pnpm + Turbo and tool aliasing support
+
+  **Infrastructure Updates:**
+  - Migrated from npm to pnpm for faster, more efficient dependency management
+  - Added Turbo for optimized monorepo builds with caching
+  - Updated all package dependencies and peer dependencies
+
+  **New Feature:**
+  - Added optional tool aliasing support in `registerTools` middleware - map SISU tool names to ecosystem-standard aliases (e.g., 'bash', 'read_file')
+
+  **Example Usage:**
+
+  ```typescript
+  registerTools(terminal.tools, {
+    aliases: {
+      terminalRun: "bash",
+      terminalReadFile: "read_file",
+    },
+  });
+  ```
+
+  **Maintenance:**
+  - Code formatting standardization across packages
+  - Internal improvements to tool-calling middleware
+
+- Updated dependencies
+  - @sisu-ai/core@2.3.1
+
 ## 9.0.0
 
 ### Patch Changes

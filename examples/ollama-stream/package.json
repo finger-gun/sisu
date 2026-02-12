@@ -8,9 +8,9 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sisu-ai/adapter-ollama": "9.0.0",
-    "@sisu-ai/core": "2.3.0",
-    "@sisu-ai/mw-conversation-buffer": "9.0.0",
+    "@sisu-ai/adapter-ollama": "9.0.1",
+    "@sisu-ai/core": "2.3.1",
+    "@sisu-ai/mw-conversation-buffer": "9.0.1",
     "dotenv": "^16.4.5"
   }
 }

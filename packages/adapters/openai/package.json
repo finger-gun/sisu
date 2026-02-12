@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/adapter-openai",
-  "version": "9.0.0",
+  "version": "9.0.1",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -28,7 +28,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "^2.3.0"
+    "@sisu-ai/core": "^2.3.1"
   },
   "keywords": [
     "sisu",
