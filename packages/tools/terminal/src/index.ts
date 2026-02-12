@@ -422,9 +422,14 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
         stdout: "",
         stderr: "",
         durationMs: 0,
-        policy: pre,
+        policy: {
+          allowed: false,
+          reason: pre.reason,
+          allowedCommands: cfg.commands.allow,
+        },
+        message: `Command denied by policy. Allowed commands: ${cfg.commands.allow.join(", ")}.`,
         cwd,
-      };
+      } as any;
     }
     const pipelinesAllowed = cfg.allowPipe ?? false;
     const sequencesAllowed = cfg.allowSequence ?? false;
