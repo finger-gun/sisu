@@ -1,0 +1,32 @@
+{
+  "name": "@sisu-ai/mw-skills",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "peerDependencies": {
+    "@sisu-ai/core": "^2.3.1"
+  },
+  "devDependencies": {
+    "@sisu-ai/core": "workspace:*",
+    "@types/node": "^20.0.0",
+    "vitest": "^1.0.0"
+  }
+}
