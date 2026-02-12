@@ -1,9 +1,5 @@
 import type { Ctx, Middleware } from "@sisu-ai/core";
-import {
-  createTracingLogger,
-  getErrorDetails,
-  redactSensitive,
-} from "@sisu-ai/core";
+import { createTracingLogger, getErrorDetails } from "@sisu-ai/core";
 import { fileURLToPath } from "node:url";
 
 export type TraceStyle = "light" | "dark";
@@ -145,26 +141,18 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
       const final = ctx.messages.filter((m) => m.role === "assistant").pop();
       const pre = ((ctx as any).state?._tracePreamble || []) as any[];
       const mergedEvents = [...pre, ...getTrace()];
-      const redactedInput = redactSensitive(ctx.input) as string | undefined;
-      const redactedFinal = redactSensitive(final?.content ?? null) as
-        | string
-        | null;
-      const redactedMessages = redactSensitive(ctx.messages) as any[];
-      const redactedEvents = redactSensitive(mergedEvents) as any[];
-      const redactedError = redactSensitive(errorDetails) as any;
-
       const out: TraceDoc = {
-        input: redactedInput,
-        final: redactedFinal,
-        messages: redactedMessages,
-        events: redactedEvents,
+        input: ctx.input,
+        final: final?.content ?? null,
+        messages: ctx.messages,
+        events: mergedEvents,
         meta: {
           start: new Date(start).toISOString(),
           end: new Date(end).toISOString(),
           durationMs: end - start,
           status,
           model: ctx.model?.name,
-          error: redactedError,
+          error: errorDetails,
           usage: (ctx.state as any)?.usage,
         },
       };
@@ -411,8 +399,8 @@ function writeIndexAssets(
         time = (obj && obj.meta && obj.meta.start) || "";
         status = (obj && obj.meta && obj.meta.status) || "unknown";
         duration = (obj && obj.meta && obj.meta.durationMs) || 0;
-      } catch {
-        // Skip malformed JSON entries to avoid breaking runs index
+      } catch (err) {
+        void err;
         return null as any;
       }
     } else if (file.endsWith(".js")) {
@@ -426,7 +414,9 @@ function writeIndexAssets(
           status = obj.status || "unknown";
           duration = obj.duration || 0;
         }
-      } catch {}
+      } catch (err) {
+        void err;
+      }
     }
     return { id, file, title, time, status, duration };
   };

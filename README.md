@@ -2,7 +2,7 @@
 
 # Build AI agents that just work.
 
-**Sisu** is a TypeScript framework for building reliable AI agents. Inspired by the Finnish concept of *sisu*—calm determination under pressure—it brings predictability, composability, and transparency to AI development.
+**Sisu** is a TypeScript framework for building reliable AI agents. Inspired by the Finnish concept of _sisu_—calm determination under pressure—it brings predictability, composability, and transparency to AI development.
 
 🎯 **No surprises.** Explicit middleware, typed tools, deterministic control flow.  
 🔧 **Full control.** Compose planning, routing, safety like Express apps.  
@@ -22,9 +22,9 @@
 **Tired of black-box AI frameworks?** Sisu gives you full transparency and control.
 
 | Problem                                      | Sisu Solution                                                   |
-|----------------------------------------------|-----------------------------------------------------------------|
+| -------------------------------------------- | --------------------------------------------------------------- |
 | 🤔 "Where did my tokens go?"                 | **Built-in trace viewer** shows every token, cost, and decision |
-| 😤 "Why did the tool loop break?"            | **Explicit control flow** you can read, test, and debug        |
+| 😤 "Why did the tool loop break?"            | **Explicit control flow** you can read, test, and debug         |
 | 😓 "Can't swap providers without rewriting"  | **Provider-agnostic adapters** - change 1 line                  |
 | 🔒 "Secrets in my logs again?"               | **Automatic redaction** of API keys and sensitive data          |
 | 🐛 "Production bugs are impossible to debug" | **Structured logging & HTML traces** for every run              |
@@ -34,6 +34,7 @@
 ## ⚡ Quick Start (2 Minutes)
 
 ### Install
+
 ```bash
 # Using pnpm (recommended)
 pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
@@ -49,44 +50,51 @@ npm i @sisu-ai/core @sisu-ai/adapter-openai \
 ```
 
 ### Build Your First Agent
+
 ```ts
-import 'dotenv/config';
-import { Agent, createCtx, type Tool } from '@sisu-ai/core';
-import { registerTools } from '@sisu-ai/mw-register-tools';
-import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
-import { errorBoundary } from '@sisu-ai/mw-error-boundary';
-import { toolCalling } from '@sisu-ai/mw-tool-calling';
-import { openAIAdapter } from '@sisu-ai/adapter-openai';
-import { traceViewer } from '@sisu-ai/mw-trace-viewer';
-import { z } from 'zod';
+import "dotenv/config";
+import { Agent, createCtx, type Tool } from "@sisu-ai/core";
+import { registerTools } from "@sisu-ai/mw-register-tools";
+import {
+  inputToMessage,
+  conversationBuffer,
+} from "@sisu-ai/mw-conversation-buffer";
+import { errorBoundary } from "@sisu-ai/mw-error-boundary";
+import { toolCalling } from "@sisu-ai/mw-tool-calling";
+import { openAIAdapter } from "@sisu-ai/adapter-openai";
+import { traceViewer } from "@sisu-ai/mw-trace-viewer";
+import { z } from "zod";
 
 // 1. Define a tool (any async function with a schema)
 const weather: Tool<{ city: string }> = {
-  name: 'getWeather',
-  description: 'Get weather for a city',
+  name: "getWeather",
+  description: "Get weather for a city",
   schema: z.object({ city: z.string() }),
-  handler: async ({ city }) => ({ city, tempC: 21, summary: 'Sunny' }),
+  handler: async ({ city }) => ({ city, tempC: 21, summary: "Sunny" }),
 };
 
 // 2. Create your context with model and settings
 const ctx = createCtx({
-  model: openAIAdapter({ model: 'gpt-4o-mini' }),
-  input: 'What is the weather in Stockholm?',
-  systemPrompt: 'You are a helpful assistant.',
+  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  input: "What is the weather in Stockholm?",
+  systemPrompt: "You are a helpful assistant.",
 });
 
 // 3. Build your agent pipeline
 const app = new Agent()
-  .use(errorBoundary())           // Handle errors gracefully
-  .use(traceViewer())             // Auto-generate debug traces
-  .use(registerTools([weather]))  // Give the agent your tools
-  .use(inputToMessage)            // Convert input to messages
+  .use(errorBoundary()) // Handle errors gracefully
+  .use(traceViewer()) // Auto-generate debug traces
+  .use(registerTools([weather])) // Give the agent your tools
+  .use(inputToMessage) // Convert input to messages
   .use(conversationBuffer({ window: 8 })) // Manage context window
-  .use(toolCalling);              // Handle tool loops automatically
+  .use(toolCalling); // Handle tool loops automatically
 
 // 4. Run it!
 await app.handler()(ctx);
-console.log('\n✅ Result:', ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
+console.log(
+  "\n✅ Result:",
+  ctx.messages.filter((m) => m.role === "assistant").pop()?.content,
+);
 ```
 
 **That's it!** Open `traces/viewer.html` to see exactly what happened.
@@ -96,11 +104,13 @@ console.log('\n✅ Result:', ctx.messages.filter(m => m.role === 'assistant').po
 ## 🎨 Built-in Observability
 
 ### HTML Trace Viewer
+
 **Stop guessing. Start knowing.**
 
 ![HTML Trace Viewer](html-trace-log.jpg)
 
 Every run auto-generates an interactive HTML trace showing:
+
 - 💰 **Token usage & costs** per turn
 - 🔧 **Tool calls & results** with timing
 - 🔍 **Full conversation history** with diffs
@@ -111,6 +121,7 @@ Perfect for debugging, optimization, and understanding your agent's behavior.
 ---
 
 ### CLI Trace Logs
+
 **Stay in flow with terminal-native logging.**
 
 ![CLI Trace Logs](cli-trace-logs.png)
@@ -124,6 +135,7 @@ Structured, color-coded logs that make sense. No more parsing walls of JSON.
 Sisu is built on **5 simple ideas**:
 
 ### 1️⃣ Everything is Middleware
+
 ```ts
 // Compose your agent like an Express app
 const app = new Agent()
@@ -134,6 +146,7 @@ const app = new Agent()
 ```
 
 ### 2️⃣ One Context, Zero Magic
+
 ```ts
 // Everything flows through a single typed context
 (ctx, next) => {
@@ -144,16 +157,20 @@ const app = new Agent()
 ```
 
 ### 3️⃣ Typed Tools = Safe Tools
+
 ```ts
 // Zod schemas validate inputs automatically
 const tool: Tool = {
-  name: 'searchDocs',
+  name: "searchDocs",
   schema: z.object({ query: z.string() }),
-  handler: async ({ query }) => { /* ... */ }
+  handler: async ({ query }) => {
+    /* ... */
+  },
 };
 ```
 
 ### 4️⃣ Control Flow is Just Code
+
 ```ts
 import { sequence, branch, loopUntil, parallel, graph } from '@sisu-ai/mw-control-flow';
 
@@ -168,12 +185,56 @@ import { sequence, branch, loopUntil, parallel, graph } from '@sisu-ai/mw-contro
 ```
 
 ### 5️⃣ Provider-Agnostic by Design
+
 ```ts
 // Swap providers by changing one line
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: "gpt-4o-mini" });
 // const model = anthropicAdapter({ model: 'claude-sonnet-4' });
 // const model = ollamaAdapter({ model: 'llama3.1' }); // local!
 ```
+
+---
+
+## 🧠 Skills (Reusable Workflows)
+
+Skills are filesystem-based workflows (SKILL.md) that package domain knowledge and multi-step instructions.
+
+### Quick example
+
+```ts
+import { skillsMiddleware } from "@sisu-ai/mw-skills";
+import { registerTools } from "@sisu-ai/mw-register-tools";
+import { createTerminalTool } from "@sisu-ai/tool-terminal";
+
+const terminal = createTerminalTool({
+  roots: [process.cwd()],
+  capabilities: { read: true, write: false, delete: false, exec: true },
+});
+
+const app = new Agent()
+  .use(
+    registerTools(terminal.tools, {
+      aliases: {
+        terminalRun: "bash",
+        terminalReadFile: "read_file",
+        terminalCd: "cd",
+      },
+    }),
+  )
+  .use(
+    skillsMiddleware({
+      directories: [
+        "node_modules/@sisu-ai/skill-code-review",
+        "node_modules/@sisu-ai/skill-repo-search",
+      ],
+    }),
+  );
+```
+
+Examples:
+
+- `examples/openai-skills`
+- `examples/anthropic-skills`
 
 ---
 
@@ -187,6 +248,7 @@ Sisu is built with modern tooling for efficient development:
 - **📝 [Changesets](https://github.com/changesets/changesets)** - Version management and publishing
 
 ### Development Commands
+
 ```bash
 # Install dependencies
 pnpm install
@@ -211,6 +273,7 @@ pnpm typecheck          # Check TypeScript
 ## 🏃 Run Your First Example
 
 **OpenAI Hello World:**
+
 ```bash
 cp examples/openai-hello/.env.example examples/openai-hello/.env
 pnpm run ex:openai:hello
@@ -218,6 +281,7 @@ open examples/openai-hello/traces/trace.html  # 👀 See the magic
 ```
 
 **Local with Ollama (no API key needed!):**
+
 ```bash
 ollama serve && ollama pull llama3.1
 pnpm run ex:ollama:hello
@@ -231,6 +295,7 @@ open examples/ollama-hello/traces/trace.html
 ## 🔧 Key Features
 
 ### 🛡️ Production-Ready Safety
+
 - ✅ **Automatic secret redaction** in logs
 - ✅ **Error boundaries** with custom handlers
 - ✅ **Guardrails middleware** for content filtering
@@ -238,6 +303,7 @@ open examples/ollama-hello/traces/trace.html
 - ✅ **AbortSignal** support for cancellation
 
 ### 🎯 Developer Experience
+
 - ✅ **TypeScript-first** with strict mode
 - ✅ **Minimal API surface** - learn once, use everywhere
 - ✅ **Composable patterns** - build complex from simple
@@ -245,6 +311,7 @@ open examples/ollama-hello/traces/trace.html
 - ✅ **Extensive examples** for every use case
 
 ### 🚀 Performance & Flexibility
+
 - ✅ **Streaming support** for real-time responses
 - ✅ **Conversation buffering** for long contexts
 - ✅ **Context compression** when needed
@@ -256,15 +323,17 @@ open examples/ollama-hello/traces/trace.html
 ## 📦 Ecosystem
 
 ### Adapters
-| Provider | Package | Tools | Streaming | Vision |
-|----------|---------|:-----:|:---------:|:------:|
-| **OpenAI** | [`@sisu-ai/adapter-openai`](packages/adapters/openai/) | ✅ | ✅ | ✅ |
-| **Anthropic** | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/) | ✅ | ✅ | ❌ |
-| **Ollama** (local) | [`@sisu-ai/adapter-ollama`](packages/adapters/ollama/) | ✅ | ✅ | ✅ |
+
+| Provider           | Package                                                      | Tools | Streaming | Vision |
+| ------------------ | ------------------------------------------------------------ | :---: | :-------: | :----: |
+| **OpenAI**         | [`@sisu-ai/adapter-openai`](packages/adapters/openai/)       |  ✅   |    ✅     |   ✅   |
+| **Anthropic**      | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/) |  ✅   |    ✅     |   ❌   |
+| **Ollama** (local) | [`@sisu-ai/adapter-ollama`](packages/adapters/ollama/)       |  ✅   |    ✅     |   ✅   |
 
 💡 **Tip:** OpenAI adapter works with **any OpenAI-compatible API** (LM Studio, vLLM, etc.)
 
 ### Middleware (Mix & Match)
+
 - 🎯 **Control Flow**: [`sequence`](packages/middleware/control-flow/), [`branch`](packages/middleware/control-flow/), [`parallel`](packages/middleware/control-flow/), [`graph`](packages/middleware/control-flow/)
 - 🔧 **Tool Management**: [`registerTools`](packages/middleware/register-tools/), [`toolCalling`](packages/middleware/tool-calling/)
 - 💬 **Conversation**: [`conversationBuffer`](packages/middleware/conversation-buffer/), [`contextCompressor`](packages/middleware/context-compressor/)
@@ -273,6 +342,7 @@ open examples/ollama-hello/traces/trace.html
 - 🧠 **Advanced**: [`rag`](packages/middleware/rag/), [`reactParser`](packages/middleware/react-parser/)
 
 ### Ready-to-Use Tools
+
 - 🌐 **Web**: [`webFetch`](packages/tools/web-fetch/), [`webSearch`](packages/tools/web-search-google/), [`wikipedia`](packages/tools/wikipedia/)
 - ☁️ **Cloud**: [`awsS3`](packages/tools/aws-s3/), [`azureBlob`](packages/tools/azure-blob/)
 - 🔧 **DevOps**: [`terminal`](packages/tools/terminal/), [`githubProjects`](packages/tools/github-projects/)
@@ -285,6 +355,7 @@ open examples/ollama-hello/traces/trace.html
 ## 🎓 Learn More
 
 ### How It Works
+
 Sisu uses a **Koa-style middleware pipeline** that flows through a single typed context:
 
 ```mermaid
@@ -360,6 +431,7 @@ flowchart TD
 ```
 
 **Key flow:**
+
 1. **Middleware pipeline** → Your `Agent` runs a Koa-style chain. Each middleware updates `ctx` and calls `await next()`.
 2. **Adapters** → Middleware calls `ctx.model.generate()`. Any provider can implement the contract.
 3. **Tools** → The registry holds handlers with Zod schemas. `toolCalling` handles the auto/none loop.
@@ -372,16 +444,17 @@ flowchart TD
 **Never log secrets accidentally.**
 
 Sisu automatically detects and redacts:
+
 - 🔑 API keys (OpenAI `sk-...`, Google `AIza...`, AWS `AKIA...`)
 - 🎫 Auth tokens (JWT, GitHub PAT, OAuth)
 - 🔒 Passwords and secrets in common key names
 
 ```ts
-import { createRedactingLogger, createConsoleLogger } from '@sisu-ai/core';
+import { createRedactingLogger, createConsoleLogger } from "@sisu-ai/core";
 
 const logger = createRedactingLogger(createConsoleLogger());
 
-logger.info({ apiKey: 'sk-1234567890abcdef...' });
+logger.info({ apiKey: "sk-1234567890abcdef..." });
 // Output: { apiKey: '***REDACTED***' }
 ```
 
@@ -392,6 +465,7 @@ logger.info({ apiKey: 'sk-1234567890abcdef...' });
 ## ⚙️ Configuration
 
 ### Environment Variables
+
 ```bash
 # LLM Providers
 OPENAI_API_KEY=sk-...
@@ -414,12 +488,14 @@ TRACE_STYLE=dark      # light|dark
 You can configure Sisu examples and scripts in multiple ways:
 
 **1. Inline environment variables (temporary):**
+
 ```bash
 # Override settings for a single run
 MODEL=gpt-4o LOG_LEVEL=debug TRACE_HTML=1 pnpm run ex:openai:hello
 ```
 
 **2. .env files (persistent):**
+
 ```bash
 # Copy and edit example .env file
 cp examples/openai-hello/.env.example examples/openai-hello/.env
@@ -428,6 +504,7 @@ pnpm run ex:openai:hello
 ```
 
 **3. Shell environment (session-wide):**
+
 ```bash
 # Set for current terminal session
 export OPENAI_API_KEY=sk-...
@@ -470,15 +547,18 @@ We're building Sisu in the open and welcome contributions!
 ## 📚 Documentation
 
 ### Core
+
 - [**Core Package**](packages/core/README.md) - Types, utilities, context
 - [**Error Types**](packages/core/ERROR_TYPES.md) - Error handling guide
 
 ### Adapters
+
 - [Anthropic](packages/adapters/anthropic/README.md) - Claude models
 - [Ollama](packages/adapters/ollama/README.md) - Local inference
 - [OpenAI](packages/adapters/openai/README.md) - OpenAI & compatible APIs
 
 ### Middleware
+
 <details>
 <summary>View all middleware packages →</summary>
 
@@ -499,6 +579,7 @@ We're building Sisu in the open and welcome contributions!
 </details>
 
 ### Tools
+
 <details>
 <summary>View all tool packages →</summary>
 
@@ -517,16 +598,19 @@ We're building Sisu in the open and welcome contributions!
 </details>
 
 ### Examples
+
 <details>
 <summary>View all examples →</summary>
 
 **Anthropic:**
+
 - [anthropic-control-flow](examples/anthropic-control-flow/README.md)
 - [anthropic-hello](examples/anthropic-hello/README.md)
 - [anthropic-stream](examples/anthropic-stream/README.md)
 - [anthropic-weather](examples/anthropic-weather/README.md)
 
 **Ollama (Local):**
+
 - [ollama-hello](examples/ollama-hello/README.md)
 - [ollama-stream](examples/ollama-stream/README.md)
 - [ollama-vision](examples/ollama-vision/README.md)
@@ -534,6 +618,7 @@ We're building Sisu in the open and welcome contributions!
 - [ollama-web-search](examples/ollama-web-search/README.md)
 
 **OpenAI:**
+
 - [openai-aws-s3](examples/openai-aws-s3/README.md)
 - [openai-azure-blob](examples/openai-azure-blob/README.md)
 - [openai-branch](examples/openai-branch/README.md)
@@ -565,25 +650,28 @@ We're building Sisu in the open and welcome contributions!
 ## Find Your Inner Strength
 
 ### Adapters
-| Provider | Package | Features | Notes |
-|----------|---------|----------|-------|
-| **OpenAI** | [`@sisu-ai/adapter-openai`](packages/adapters/openai/README.md) | ✅ Tools, ✅ JSON mode, ✅ Streaming, ✅ Vision, ✅ Usage | Works with **any** OpenAI-compatible API |
-| **Ollama** | [`@sisu-ai/adapter-ollama`](packages/adapters/ollama/README.md) | ✅ Local inference, ✅ Tools, ✅ Streaming, ✅ Vision | Run models locally with `ollama serve` |
-| **Anthropic** | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/README.md) | ✅ Tools, ✅ Streaming, ✅ Usage | Claude family models |
+
+| Provider      | Package                                                               | Features                                                  | Notes                                    |
+| ------------- | --------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------- |
+| **OpenAI**    | [`@sisu-ai/adapter-openai`](packages/adapters/openai/README.md)       | ✅ Tools, ✅ JSON mode, ✅ Streaming, ✅ Vision, ✅ Usage | Works with **any** OpenAI-compatible API |
+| **Ollama**    | [`@sisu-ai/adapter-ollama`](packages/adapters/ollama/README.md)       | ✅ Local inference, ✅ Tools, ✅ Streaming, ✅ Vision     | Run models locally with `ollama serve`   |
+| **Anthropic** | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/README.md) | ✅ Tools, ✅ Streaming, ✅ Usage                          | Claude family models                     |
 
 ### When to Reuse vs. Create an Adapter
 
 **Reuse OpenAI adapter if:**
+
 - Provider has OpenAI-compatible API (LM Studio, vLLM, OpenRouter)
 
 ```ts
 const model = openAIAdapter({
-  model: 'gpt-4o-mini',
-  baseUrl: 'http://localhost:1234/v1' // LM Studio
+  model: "gpt-4o-mini",
+  baseUrl: "http://localhost:1234/v1", // LM Studio
 });
 ```
 
 **Create new adapter if:**
+
 - Different request/response shapes (e.g., Anthropic)
 - Special provider features to expose
 - Custom metadata or headers
@@ -595,28 +683,32 @@ const model = openAIAdapter({
 We use [Changesets](https://github.com/changesets/changesets) for versioning.
 
 ### Automated Changeset Creation
+
 Use GitHub Copilot prompt files to automate changeset creation:
 
 ```bash
 # In VS Code, open Copilot Chat and use:
 /create-changesets          # Full analysis and changeset creation
-/quick-changeset            # Quick analysis for simple changes  
+/quick-changeset            # Quick analysis for simple changes
 /breaking-changes           # Analyze breaking changes specifically
 ```
 
 Prompt files are located in [`.github/prompts/`](.github/prompts/) and work directly in VS Code.
 
 ### Quick Publish
+
 ```bash
 pnpm run release:publish  # version → publish
 ```
 
 ### Full Workflow
+
 ```bash
 pnpm run release:full     # changeset → version → publish
 ```
 
 ### Manual Steps
+
 ```bash
 # 1. Create changeset (or use Copilot automation above)
 pnpm run changeset
@@ -644,6 +736,6 @@ If Sisu helps you build better AI agents, give us a star on GitHub! It helps oth
 
 **Built with ❤️ and sisu.**
 
-*Quiet, determined, relentlessly useful.*
+_Quiet, determined, relentlessly useful._
 
 </div>

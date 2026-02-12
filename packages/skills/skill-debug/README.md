@@ -2,23 +2,33 @@
 
 Debugging skill with a systematic playbook.
 
-## Install
+Install
 
 ```bash
 pnpm add @sisu-ai/skill-debug
 ```
 
-## Usage
+Usage
+
+Point the skills middleware directly at the installed package:
+
+```ts
+skillsMiddleware({
+  directories: ["node_modules/@sisu-ai/skill-debug"],
+});
+```
+
+Or copy the skill into your project skills directory:
 
 ```bash
 mkdir -p .sisu/skills/debug
 cp -R node_modules/@sisu-ai/skill-debug/* .sisu/skills/debug/
 ```
 
-## Resources
+Resources
 
 - `resources/debug-playbook.md`
 
-## License
+License
 
 Apache-2.0

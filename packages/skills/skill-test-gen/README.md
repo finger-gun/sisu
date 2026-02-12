@@ -2,23 +2,33 @@
 
 Test generation skill for Vitest with coverage guidance.
 
-## Install
+Install
 
 ```bash
 pnpm add @sisu-ai/skill-test-gen
 ```
 
-## Usage
+Usage
+
+Point the skills middleware directly at the installed package:
+
+```ts
+skillsMiddleware({
+  directories: ["node_modules/@sisu-ai/skill-test-gen"],
+});
+```
+
+Or copy the skill into your project skills directory:
 
 ```bash
 mkdir -p .sisu/skills/test-gen
 cp -R node_modules/@sisu-ai/skill-test-gen/* .sisu/skills/test-gen/
 ```
 
-## Resources
+Resources
 
 - `resources/vitest-patterns.md`
 
-## License
+License
 
 Apache-2.0
