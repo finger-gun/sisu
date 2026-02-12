@@ -13,7 +13,7 @@ export function createUseSkillTool(skills: Map<string, Skill>): Tool {
 
       const resources = skill.resources.map((r) => `- ${r.path}`).join("\n");
       const list = resources || "- (none)";
-      return `Skill: ${skill.metadata.name}\n\n${skill.instructions}\n\nAvailable resources:\n${list}`;
+      return `Skill: ${skill.metadata.name}\nSkill directory: ${skill.directory}\n\n${skill.instructions}\n\nAvailable resources (relative to skill directory):\n${list}`;
     },
   };
 }

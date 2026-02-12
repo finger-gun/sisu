@@ -23,6 +23,7 @@ describe("createUseSkillTool", () => {
 
     const out = await tool.handler({ skill_name: "deploy" }, {} as any);
     expect(out).toContain("Skill: deploy");
+    expect(out).toContain("Skill directory:");
     expect(out).toContain("# Deploy");
     expect(out).toContain("- deploy.sh");
   });
