@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx } from "@sisu-ai/core";
+import { Agent, createCtx } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
@@ -45,7 +45,12 @@ const ctx = createCtx({
   model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
   input: userInput,
   systemPrompt: "You are a helpful assistant with access to terminal commands.",
-  logLevel: (process.env.LOG_LEVEL as any) ?? "info",
+  logLevel: process.env.LOG_LEVEL as
+    | "debug"
+    | "info"
+    | "warn"
+    | "error"
+    | undefined,
 });
 
 const app = new Agent()
