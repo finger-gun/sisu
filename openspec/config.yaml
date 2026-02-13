@@ -8,13 +8,38 @@ schema: spec-driven
 #     Tech stack: TypeScript, React, Node.js
 #     We use conventional commits
 #     Domain: e-commerce platform
+context: |
+  Project: Sisu (TypeScript framework for AI agents)
+  Monorepo: pnpm@9 + Turbo@2, Node >=18.17
+  Design philosophy: explicit, composable middleware; no hidden behavior.
+  Core model: one typed ctx flows through the pipeline.
+  Tools are typed and validated with Zod.
+  Provider-agnostic adapters; swap models with minimal change.
+  Observability-first: tracing and structured logging are expected.
+  Pipelines should include error boundaries and guardrails where relevant.
+  Use strict TypeScript; keep types correct and explicit; avoid any; use unknown + narrowing when needed.
+  Never edit dist/ outputs; update source and run build.
+  Middleware signature: (ctx, next) => Promise<void>; await next() unless intentionally short-circuiting.
+  Tools: define with zod schemas; validate inputs; keep results small/serializable.
+  Logging: use ctx.log; never console.* in packages.
+  Tests: Vitest with >=80% coverage; add tests for changes; prefer TDD for new features.
+  Commands: prefer pnpm --filter for package-specific tasks.
+  Always run pnpm lint, pnpm build, and pnpm test (or test:coverage) after code changes.
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Include a high-level summary of the proposal's purpose and scope
+    - Specify the target audience and intended use cases
+    - Clearly define success metrics and acceptance criteria
+    - Always include Goals and Non-goals sections.
+    - Call out user-facing changes and API surface changes explicitly.
+  design:
+    - Describe data flow and middleware/tool interactions.
+    - Note error handling and cancellation behavior.
+    - Include integration points and expected public exports.
+  tasks:
+    - Break tasks into small, testable steps.
+    - Include tests, build, and coverage tasks when code changes occur.
+    - Reference concrete file paths when possible.
