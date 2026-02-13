@@ -12,15 +12,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sisu-ai/core": "2.3.1",
-    "@sisu-ai/adapter-openai": "9.0.1",
-    "@sisu-ai/mw-error-boundary": "9.0.1",
-    "@sisu-ai/mw-trace-viewer": "10.0.1",
-    "@sisu-ai/mw-register-tools": "9.1.0",
-    "@sisu-ai/mw-tool-calling": "9.0.1",
-    "@sisu-ai/mw-conversation-buffer": "9.0.1",
+    "@sisu-ai/core": "workspace:*",
+    "@sisu-ai/adapter-openai": "workspace:*",
+    "@sisu-ai/mw-error-boundary": "workspace:*",
+    "@sisu-ai/mw-trace-viewer": "workspace:*",
+    "@sisu-ai/mw-register-tools": "workspace:*",
+    "@sisu-ai/mw-tool-calling": "workspace:*",
+    "@sisu-ai/mw-conversation-buffer": "workspace:*",
     "@sisu-ai/mw-skills": "workspace:*",
-    "@sisu-ai/tool-terminal": "7.0.1",
+    "@sisu-ai/tool-terminal": "workspace:*",
     "@sisu-ai/skill-code-review": "workspace:*",
     "@sisu-ai/skill-repo-search": "workspace:*",
     "dotenv": "^16.4.5"

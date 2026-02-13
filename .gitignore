@@ -35,6 +35,7 @@ coverage/
 
 # Caches
 .cache/
+.agents/
 .parcel-cache/
 .turbo/
 .npm/
@@ -58,4 +59,3 @@ traces/
 
 # Misc
 *.local
-

@@ -1,7 +1,7 @@
 {
-  "name": "openai-hello",
+  "name": "openai-agent-browser",
   "private": true,
-  "version": "0.2.21",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "ts-node src/index.ts",
@@ -13,9 +13,14 @@
   },
   "dependencies": {
     "@sisu-ai/core": "workspace:*",
-    "@sisu-ai/mw-usage-tracker": "workspace:*",
-    "@sisu-ai/mw-trace-viewer": "workspace:*",
     "@sisu-ai/adapter-openai": "workspace:*",
+    "@sisu-ai/mw-error-boundary": "workspace:*",
+    "@sisu-ai/mw-trace-viewer": "workspace:*",
+    "@sisu-ai/mw-register-tools": "workspace:*",
+    "@sisu-ai/mw-tool-calling": "workspace:*",
+    "@sisu-ai/mw-conversation-buffer": "workspace:*",
+    "@sisu-ai/mw-skills": "workspace:*",
+    "@sisu-ai/tool-terminal": "workspace:*",
     "dotenv": "^16.4.5"
   }
 }

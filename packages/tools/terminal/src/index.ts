@@ -158,6 +158,7 @@ function isPathAllowed(
 }
 
 function looksLikePath(arg: string): boolean {
+  if (/^https?:\/\//i.test(arg)) return false;
   return (
     arg.startsWith(".") ||
     arg.includes("/") ||

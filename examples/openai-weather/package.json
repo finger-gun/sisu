@@ -8,16 +8,16 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sisu-ai/core": "2.3.1",
-    "@sisu-ai/adapter-openai": "9.0.1",
-    "@sisu-ai/mw-register-tools": "9.1.0",
-    "@sisu-ai/mw-conversation-buffer": "9.0.1",
-    "@sisu-ai/mw-error-boundary": "9.0.1",
-    "@sisu-ai/mw-tool-calling": "9.0.1",
-    "@sisu-ai/mw-control-flow": "9.0.1",
-    "@sisu-ai/mw-trace-viewer": "10.0.1",
-    "@sisu-ai/mw-usage-tracker": "9.0.1",
-    "@sisu-ai/mw-invariants": "9.0.1",
+    "@sisu-ai/core": "workspace:*",
+    "@sisu-ai/adapter-openai": "workspace:*",
+    "@sisu-ai/mw-register-tools": "workspace:*",
+    "@sisu-ai/mw-conversation-buffer": "workspace:*",
+    "@sisu-ai/mw-error-boundary": "workspace:*",
+    "@sisu-ai/mw-tool-calling": "workspace:*",
+    "@sisu-ai/mw-control-flow": "workspace:*",
+    "@sisu-ai/mw-trace-viewer": "workspace:*",
+    "@sisu-ai/mw-usage-tracker": "workspace:*",
+    "@sisu-ai/mw-invariants": "workspace:*",
     "zod": "^3.23.8",
     "dotenv": "^16.4.5"
   }

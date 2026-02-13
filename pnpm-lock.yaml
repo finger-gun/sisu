@@ -60,35 +60,35 @@ importers:
   examples/anthropic-control-flow:
     dependencies:
       '@sisu-ai/adapter-anthropic':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/anthropic
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-control-flow':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/control-flow
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-invariants':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/invariants
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -99,17 +99,17 @@ importers:
   examples/anthropic-hello:
     dependencies:
       '@sisu-ai/adapter-anthropic':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/anthropic
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -117,29 +117,29 @@ importers:
   examples/anthropic-skills:
     dependencies:
       '@sisu-ai/adapter-anthropic':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/anthropic
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-skills':
         specifier: workspace:*
         version: link:../../packages/middleware/skills
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/skill-code-review':
         specifier: workspace:*
         version: link:../../packages/skills/skill-code-review
@@ -147,8 +147,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/skills/skill-repo-search
       '@sisu-ai/tool-terminal':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/tools/terminal
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -156,14 +156,14 @@ importers:
   examples/anthropic-stream:
     dependencies:
       '@sisu-ai/adapter-anthropic':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/anthropic
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -171,38 +171,38 @@ importers:
   examples/anthropic-weather:
     dependencies:
       '@sisu-ai/adapter-anthropic':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/anthropic
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-control-flow':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/control-flow
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-invariants':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/invariants
       '@sisu-ai/mw-react-parser':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/react-parser
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -213,17 +213,17 @@ importers:
   examples/ollama-hello:
     dependencies:
       '@sisu-ai/adapter-ollama':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/ollama
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -231,14 +231,14 @@ importers:
   examples/ollama-stream:
     dependencies:
       '@sisu-ai/adapter-ollama':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/ollama
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -246,17 +246,17 @@ importers:
   examples/ollama-vision:
     dependencies:
       '@sisu-ai/adapter-ollama':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/ollama
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -264,41 +264,41 @@ importers:
   examples/ollama-weather:
     dependencies:
       '@sisu-ai/adapter-ollama':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/ollama
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-control-flow':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/control-flow
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-guardrails':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/guardrails
       '@sisu-ai/mw-invariants':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/invariants
       '@sisu-ai/mw-react-parser':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/react-parser
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -309,29 +309,62 @@ importers:
   examples/ollama-web-search:
     dependencies:
       '@sisu-ai/adapter-ollama':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/ollama
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/tool-web-search-duckduckgo':
-        specifier: 8.0.1
-        version: 8.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/tools/web-search-duckduckgo
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+
+  examples/openai-agent-browser:
+    dependencies:
+      '@sisu-ai/adapter-openai':
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
+      '@sisu-ai/mw-error-boundary':
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
+      '@sisu-ai/mw-register-tools':
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
+      '@sisu-ai/mw-skills':
+        specifier: workspace:*
+        version: link:../../packages/middleware/skills
+      '@sisu-ai/mw-tool-calling':
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
+      '@sisu-ai/mw-trace-viewer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
+      '@sisu-ai/tool-terminal':
+        specifier: workspace:*
+        version: link:../../packages/tools/terminal
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -339,32 +372,32 @@ importers:
   examples/openai-aws-s3:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       '@sisu-ai/tool-aws-s3':
-        specifier: 2.0.2
-        version: 2.0.2
+        specifier: workspace:*
+        version: link:../../packages/tools/aws-s3
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -372,29 +405,29 @@ importers:
   examples/openai-azure-blob:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/tool-azure-blob':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/tools/azure-blob
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -402,26 +435,26 @@ importers:
   examples/openai-branch:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-control-flow':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/control-flow
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -429,35 +462,35 @@ importers:
   examples/openai-control-flow:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-control-flow':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/control-flow
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-invariants':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/invariants
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -468,23 +501,23 @@ importers:
   examples/openai-error-handling:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -495,29 +528,29 @@ importers:
   examples/openai-extract-urls:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/tool-extract-urls':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/tools/extract-urls
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -525,29 +558,29 @@ importers:
   examples/openai-github-projects:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/tool-github-projects':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/tools/github-projects
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -555,26 +588,26 @@ importers:
   examples/openai-graph:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-control-flow':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/control-flow
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -582,26 +615,26 @@ importers:
   examples/openai-guardrails:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-guardrails':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/guardrails
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -609,17 +642,17 @@ importers:
   examples/openai-hello:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -627,26 +660,26 @@ importers:
   examples/openai-parallel:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-control-flow':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/control-flow
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -654,23 +687,23 @@ importers:
   examples/openai-rag-chroma:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-rag':
-        specifier: 8.0.1
-        version: 8.0.1(@sisu-ai/core@2.3.1)(@sisu-ai/vector-core@1.0.5)
+        specifier: workspace:*
+        version: link:../../packages/middleware/rag
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/tool-vec-chroma':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)(@sisu-ai/vector-core@1.0.5)
+        specifier: workspace:*
+        version: link:../../packages/tools/vec-chroma
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -678,29 +711,29 @@ importers:
   examples/openai-react:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-react-parser':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/react-parser
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -711,17 +744,17 @@ importers:
   examples/openai-reasoning:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -729,29 +762,29 @@ importers:
   examples/openai-server:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-agent-run-api':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)(@sisu-ai/server@7.0.1(@sisu-ai/core@2.3.1))
+        specifier: workspace:*
+        version: link:../../packages/middleware/agent-run-api
       '@sisu-ai/mw-cors':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/cors
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       '@sisu-ai/server':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/server
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -759,29 +792,29 @@ importers:
   examples/openai-skills:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-skills':
         specifier: workspace:*
         version: link:../../packages/middleware/skills
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/skill-code-review':
         specifier: workspace:*
         version: link:../../packages/skills/skill-code-review
@@ -789,8 +822,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/skills/skill-repo-search
       '@sisu-ai/tool-terminal':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/tools/terminal
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -798,14 +831,14 @@ importers:
   examples/openai-stream:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -813,32 +846,32 @@ importers:
   examples/openai-terminal:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       '@sisu-ai/tool-terminal':
-        specifier: 7.0.1
-        version: 7.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/tools/terminal
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -885,17 +918,17 @@ importers:
   examples/openai-vision:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -903,35 +936,35 @@ importers:
   examples/openai-weather:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
       '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: workspace:*
+        version: link:../../packages/core
       '@sisu-ai/mw-control-flow':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/control-flow
       '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-invariants':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/invariants
       '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
       '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
       '@sisu-ai/mw-usage-tracker':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -942,101 +975,17 @@ importers:
   examples/openai-web-fetch:
     dependencies:
       '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
-      '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/tool-web-fetch':
-        specifier: 8.0.1
-        version: 8.0.1(@sisu-ai/core@2.3.1)
-      dotenv:
-        specifier: ^16.4.5
-        version: 16.6.1
-
-  examples/openai-web-search:
-    dependencies:
-      '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
-      '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/tool-web-search-openai':
-        specifier: 8.0.1
-        version: 8.0.1(@sisu-ai/core@2.3.1)
-      dotenv:
-        specifier: ^16.4.5
-        version: 16.6.1
-
-  examples/openai-wikipedia:
-    dependencies:
-      '@sisu-ai/adapter-openai':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/core':
-        specifier: 2.3.1
-        version: 2.3.1
-      '@sisu-ai/mw-conversation-buffer':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-error-boundary':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-register-tools':
-        specifier: 9.1.0
-        version: 9.1.0(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-tool-calling':
-        specifier: 9.0.1
-        version: 9.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/mw-trace-viewer':
-        specifier: 10.0.1
-        version: 10.0.1(@sisu-ai/core@2.3.1)
-      '@sisu-ai/tool-wikipedia':
-        specifier: 8.0.1
-        version: 8.0.1(@sisu-ai/core@2.3.1)
-      dotenv:
-        specifier: ^16.4.5
-        version: 16.6.1
-
-  examples/tool-alias-test:
-    dependencies:
-      '@sisu-ai/adapter-openai':
         specifier: workspace:*
         version: link:../../packages/adapters/openai
       '@sisu-ai/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
+      '@sisu-ai/mw-error-boundary':
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
       '@sisu-ai/mw-register-tools':
         specifier: workspace:*
         version: link:../../packages/middleware/register-tools
@@ -1046,19 +995,72 @@ importers:
       '@sisu-ai/mw-trace-viewer':
         specifier: workspace:*
         version: link:../../packages/middleware/trace-viewer
-      '@sisu-ai/tool-terminal':
+      '@sisu-ai/tool-web-fetch':
         specifier: workspace:*
-        version: link:../../packages/tools/terminal
+        version: link:../../packages/tools/web-fetch
       dotenv:
-        specifier: ^16.4.7
+        specifier: ^16.4.5
         version: 16.6.1
-    devDependencies:
-      tsx:
-        specifier: ^4.19.2
-        version: 4.21.0
-      typescript:
-        specifier: ~5.7.2
-        version: 5.7.3
+
+  examples/openai-web-search:
+    dependencies:
+      '@sisu-ai/adapter-openai':
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
+      '@sisu-ai/mw-error-boundary':
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
+      '@sisu-ai/mw-register-tools':
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
+      '@sisu-ai/mw-tool-calling':
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
+      '@sisu-ai/mw-trace-viewer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
+      '@sisu-ai/tool-web-search-openai':
+        specifier: workspace:*
+        version: link:../../packages/tools/web-search-openai
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+
+  examples/openai-wikipedia:
+    dependencies:
+      '@sisu-ai/adapter-openai':
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
+      '@sisu-ai/mw-error-boundary':
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
+      '@sisu-ai/mw-register-tools':
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
+      '@sisu-ai/mw-tool-calling':
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
+      '@sisu-ai/mw-trace-viewer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
+      '@sisu-ai/tool-wikipedia':
+        specifier: workspace:*
+        version: link:../../packages/tools/wikipedia
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
 
   packages/adapters/anthropic:
     dependencies:
@@ -2293,142 +2295,11 @@ packages:
   '@sinclair/typebox@0.27.10':
     resolution: {integrity: sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA==}
 
-  '@sisu-ai/adapter-anthropic@7.0.1':
-    resolution: {integrity: sha512-AAgs0ofljWF5nudBKDzV1cX4QX5wNmUjG2G6Jm8C4ftfOBIVSN9tqniMp3XyVeAepE+M9aH9KFIfM1RgRnRbAA==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/adapter-ollama@9.0.1':
-    resolution: {integrity: sha512-Sf6hZ3zZcBP/iF5WXZeVKZOiKn4cV6Ojcr/GKOfo0PiepbFF+0EHD54VO8NSYuCf2ixwzI2KcNr9rGVmH4dg+Q==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/adapter-openai@9.0.1':
-    resolution: {integrity: sha512-e0BxrpaNg2dPnqaITC2OyYsBfC9i8uMqj75ThJhyeDgbv3uP768srYPQA2V6Pbpl/IcqMBVIu3iOOfk2GKXgNg==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
   '@sisu-ai/core@2.3.1':
     resolution: {integrity: sha512-rZN82qUHcbAYQD3mDMqSPe8xTopHbYt5uyDpXpYPK9TLAvcBqk0ieMWzzbkcrYSnDtXbdoByI9mmcn+DVyNrlQ==}
 
-  '@sisu-ai/mw-agent-run-api@7.0.1':
-    resolution: {integrity: sha512-dSuH5vcV+8yS16JTKpdx6CZmTHcHx61Yd6jrGkYIWcjmWIVbjYkDWpDA2vzcV5rJIb4Sf5w+4aepoUXHYKIUBw==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-      '@sisu-ai/server': ^7.0.1
-
-  '@sisu-ai/mw-control-flow@9.0.1':
-    resolution: {integrity: sha512-JlgeYBYAB380GdVmutsdR6smuU4LILUnIuCJlL/1pM6pE/KzSu+4mz10N+X3eD+NOPUT7mVX+F9JkjNqmWbCIQ==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-conversation-buffer@9.0.1':
-    resolution: {integrity: sha512-Qx1tGwPPHKZUg9DvxBxkBRKaIRVGURYIcS/Qzs/0fhesxaDfmiPS5L45xo1jyhwS097zazUKTSRY8rLcxZFLIg==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-cors@7.0.1':
-    resolution: {integrity: sha512-RmerkI+YKxOjbTSDPpuD5l+OTzlIjxVU2WcWy/Dwra/vhZAoYI4a4PzkeR5Qa1FFoTQ7nU9C7ekvWKHnlrOlrQ==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-error-boundary@9.0.1':
-    resolution: {integrity: sha512-gCsK6ygq1BEKajghSsBDU3jsEbI2E9po3jircJ7i2kj/gzSXnA1Ez3IAzKEhAztMYGZBtFP1f5maHmYNBkokAw==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-guardrails@9.0.1':
-    resolution: {integrity: sha512-Fr4nqTKR+LqjriYYbVDEbycKPfOonA69QoOSzjmMGZQWomYEXaNUVvz41RCByWtoFmYcqCWPwTvfiFZKIIYybQ==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-invariants@9.0.1':
-    resolution: {integrity: sha512-nLDqRNKUPblLwL2X/zTtUQX6fzZ2qPBUSOCaJZExjX68SqvvaAnb1gWE0oECZ+YnWmBeuasxyyiFB6/EKToQew==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-rag@8.0.1':
-    resolution: {integrity: sha512-NBBTT5iyhnNMF9qSMZS1jzIrCPMU+wPo7k0/DvlyLYClvoqSXWDy3JpzMXeItQUOPDmNb7RVsdMtbdiX9RHkag==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-      '@sisu-ai/vector-core': ^1.0.5
-
-  '@sisu-ai/mw-react-parser@9.0.1':
-    resolution: {integrity: sha512-Xqs/zBxk8fn3JkOdVEVFhLG+JGZO6cUvpZkbq4yLbyNbkLhg3/REE4ccKFHttP3XxhaP/VHxZ4UkmcWSEV1Mog==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-register-tools@9.1.0':
-    resolution: {integrity: sha512-e/o945DkmsWgiancoDeEPKxQEIBbv6KKwR5h7d/KoTX/GP5DepK/MubpopzetOIPKLLryQH0yPp4koSJRGv+xw==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-tool-calling@9.0.1':
-    resolution: {integrity: sha512-9TJroTt9Iv7tMUXyWezxZZS0nEPQBY2dE1QWmchwY3kaA4LD1WCSYRcoroSpaPEFtXWQ8xqyvuhp+EV9ghBjxA==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-trace-viewer@10.0.1':
-    resolution: {integrity: sha512-JeoCE7i1utZdhpbdfIeHjtG/lbqg9q3z20+YUL53c2Bki4i1n4F/cBm069ql5nxhSLFmJZ7R+su4m6O1ecBpgA==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/mw-usage-tracker@9.0.1':
-    resolution: {integrity: sha512-wh+/IEv9SlqRWw6DrFlVRxGnKbM+FrubFO6A7fM5oN8KbRu/dj0YIq/OKfduL72F3MhJh+oyGZIqpXltheRpxw==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
   '@sisu-ai/server@7.0.1':
     resolution: {integrity: sha512-SRoI0lkNA40aAmARjFjSqvSHIWQwCpoPU5SY0DagWMmrrKP1nyW/4QFbRJQM0L4lsFSxQxhRV06sJJgJwx6CQA==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/tool-aws-s3@2.0.2':
-    resolution: {integrity: sha512-ZsMhIQQ/d6Akcve7YKgsFdb5N9oX9EHCxpiBvz10bRC3mldNV03vNg6af6VyoSVP6VN8Q7JlLiEMFXNT8YZ/Xg==}
-
-  '@sisu-ai/tool-azure-blob@9.0.1':
-    resolution: {integrity: sha512-ecLTlysJrua2hhjKXAHiRqwLQDvaB8ycKRjKn9opEGqfYTtqYZ3D5DAp6U/7G+ThojBT7U8pElUQxRFtGrF++A==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/tool-extract-urls@9.0.1':
-    resolution: {integrity: sha512-wf4gZT7j+k5DRh2DAYhL4aklBMyApjT6gW4MOaiWCotQ3AcK9EtHkU0LtXcyu+HfBNuMezmkGL+toIJGpB4oyQ==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/tool-github-projects@9.0.1':
-    resolution: {integrity: sha512-wmow8i7xMfwXILwfosbJ1rDXT+1VSoqGKOfyevRwHQw0UCWJN6Rz5ZqLoHj2C5JONe2CMhdArfXlOkfhWbKzTg==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/tool-terminal@7.0.1':
-    resolution: {integrity: sha512-HdrL17JnansnX18o72gtuJ1SpeBe8GG4mkH7gNn3ZR6OTLiuF9A68NdcU/ddPhzVFjENYcJrgtVFZGwJe1o1/Q==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/tool-vec-chroma@7.0.1':
-    resolution: {integrity: sha512-cT+Bn2knRvTFUVzIq4zahrpwf8lmCHKfxmGD7RY0GcobvhnTRfqR19/NepOK/wto+3iA5PXug65J7tW1oq+wSQ==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-      '@sisu-ai/vector-core': ^1.0.5
-
-  '@sisu-ai/tool-web-fetch@8.0.1':
-    resolution: {integrity: sha512-Q9VaCbYeKSHN071rGb0p0RTlJiMZySfEQDhELnvQf9J7h/swu2Hryvqedph6YIVJYPBkjdwlE6/k1F8N6uSt9A==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/tool-web-search-duckduckgo@8.0.1':
-    resolution: {integrity: sha512-N4T1kQ6iB8k3HBO2TzEt5L1Staa7KK5bc1xhpOoENbkx1l4b+3Z9g78S4NtfljiYjzc2c/l6A1qELWsGBd6I0w==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/tool-web-search-openai@8.0.1':
-    resolution: {integrity: sha512-vAQe9VpNQuxK0W1QW/XMr5ow5/vKwi2IfABdsq57Wla9kJ/vJVkgOXd/+jupqrhVzL0o54M4nFcIcmkmJId8iQ==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.1
-
-  '@sisu-ai/tool-wikipedia@8.0.1':
-    resolution: {integrity: sha512-NiMHz2aAXq/ZYmoj85s0crnpmUJD1JjOCLjqDdp+bHmnG4nRAD87DDoENHeZaqWb3k/qSpGefZKV4uTDyRzqJw==}
     peerDependencies:
       '@sisu-ai/core': ^2.3.1
 
@@ -3814,11 +3685,6 @@ packages:
     resolution: {integrity: sha512-Acylog8/luQ8L7il+geoSxhEkazvkslg7PSNKOX59mbB9cOveP5aq9h74Y7YU8yDpJwetzQQrfIwtf4Wp4LKcw==}
     engines: {node: '>=4'}
 
-  typescript@5.7.3:
-    resolution: {integrity: sha512-84MVSjMEHP+FQRPy3pX9sTVV/INIex71s9TL2Gm5FG/WG1SqXeKyZ0k7/blY/4FdOzI12CBy1vGc4og/eus0fw==}
-    engines: {node: '>=14.17'}
-    hasBin: true
-
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
@@ -5199,143 +5065,11 @@ snapshots:
 
   '@sinclair/typebox@0.27.10': {}
 
-  '@sisu-ai/adapter-anthropic@7.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/adapter-ollama@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/adapter-openai@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
   '@sisu-ai/core@2.3.1': {}
-
-  '@sisu-ai/mw-agent-run-api@7.0.1(@sisu-ai/core@2.3.1)(@sisu-ai/server@7.0.1(@sisu-ai/core@2.3.1))':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      '@sisu-ai/server': 7.0.1(@sisu-ai/core@2.3.1)
-
-  '@sisu-ai/mw-control-flow@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-conversation-buffer@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-cors@7.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-error-boundary@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-guardrails@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-invariants@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-rag@8.0.1(@sisu-ai/core@2.3.1)(@sisu-ai/vector-core@1.0.5)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      '@sisu-ai/vector-core': 1.0.5
-
-  '@sisu-ai/mw-react-parser@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-register-tools@9.1.0(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-tool-calling@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-trace-viewer@10.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/mw-usage-tracker@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
 
   '@sisu-ai/server@7.0.1(@sisu-ai/core@2.3.1)':
     dependencies:
       '@sisu-ai/core': 2.3.1
-
-  '@sisu-ai/tool-aws-s3@2.0.2':
-    dependencies:
-      '@aws-sdk/client-s3': 3.934.0
-      '@sisu-ai/core': 2.3.1
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - aws-crt
-
-  '@sisu-ai/tool-azure-blob@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@azure/storage-blob': 12.29.1
-      '@sisu-ai/core': 2.3.1
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - supports-color
-
-  '@sisu-ai/tool-extract-urls@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      zod: 3.25.76
-
-  '@sisu-ai/tool-github-projects@9.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      zod: 3.25.76
-
-  '@sisu-ai/tool-terminal@7.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      minimatch: 9.0.5
-      zod: 3.25.76
-
-  '@sisu-ai/tool-vec-chroma@7.0.1(@sisu-ai/core@2.3.1)(@sisu-ai/vector-core@1.0.5)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      '@sisu-ai/vector-core': 1.0.5
-      chromadb: 1.10.5
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - '@google/generative-ai'
-      - cohere-ai
-      - encoding
-      - ollama
-      - openai
-      - voyageai
-
-  '@sisu-ai/tool-web-fetch@8.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      zod: 3.25.76
-
-  '@sisu-ai/tool-web-search-duckduckgo@8.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      zod: 3.25.76
-
-  '@sisu-ai/tool-web-search-openai@8.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      zod: 3.25.76
-
-  '@sisu-ai/tool-wikipedia@8.0.1(@sisu-ai/core@2.3.1)':
-    dependencies:
-      '@sisu-ai/core': 2.3.1
-      zod: 3.25.76
 
   '@sisu-ai/vector-core@1.0.5': {}
 
@@ -6161,6 +5895,7 @@ snapshots:
       '@esbuild/win32-arm64': 0.27.3
       '@esbuild/win32-ia32': 0.27.3
       '@esbuild/win32-x64': 0.27.3
+    optional: true
 
   escape-string-regexp@4.0.0: {}
 
@@ -6340,6 +6075,7 @@ snapshots:
   get-tsconfig@4.13.6:
     dependencies:
       resolve-pkg-maps: 1.0.0
+    optional: true
 
   glob-parent@5.1.2:
     dependencies:
@@ -6704,7 +6440,8 @@ snapshots:
 
   resolve-from@5.0.0: {}
 
-  resolve-pkg-maps@1.0.0: {}
+  resolve-pkg-maps@1.0.0:
+    optional: true
 
   reusify@1.1.0: {}
 
@@ -6872,6 +6609,7 @@ snapshots:
       get-tsconfig: 4.13.6
     optionalDependencies:
       fsevents: 2.3.3
+    optional: true
 
   turbo-darwin-64@2.6.1:
     optional: true
@@ -6905,8 +6643,6 @@ snapshots:
       prelude-ls: 1.2.1
 
   type-detect@4.1.0: {}
-
-  typescript@5.7.3: {}
 
   typescript@5.9.3: {}
 

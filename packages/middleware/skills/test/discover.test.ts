@@ -80,4 +80,24 @@ describe("discoverSkills", () => {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("records missing directories as errors", async () => {
+    const res = await discoverSkills({ directory: "/nope/skills" });
+    expect(res.skills.length).toBe(0);
+    expect(res.errors.length).toBe(1);
+    expect(res.errors[0]?.error).toBe("Directory not found");
+  });
+
+  it("skips invalid SKILL.md files with error", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "skills-"));
+    try {
+      writeSkill(root, "bad", "---\nname: bad\n---\n# Bad\n");
+      const res = await discoverSkills({ directory: root });
+      expect(res.skills.length).toBe(0);
+      expect(res.errors.length).toBe(1);
+      expect(res.errors[0]?.error).toContain("Invalid skill metadata");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

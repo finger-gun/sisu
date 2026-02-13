@@ -12,14 +12,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sisu-ai/adapter-openai": "9.0.1",
-    "@sisu-ai/core": "2.3.1",
-    "@sisu-ai/mw-agent-run-api": "7.0.1",
-    "@sisu-ai/mw-cors": "7.0.1",
-    "@sisu-ai/mw-error-boundary": "9.0.1",
-    "@sisu-ai/mw-trace-viewer": "10.0.1",
-    "@sisu-ai/mw-usage-tracker": "9.0.1",
-    "@sisu-ai/server": "7.0.1",
+    "@sisu-ai/adapter-openai": "workspace:*",
+    "@sisu-ai/core": "workspace:*",
+    "@sisu-ai/mw-agent-run-api": "workspace:*",
+    "@sisu-ai/mw-cors": "workspace:*",
+    "@sisu-ai/mw-error-boundary": "workspace:*",
+    "@sisu-ai/mw-trace-viewer": "workspace:*",
+    "@sisu-ai/mw-usage-tracker": "workspace:*",
+    "@sisu-ai/server": "workspace:*",
     "dotenv": "^16.4.5"
   }
 }

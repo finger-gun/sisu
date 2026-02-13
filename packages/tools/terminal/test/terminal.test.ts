@@ -1,4 +1,5 @@
 import { test, expect, vi } from "vitest";
+import type { Tool, ToolContext } from "@sisu-ai/core";
 import { createTerminalTool } from "../src/index.js";
 
 const root = process.cwd();
@@ -56,6 +57,13 @@ test("sequence operators allowed when enabled: || runs fallback on error", async
 test("run_command denies network tools like curl", async () => {
   const res = await tool.run_command({ command: "curl https://example.com" });
   expect(res.policy.allowed).toBe(false);
+});
+
+test("run_command allows https args without path rejection", async () => {
+  const res = await tool.run_command({
+    command: "pwd https://example.com",
+  });
+  expect(res.policy.allowed).toBe(true);
 });
 
 test("read_file refuses outside roots", async () => {
@@ -120,10 +128,12 @@ test("run_command logs policy and results", async () => {
   const t = createTerminalTool({ roots: [root] });
   const debug = vi.fn();
   const info = vi.fn();
-  const handler = t.tools.find((x) => x.name === "terminalRun");
-  const res = await handler!.handler({ command: "pwd" }, {
-    log: { debug, info },
-  } as any);
+  const handler = t.tools.find((x) => x.name === "terminalRun") as Tool<
+    { command: string },
+    { exitCode: number }
+  >;
+  const ctx = { log: { debug, info } } as unknown as ToolContext;
+  const res = await handler.handler({ command: "pwd" }, ctx);
   expect(res.exitCode).toBe(0);
   expect(debug).toHaveBeenCalled();
   expect(info).toHaveBeenCalled();
@@ -131,9 +141,13 @@ test("run_command logs policy and results", async () => {
 
 test("terminalCd creates session when missing", async () => {
   const t = createTerminalTool({ roots: [root] });
-  const handler = t.tools.find((x) => x.name === "terminalCd");
-  const res = await handler!.handler({ path: "." }, {
+  const handler = t.tools.find((x) => x.name === "terminalCd") as Tool<
+    { path: string },
+    { sessionId?: string }
+  >;
+  const ctx = {
     log: { debug: vi.fn(), info: vi.fn() },
-  } as any);
+  } as unknown as ToolContext;
+  const res = await handler.handler({ path: "." }, ctx);
   expect(res.sessionId).toBeTruthy();
 });

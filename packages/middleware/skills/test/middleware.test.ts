@@ -52,4 +52,19 @@ describe("skillsMiddleware", () => {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("discovers real SISU skill packages", async () => {
+    const skillDir = path.join(
+      process.cwd(),
+      "packages/skills/skill-code-review",
+    );
+    const ctx = makeCtx();
+    await compose([skillsMiddleware({ directory: skillDir })])(ctx);
+
+    const tool = ctx.tools.get("use_skill") as Tool | undefined;
+    expect(tool).toBeTruthy();
+    const sys = ctx.messages[0];
+    expect(sys.role).toBe("system");
+    expect(sys.content).toContain("code-review");
+  });
 });
