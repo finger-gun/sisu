@@ -1,4 +1,4 @@
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
 import { createTerminalTool } from "../src/index.js";
 
 const root = process.cwd();
@@ -15,6 +15,12 @@ test("run_command blocks operators", async () => {
   const res = await tool.run_command({ command: "ls && whoami" });
   expect(res.policy.allowed).toBe(false);
   expect((res as any).message).toContain("Allowed commands");
+});
+
+test("run_command denies invalid quoting", async () => {
+  const res = await tool.run_command({ command: "echo 'oops" });
+  expect(res.policy.allowed).toBe(false);
+  expect(res.policy.reason).toContain("invalid quoting");
 });
 
 test("run_command blocks path outside roots", async () => {
@@ -61,4 +67,73 @@ test("read_file refuses outside roots", async () => {
 test("cd cannot escape root", async () => {
   const { sessionId } = tool.start_session({ cwd: root });
   expect(() => tool.cd({ sessionId, path: ".." })).toThrow();
+});
+
+test("start_session fails when sessions disabled", () => {
+  const t = createTerminalTool({
+    roots: [root],
+    sessions: { enabled: false, ttlMs: 1, maxPerAgent: 1 },
+  });
+  expect(() => t.start_session({ cwd: root })).toThrow(/sessions disabled/);
+});
+
+test("read_file throws when read capability disabled", async () => {
+  const t = createTerminalTool({
+    roots: [root],
+    capabilities: { read: false, write: false, delete: false, exec: true },
+  });
+  await expect(t.read_file({ path: "README.md" })).rejects.toThrow(
+    /read disabled/,
+  );
+});
+
+test("run_command returns error on spawn failure", async () => {
+  const t = createTerminalTool({
+    roots: [root],
+    commands: { allow: ["__nope__"] },
+  });
+  const res = await t.run_command({ command: "__nope__" });
+  expect(res.exitCode).toBe(-1);
+  expect(res.stderr.length).toBeGreaterThan(0);
+});
+
+test("read_file returns base64 contents", async () => {
+  const res = await tool.read_file({ path: "README.md", encoding: "base64" });
+  expect(res.policy.allowed).toBe(true);
+  const decoded = Buffer.from(res.contents, "base64").toString("utf8");
+  expect(decoded.length).toBeGreaterThan(0);
+});
+
+test("run_command uses session cwd", async () => {
+  const { sessionId } = tool.start_session({ cwd: root });
+  const res = await tool.run_command({ command: "pwd", sessionId });
+  expect(res.policy.allowed).toBe(true);
+  expect(res.stdout.trim()).toBe(root);
+});
+
+test("sequence operators denied when disallowed", async () => {
+  const res = await tool.run_command({ command: "pwd; pwd" });
+  expect(res.policy.allowed).toBe(false);
+});
+
+test("run_command logs policy and results", async () => {
+  const t = createTerminalTool({ roots: [root] });
+  const debug = vi.fn();
+  const info = vi.fn();
+  const handler = t.tools.find((x) => x.name === "terminalRun");
+  const res = await handler!.handler({ command: "pwd" }, {
+    log: { debug, info },
+  } as any);
+  expect(res.exitCode).toBe(0);
+  expect(debug).toHaveBeenCalled();
+  expect(info).toHaveBeenCalled();
+});
+
+test("terminalCd creates session when missing", async () => {
+  const t = createTerminalTool({ roots: [root] });
+  const handler = t.tools.find((x) => x.name === "terminalCd");
+  const res = await handler!.handler({ path: "." }, {
+    log: { debug: vi.fn(), info: vi.fn() },
+  } as any);
+  expect(res.sessionId).toBeTruthy();
 });

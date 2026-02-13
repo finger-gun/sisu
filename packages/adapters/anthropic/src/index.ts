@@ -5,8 +5,22 @@ import type {
   GenerateOptions,
   Tool,
   ModelEvent,
+  ToolCall,
 } from "@sisu-ai/core";
 import { firstConfigValue } from "@sisu-ai/core";
+
+type FetchResponse = Awaited<ReturnType<typeof fetch>>;
+type ToolCallLike = { id?: string; name?: string; arguments?: unknown };
+type ZodSchemaLike = {
+  _def?: {
+    typeName?: string;
+    type?: unknown;
+    innerType?: unknown;
+    shape?: unknown;
+    values?: unknown;
+    value?: unknown;
+  };
+};
 
 export interface AnthropicAdapterOptions {
   model: string;
@@ -22,7 +36,7 @@ interface AnthropicContentBlock {
   text?: string;
   id?: string;
   name?: string;
-  input?: any;
+  input?: unknown;
   tool_use_id?: string;
   content?: string;
 }
@@ -67,21 +81,10 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
 
   const modelName = `anthropic:${opts.model}`;
 
-  // Define a local function with overloads, then attach it below
-  function generate(
-    messages: Message[],
-    genOpts: GenerateOptions & { stream: true },
-  ): AsyncIterable<ModelEvent>;
-  function generate(
-    messages: Message[],
-    genOpts?:
-      | Omit<GenerateOptions, "stream">
-      | (GenerateOptions & { stream?: false | undefined }),
-  ): Promise<ModelResponse>;
-  function generate(
+  const generate = ((
     messages: Message[],
     genOpts?: GenerateOptions,
-  ): Promise<ModelResponse> | AsyncIterable<ModelEvent> {
+  ): Promise<ModelResponse> | AsyncIterable<ModelEvent> => {
     const systemMsgs = messages
       .filter((m) => m.role === "system")
       .map((m) => String(m.content ?? ""));
@@ -103,7 +106,7 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
       toolsParam.length > 0,
     );
 
-    const body: any = {
+    const body: Record<string, unknown> = {
       model: opts.model,
       max_tokens: Math.min(genOpts?.maxTokens ?? 4096, 8192), // Ensure reasonable limits
       messages: mapped,
@@ -137,40 +140,20 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
       maxRetries,
       false,
     );
-  }
+  }) as LLM["generate"];
 
   return {
     name: modelName,
     capabilities: { functionCall: true, streaming: true },
-    // Cast to align with overloaded interface expectations
-    generate: generate as unknown as LLM["generate"],
+    generate,
   };
 }
 
-// Overloaded helper to align return types with streaming flag
 function makeRequestWithRetry(
   baseUrl: string,
   apiKey: string,
   anthropicVersion: string,
-  body: any,
-  timeout: number,
-  maxRetries: number,
-  stream: true,
-): AsyncIterable<ModelEvent>;
-function makeRequestWithRetry(
-  baseUrl: string,
-  apiKey: string,
-  anthropicVersion: string,
-  body: any,
-  timeout: number,
-  maxRetries: number,
-  stream: false,
-): Promise<ModelResponse>;
-function makeRequestWithRetry(
-  baseUrl: string,
-  apiKey: string,
-  anthropicVersion: string,
-  body: any,
+  body: Record<string, unknown>,
   timeout: number,
   maxRetries: number,
   stream: boolean,
@@ -187,10 +170,7 @@ function makeRequestWithRetry(
     return undefined;
   };
 
-  const getRetryDelayMs = (
-    res: Response | undefined,
-    attempt: number,
-  ): number => {
+  const getRetryDelayMs = (res: FetchResponse | undefined, attempt: number) => {
     if (res) {
       const retryAfter = res.headers.get("retry-after");
       if (retryAfter) {
@@ -219,7 +199,7 @@ function makeRequestWithRetry(
   };
   if (stream) {
     const iter = async function* () {
-      let lastRes: Response | undefined;
+      let lastRes: FetchResponse | undefined;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           const controller = new AbortController();
@@ -254,7 +234,9 @@ function makeRequestWithRetry(
             const decoder = new TextDecoder();
             let buf = "";
             let full = "";
-            for await (const chunk of res.body as any) {
+            for await (const chunk of res.body as unknown as AsyncIterable<
+              Uint8Array | string
+            >) {
               const piece =
                 typeof chunk === "string" ? chunk : decoder.decode(chunk);
               buf += piece;
@@ -309,7 +291,7 @@ function makeRequestWithRetry(
 
   // Non-streaming branch returns a Promise
   return (async () => {
-    let lastRes: Response | undefined;
+    let lastRes: FetchResponse | undefined;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const controller = new AbortController();
@@ -355,7 +337,7 @@ function makeRequestWithRetry(
             throw error;
           }
 
-          let data: any;
+          let data: unknown;
           try {
             data = raw ? JSON.parse(raw) : {};
           } catch (parseError) {
@@ -365,17 +347,23 @@ function makeRequestWithRetry(
           }
 
           // Validate response structure
-          if (!data.content || !Array.isArray(data.content)) {
+          if (!data || typeof data !== "object") {
+            throw new Error("Invalid Anthropic API response: not an object");
+          }
+          const content = (data as { content?: unknown }).content;
+          if (!content || !Array.isArray(content)) {
             throw new Error(
               "Invalid Anthropic API response: missing or invalid content array",
             );
           }
 
-          const { text, tool_calls } = fromAnthropicContent(data.content);
-          const msg: any = { role: "assistant", content: text };
-          if (tool_calls && tool_calls.length > 0) msg.tool_calls = tool_calls;
-
-          const usage = mapUsage(data.usage);
+          const { text, tool_calls } = fromAnthropicContent(content);
+          const msg: ModelResponse["message"] = {
+            role: "assistant",
+            content: text,
+            ...(tool_calls && tool_calls.length ? { tool_calls } : {}),
+          };
+          const usage = mapUsage((data as { usage?: unknown }).usage);
           return { message: msg, ...(usage ? { usage } : {}) };
         } finally {
           clearTimeout(timeoutId);
@@ -412,14 +400,14 @@ function toAnthropicTool(tool: Tool) {
   return {
     name: tool.name,
     description: tool.description || "",
-    input_schema: toJsonSchema((tool as any).schema),
+    input_schema: toJsonSchema((tool as { schema?: unknown }).schema),
   };
 }
 
-function toJsonSchema(schema: any): any {
+function toJsonSchema(schema: unknown): Record<string, unknown> {
   if (!schema) return { type: "object" };
 
-  const t = schema?._def?.typeName;
+  const t = (schema as ZodSchemaLike)?._def?.typeName;
 
   switch (t) {
     case "ZodString":
@@ -429,21 +417,26 @@ function toJsonSchema(schema: any): any {
     case "ZodBoolean":
       return { type: "boolean" };
     case "ZodArray":
-      return { type: "array", items: toJsonSchema(schema._def?.type) };
+      return {
+        type: "array",
+        items: toJsonSchema((schema as ZodSchemaLike)?._def?.type),
+      };
     case "ZodOptional":
     case "ZodDefault":
-      return toJsonSchema(schema._def?.innerType);
+      return toJsonSchema((schema as ZodSchemaLike)?._def?.innerType);
     case "ZodObject": {
       const shape =
-        typeof schema._def?.shape === "function"
-          ? schema._def.shape()
-          : schema._def?.shape;
-      const props: Record<string, any> = {};
+        typeof (schema as ZodSchemaLike)?._def?.shape === "function"
+          ? (schema as { _def?: { shape?: () => unknown } })._def?.shape?.()
+          : (schema as ZodSchemaLike)?._def?.shape;
+      const props: Record<string, unknown> = {};
       const required: string[] = [];
 
-      for (const [key, val] of Object.entries(shape ?? {})) {
-        props[key] = toJsonSchema(val as any);
-        const innerTypeName = (val as any)?._def?.typeName;
+      for (const [key, val] of Object.entries(
+        (shape as Record<string, unknown>) ?? {},
+      )) {
+        props[key] = toJsonSchema(val);
+        const innerTypeName = (val as ZodSchemaLike)?._def?.typeName;
         if (innerTypeName !== "ZodOptional" && innerTypeName !== "ZodDefault") {
           required.push(key);
         }
@@ -458,12 +451,17 @@ function toJsonSchema(schema: any): any {
     case "ZodEnum":
       return {
         type: "string",
-        enum: schema._def?.values || [],
+        enum: ((schema as ZodSchemaLike)?._def?.values as unknown[]) || [],
       };
     case "ZodLiteral":
       return {
-        type: typeof schema._def?.value === "string" ? "string" : "number",
-        enum: [schema._def?.value],
+        type:
+          typeof (schema as ZodSchemaLike)?._def?.value === "string"
+            ? "string"
+            : "number",
+        enum: [
+          (schema as ZodSchemaLike)?._def?.value as string | number | undefined,
+        ],
       };
     default:
       return { type: "object" };
@@ -486,8 +484,13 @@ function normalizeToolChoice(
   };
 }
 
-function toAnthropicMessage(m: Message): AnthropicMessage {
-  const anyM: any = m as any;
+export function toAnthropicMessage(m: Message): AnthropicMessage {
+  const anyM = m as Message & {
+    tool_calls?: ToolCallLike[];
+    tool_call_id?: string;
+    name?: string;
+    content?: unknown;
+  };
 
   if (m.role === "assistant") {
     const content: AnthropicContentBlock[] = [];
@@ -543,33 +546,40 @@ function toAnthropicMessage(m: Message): AnthropicMessage {
   };
 }
 
-function fromAnthropicContent(blocks: any[]): {
+function fromAnthropicContent(blocks: unknown[]): {
   text: string;
-  tool_calls?: any[];
+  tool_calls?: ToolCall[];
 } {
   if (!Array.isArray(blocks)) {
     throw new Error("[anthropicAdapter] Expected content to be an array");
   }
 
   const texts: string[] = [];
-  const tool_calls: any[] = [];
+  const tool_calls: ToolCall[] = [];
 
   for (const b of blocks) {
     if (!b || typeof b !== "object") continue;
+    const block = b as {
+      type?: string;
+      text?: unknown;
+      id?: unknown;
+      name?: unknown;
+      input?: unknown;
+    };
 
-    if (b.type === "text" && typeof b.text === "string") {
-      texts.push(b.text);
-    } else if (b.type === "tool_use") {
-      if (!b.id || !b.name) {
+    if (block.type === "text" && typeof block.text === "string") {
+      texts.push(block.text);
+    } else if (block.type === "tool_use") {
+      if (typeof block.id !== "string" || typeof block.name !== "string") {
         console.warn(
           "[anthropicAdapter] Tool use block missing required id or name",
         );
         continue;
       }
       tool_calls.push({
-        id: b.id,
-        name: b.name,
-        arguments: b.input ?? {},
+        id: block.id,
+        name: block.name,
+        arguments: block.input ?? {},
       });
     }
   }
@@ -580,11 +590,12 @@ function fromAnthropicContent(blocks: any[]): {
   };
 }
 
-function mapUsage(u: any): ModelResponse["usage"] | undefined {
+function mapUsage(u: unknown): ModelResponse["usage"] | undefined {
   if (!u || typeof u !== "object") return undefined;
 
-  const prompt = u.input_tokens;
-  const completion = u.output_tokens;
+  const usage = u as { input_tokens?: unknown; output_tokens?: unknown };
+  const prompt = usage.input_tokens;
+  const completion = usage.output_tokens;
   const total =
     typeof prompt === "number" && typeof completion === "number"
       ? prompt + completion

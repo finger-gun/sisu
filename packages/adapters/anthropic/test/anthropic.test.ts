@@ -1,6 +1,6 @@
 import { test, expect, vi, afterEach } from "vitest";
 import { Readable } from "stream";
-import { anthropicAdapter } from "../src/index.js";
+import { anthropicAdapter, toAnthropicMessage } from "../src/index.js";
 import type { Message, Tool } from "@sisu-ai/core";
 
 afterEach(() => {
@@ -208,4 +208,67 @@ test("anthropicAdapter omits tool_choice when no tools provided", async () => {
   const messages: Message[] = [{ role: "user", content: "hello" }];
   await llm.generate(messages, { toolChoice: "none" });
   expect(fetchMock).toHaveBeenCalledOnce();
+});
+
+test("anthropicAdapter maps tool_result for tool messages", async () => {
+  process.env.ANTHROPIC_API_KEY = "tool-result";
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () =>
+      JSON.stringify({ content: [{ type: "text", text: "ok" }] }),
+  } as any);
+
+  const llm = anthropicAdapter({ model: "claude-3-haiku" });
+  const messages: Message[] = [
+    { role: "user", content: "hello" },
+    { role: "assistant", content: "" } as any,
+    { role: "tool", content: "result", tool_call_id: "t1" } as any,
+  ];
+
+  await llm.generate(messages, { toolChoice: "none" });
+  const [, init] = fetchMock.mock.calls[0] as any;
+  const body = JSON.parse(init.body);
+  const toolResult = body.messages.find((m: any) =>
+    m?.content?.some((c: any) => c?.type === "tool_result"),
+  );
+  const block = toolResult?.content?.find((c: any) => c.type === "tool_result");
+  expect(block.tool_use_id).toBe("t1");
+  expect(block.content).toBe("result");
+});
+
+test("anthropicAdapter maps tool_choice to tool name", async () => {
+  process.env.ANTHROPIC_API_KEY = "tool-choice";
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () =>
+      JSON.stringify({ content: [{ type: "text", text: "ok" }] }),
+  } as any);
+
+  const tool: Tool = {
+    name: "echo",
+    description: "echo",
+    schema: {} as any,
+    handler: async () => null,
+  };
+  const llm = anthropicAdapter({ model: "claude-3-haiku" });
+  await llm.generate([{ role: "user", content: "hello" }], {
+    tools: [tool],
+    toolChoice: "echo",
+  });
+
+  const [, init] = fetchMock.mock.calls[0] as any;
+  const body = JSON.parse(init.body);
+  expect(body.tool_choice).toEqual({ type: "tool", name: "echo" });
+});
+
+test("anthropicAdapter rejects tool messages without id or name", async () => {
+  process.env.ANTHROPIC_API_KEY = "missing-tool-id";
+  const bad = { role: "tool", content: "result" } as any;
+  expect(() => toAnthropicMessage(bad)).toThrow(
+    /Tool message must have tool_call_id or name/,
+  );
 });
