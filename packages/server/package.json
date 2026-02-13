@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/server",
-  "version": "7.0.1",
+  "version": "7.0.2",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",

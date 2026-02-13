@@ -1,5 +1,11 @@
 # @sisu-ai/tool-web-search-duckduckgo
 
+## 8.0.2
+
+### Patch Changes
+
+- Standardized code formatting and quote style across packages for improved consistency and maintainability.
+
 ## 8.0.1
 
 ### Patch Changes

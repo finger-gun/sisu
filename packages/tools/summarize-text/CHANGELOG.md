@@ -1,5 +1,11 @@
 # @sisu-ai/tool-summarize-text
 
+## 9.0.2
+
+### Patch Changes
+
+- Standardized code formatting and quote style across packages for improved consistency and maintainability.
+
 ## 9.0.1
 
 ### Patch Changes

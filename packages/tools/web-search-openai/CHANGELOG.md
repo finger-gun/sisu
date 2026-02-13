@@ -1,5 +1,11 @@
 # @sisu-ai/tool-web-search-openai
 
+## 8.0.2
+
+### Patch Changes
+
+- Expanded test coverage and improved code quality with additional test cases and formatting updates.
+
 ## 8.0.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @sisu-ai/tool-aws-s3
 
+## 2.0.3
+
+### Patch Changes
+
+- Expanded test coverage and improved code quality with additional test cases and formatting updates.
+
 ## 2.0.2
 
 ### Patch Changes

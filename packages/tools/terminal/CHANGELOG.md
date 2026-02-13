@@ -1,5 +1,11 @@
 # @sisu-ai/tool-terminal
 
+## 7.1.0
+
+### Minor Changes
+
+- Enhanced terminal tool to return detailed policy information when file reads are denied. The tool now includes denial messages and allowed command patterns in the response, making it easier for agents to understand permission constraints and adjust their behavior accordingly.
+
 ## 7.0.1
 
 ### Patch Changes

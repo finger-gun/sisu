@@ -1,5 +1,11 @@
 # @sisu-ai/server
 
+## 7.0.2
+
+### Patch Changes
+
+- Standardized code formatting and quote style across packages for improved consistency and maintainability.
+
 ## 7.0.1
 
 ### Patch Changes

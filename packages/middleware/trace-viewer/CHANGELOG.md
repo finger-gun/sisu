@@ -1,5 +1,11 @@
 # @sisu-ai/mw-trace-viewer
 
+## 10.0.2
+
+### Patch Changes
+
+- Fixed secret redaction in trace outputs to prevent sensitive data (API keys, tokens) from being exposed in trace files. Also improved test coverage and code formatting.
+
 ## 10.0.1
 
 ### Patch Changes
