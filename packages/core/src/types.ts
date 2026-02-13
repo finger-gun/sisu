@@ -62,7 +62,7 @@ export interface GenerateOptions {
   temperature?: number;
   maxTokens?: number;
   toolChoice?: ToolChoice;
-  signal?: AbortSignal;
+  signal?: globalThis.AbortSignal;
   tools?: Tool[]; // schemas surfaced to the provider
   parallelToolCalls?: boolean; // hint for providers supporting parallelism
   stream?: boolean; // request token streaming when supported
@@ -121,10 +121,10 @@ export interface LLM {
 
 /** Logger, Memory, TokenStream: unchanged */
 export interface Logger {
-  debug(...args: any[]): void;
-  info(...args: any[]): void;
-  warn(...args: any[]): void;
-  error(...args: any[]): void;
+  debug(...args: unknown[]): void;
+  info(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  error(...args: unknown[]): void;
   span?(name: string, attrs?: Record<string, unknown>): void;
 }
 
@@ -161,19 +161,18 @@ export interface TokenStream {
  */
 export interface ToolContext {
   readonly memory: Memory;
-  readonly signal: AbortSignal;
+  readonly signal: globalThis.AbortSignal;
   readonly log: Logger;
   readonly model: LLM;
   /** Optional dependency injection container for testing or runtime configuration */
   readonly deps?: Record<string, unknown>;
 }
 
-/** Stronger Tool typing with generics */
-export interface Tool<TArgs = any, TResult = unknown> {
+export interface Tool<TArgs = unknown, TResult = unknown> {
   name: string;
   description?: string;
-  schema: any; // zod schema at runtime
-  handler: (args: TArgs, ctx: ToolContext) => Promise<TResult>;
+  schema: unknown; // zod schema at runtime
+  handler(args: TArgs, ctx: ToolContext): Promise<TResult>;
 }
 
 /** Registry */
@@ -198,6 +197,6 @@ export interface Ctx {
    * - `toolAliases` (Map<string, string>): Map of tool names to API aliases set by registerTools
    */
   state: Record<string, unknown>;
-  signal: AbortSignal;
+  signal: globalThis.AbortSignal;
   log: Logger;
 }

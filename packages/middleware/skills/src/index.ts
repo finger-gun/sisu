@@ -1,4 +1,4 @@
-import type { Ctx, Middleware, Tool } from "@sisu-ai/core";
+import type { Ctx, Middleware, Tool, SystemMessage } from "@sisu-ai/core";
 import type { Skill } from "./types.js";
 import { SkillsOptions } from "./types.js";
 import discoverSkills from "./discover.js";
@@ -52,7 +52,10 @@ export function skillsMiddleware(options: SkillsOptions): Middleware {
       if (first && first.role === "system") {
         first.content = `${first.content}${prompt}`;
       } else {
-        ctx.messages.unshift({ role: "system", content: prompt } as any);
+        ctx.messages.unshift({
+          role: "system",
+          content: prompt,
+        } as SystemMessage);
       }
       skillsState.injected = true;
     }

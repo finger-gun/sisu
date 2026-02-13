@@ -100,6 +100,29 @@ interface Session {
   expiresAt: number;
 }
 
+interface TerminalPolicy {
+  allowed: boolean;
+  reason?: string;
+  allowedCommands?: string[];
+  allowedRoots?: string[];
+}
+
+interface TerminalRunResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
+  policy: TerminalPolicy;
+  message?: string;
+  cwd: string;
+}
+
+interface TerminalReadResult {
+  contents: string;
+  policy: TerminalPolicy;
+  message?: string;
+}
+
 function isCommandAllowed(
   verb: string,
   policy: TerminalToolConfig["commands"],
@@ -281,7 +304,7 @@ function commandPolicyCheck(
   if (/\$\(/.test(cmdStr)) found.push("$(...)");
   if (/`/.test(cmdStr)) found.push("`...`");
   if (/>/.test(cmdStr)) found.push(">");
-  if (/<\<?/.test(cmdStr)) found.push("<");
+  if (/<<?/.test(cmdStr)) found.push("<");
   if (/(^|\s)&(\s|$)/.test(cmdStr)) found.push("&");
   const allowPipe = cfg.allowPipe ?? false;
   const allowSequence = cfg.allowSequence ?? false;
@@ -410,7 +433,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     env?: Record<string, string>;
     stdin?: string;
     sessionId?: string;
-  }) {
+  }): Promise<TerminalRunResult> {
     const session = getSession(args.sessionId);
     const cwd = canonicalize(
       path.resolve(args.cwd ?? session?.cwd ?? cfg.roots[0]),
@@ -429,7 +452,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
         },
         message: `Command denied by policy. Allowed commands: ${cfg.commands.allow.join(", ")}.`,
         cwd,
-      } as any;
+      };
     }
     const pipelinesAllowed = cfg.allowPipe ?? false;
     const sequencesAllowed = cfg.allowSequence ?? false;
@@ -476,14 +499,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     const [cmd, ...cmdArgs] = argv;
     const env = buildEnv({ ...(session?.env ?? {}), ...(args.env ?? {}) });
     const start = Date.now();
-    return await new Promise<{
-      exitCode: number;
-      stdout: string;
-      stderr: string;
-      durationMs: number;
-      policy: { allowed: boolean; reason?: string };
-      cwd: string;
-    }>((resolve) => {
+    return await new Promise<TerminalRunResult>((resolve) => {
       let stdout = "",
         stderr = "";
       let outBytes = 0,
@@ -493,7 +509,9 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
         for (const c of children) {
           try {
             c.kill("SIGKILL");
-          } catch {}
+          } catch {
+            // ignore kill errors
+          }
         }
       };
       const onStdout = (d: Buffer) => {
@@ -600,16 +618,19 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     });
   }
 
-  function cd(args: { path: string; sessionId?: string }) {
+  function cd(args: { path: string; sessionId?: string }): {
+    cwd: string;
+    sessionId?: string;
+  } {
     let session = getSession(args.sessionId);
+    let createdSessionId: string | undefined;
     // If no valid session is provided, create one anchored at the first root
     if (!session) {
       const cwd = canonicalize(cfg.roots[0]);
-      const sessionId = randomUUID();
+      createdSessionId = randomUUID();
       const expiresAt = Date.now() + cfg.sessions.ttlMs;
       session = { cwd, env: {}, expiresAt };
-      sessions.set(sessionId, session);
-      (args as any)._createdSessionId = sessionId;
+      sessions.set(createdSessionId, session);
     }
     const newPath = canonicalize(path.resolve(session.cwd, args.path));
     if (!isPathAllowed(newPath, cfg, "exec")) {
@@ -619,15 +640,15 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
     session.expiresAt = Date.now() + cfg.sessions.ttlMs;
     return {
       cwd: session.cwd,
-      sessionId: (args as any)._createdSessionId ?? args.sessionId,
-    } as { cwd: string; sessionId?: string };
+      sessionId: createdSessionId ?? args.sessionId,
+    };
   }
 
   async function read_file(args: {
     path: string;
     encoding?: "utf8" | "base64";
     sessionId?: string;
-  }) {
+  }): Promise<TerminalReadResult> {
     if (!cfg.capabilities.read) throw new Error("read disabled");
     const session = getSession(args.sessionId);
     const cwd = session?.cwd ?? cfg.roots[0];
@@ -641,13 +662,13 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
           allowedRoots: cfg.roots,
         },
         message: `Path denied by policy. Allowed roots: ${cfg.roots.join(", ")}.`,
-      } as any;
+      };
     }
     const buf = await fs.readFile(abs);
     const encoding = args.encoding ?? "utf8";
     const contents =
       encoding === "base64" ? buf.toString("base64") : buf.toString("utf8");
-    return { contents, policy: { allowed: true } } as any;
+    return { contents, policy: { allowed: true } };
   }
 
   const runCommandTool: Tool<
@@ -658,7 +679,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
       stdin?: string;
       sessionId?: string;
     },
-    any
+    TerminalRunResult
   > = {
     name: "terminalRun",
     description: [
@@ -732,7 +753,7 @@ export function createTerminalTool(config?: Partial<TerminalToolConfig>) {
 
   const readFileTool: Tool<
     { path: string; encoding?: "utf8" | "base64"; sessionId?: string },
-    { contents: string }
+    TerminalReadResult
   > = {
     name: "terminalReadFile",
     description: [

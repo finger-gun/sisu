@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, type Tool } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
@@ -74,7 +74,7 @@ const app = new Agent()
   )
   // Register tools with ecosystem-compatible aliases
   .use(
-    registerTools(terminal.tools, {
+    registerTools(terminal.tools as Tool<unknown, unknown>[], {
       aliases: {
         terminalRun: "bash",
         terminalReadFile: "read_file",

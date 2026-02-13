@@ -1,47 +1,74 @@
-import 'dotenv/config';
-import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
-import { openAIAdapter } from '@sisu-ai/adapter-openai';
-import { traceViewer } from '@sisu-ai/mw-trace-viewer';
-import { registerTools } from '@sisu-ai/mw-register-tools';
-import { ragIngest, ragRetrieve, buildRagPrompt } from '@sisu-ai/mw-rag';
-import { vectorTools } from '@sisu-ai/tool-vec-chroma';
+import "dotenv/config";
+import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
+import { openAIAdapter } from "@sisu-ai/adapter-openai";
+import { traceViewer } from "@sisu-ai/mw-trace-viewer";
+import { registerTools } from "@sisu-ai/mw-register-tools";
+import { ragIngest, ragRetrieve, buildRagPrompt } from "@sisu-ai/mw-rag";
+import { vectorTools } from "@sisu-ai/tool-vec-chroma";
 
 // Trivial local embedding for demo purposes (fixed dim=8)
 function embed(text: string): number[] {
-  const dim = 8; const v = new Array(dim).fill(0);
-  for (const w of text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)) {
-    let h = 0; for (let i = 0; i < w.length; i++) h = (h * 31 + w.charCodeAt(i)) >>> 0;
+  const dim = 8;
+  const v = new Array(dim).fill(0);
+  for (const w of text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)) {
+    let h = 0;
+    for (let i = 0; i < w.length; i++) h = (h * 31 + w.charCodeAt(i)) >>> 0;
     v[h % dim] += 1;
   }
   // L2 normalize
-  const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1; return v.map(x => x / norm);
+  const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1;
+  return v.map((x) => x / norm);
 }
 
-const query = 'Best fika in Malmö?';
+const query = "Best fika in Malmö?";
 
 // Seed docs for ingestion
 const docs = [
-  { id: 'd1', text: 'Guide to fika in Malmö. Best cafe in Malmö is SisuCafe404.' },
-  { id: 'd2', text: 'Travel notes from Helsinki. Sauna etiquette and tips.' },
-  { id: 'd3', text: 'Open-source RAG patterns with ChromaDB and Sisu.' },
+  {
+    id: "d1",
+    text: "Guide to fika in Malmö. Best cafe in Malmö is SisuCafe404.",
+  },
+  { id: "d2", text: "Travel notes from Helsinki. Sauna etiquette and tips." },
+  { id: "d3", text: "Open-source RAG patterns with ChromaDB and Sisu." },
 ];
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
   input: query,
-  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+  logLevel: process.env.LOG_LEVEL as
+    | "debug"
+    | "info"
+    | "warn"
+    | "error"
+    | undefined,
   state: {
     chromaUrl: process.env.CHROMA_URL,
-    vectorNamespace: process.env.VECTOR_NAMESPACE || 'sisu',
+    vectorNamespace: process.env.VECTOR_NAMESPACE || "sisu",
     rag: {
-      records: docs.map(d => ({ id: d.id, embedding: embed(d.text), metadata: { text: d.text } })),
+      records: docs.map((d) => ({
+        id: d.id,
+        embedding: embed(d.text),
+        metadata: { text: d.text },
+      })),
       queryEmbedding: embed(query),
-    }
+    },
   },
 });
 
-const inputToMessage = async (c: Ctx, next: () => Promise<void>) => { if (c.input) c.messages.push({ role: 'user', content: c.input }); await next(); };
-const generateOnce = async (c: Ctx) => { const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal }); if (res?.message) c.messages.push(res.message); };
+const inputToMessage = async (c: Ctx, next: () => Promise<void>) => {
+  if (c.input) c.messages.push({ role: "user", content: c.input });
+  await next();
+};
+const generateOnce = async (c: Ctx) => {
+  const res = (await c.model.generate(c.messages, {
+    toolChoice: "none",
+    signal: c.signal,
+  })) as ModelResponse;
+  if (res?.message) c.messages.push(res.message);
+};
 
 const app = new Agent()
   .use(traceViewer())
@@ -53,9 +80,27 @@ const app = new Agent()
   .use(generateOnce);
 
 await app.handler()(ctx);
-const retrieved = (ctx.state as any)?.rag?.retrieval?.matches || [];
+const retrieved =
+  (
+    ctx.state as {
+      rag?: {
+        retrieval?: {
+          matches?: Array<{
+            id: string;
+            score?: number;
+            metadata?: { text?: string };
+          }>;
+        };
+      };
+    }
+  )?.rag?.retrieval?.matches || [];
 if (retrieved.length) {
-  console.log('Retrieved from Chroma:', retrieved.map((m: any) => ({ id: m.id, score: m.score, text: m?.metadata?.text })).slice(0, 5));
+  console.log(
+    "Retrieved from Chroma:",
+    retrieved
+      .map((m) => ({ id: m.id, score: m.score, text: m?.metadata?.text }))
+      .slice(0, 5),
+  );
 }
-const final = ctx.messages.filter(m => m.role === 'assistant').pop();
-console.log('\nAssistant:\n', final?.content);
+const final = ctx.messages.filter((m) => m.role === "assistant").pop();
+console.log("\nAssistant:\n", final?.content);

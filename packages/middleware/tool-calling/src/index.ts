@@ -1,4 +1,10 @@
-import type { Middleware, Message, ToolContext, Tool } from "@sisu-ai/core";
+import type {
+  GenerateOptions,
+  Middleware,
+  Message,
+  ToolContext,
+  Tool,
+} from "@sisu-ai/core";
 
 /**
  * Apply user-configured aliases to tools before passing to adapter.
@@ -52,16 +58,24 @@ export const toolCalling: Middleware = async (ctx, next) => {
       messages: ctx.messages.length,
     });
     const allowTools = i === 0 ? "auto" : "none";
-    const genOpts: any = { toolChoice: allowTools, signal: ctx.signal };
+    const genOpts: GenerateOptions = {
+      toolChoice: allowTools,
+      signal: ctx.signal,
+    };
     if (allowTools !== "none") {
       genOpts.tools = aliasedTools; // Pass renamed tools to adapter
       genOpts.parallelToolCalls = false;
     }
-    const out = (await ctx.model.generate(ctx.messages, genOpts)) as any;
-    const msg = out.message as Message;
-    const toolCalls = (msg as any).tool_calls as
-      | Array<{ id?: string; name: string; arguments: any }>
-      | undefined;
+    const out = await ctx.model.generate(ctx.messages, genOpts);
+    if (!out || typeof out !== "object" || !("message" in out)) {
+      throw new Error("[tool-calling] model did not return a message");
+    }
+    const msg = (out as { message: Message }).message;
+    const toolCalls = (
+      msg as Message & {
+        tool_calls?: Array<{ id?: string; name: string; arguments: unknown }>;
+      }
+    ).tool_calls;
     if (toolCalls && toolCalls.length > 0) {
       // Important: include the assistant message that requested tools so tool_call_id has a valid anchor.
       ctx.messages.push(msg);
@@ -75,10 +89,10 @@ export const toolCalling: Middleware = async (ctx, next) => {
       );
 
       // Execute each unique (name,args) once, but reply to every tool_call_id.
-      const cache = new Map<string, any>();
-      const keyOf = (tc: { name: string; arguments: any }) =>
+      const cache = new Map<string, unknown>();
+      const keyOf = (tc: { name: string; arguments: unknown }) =>
         `${tc.name}:${safeStableStringify(tc.arguments)}`;
-      const lastArgsByName = new Map<string, any>();
+      const lastArgsByName = new Map<string, unknown>();
 
       // Pre-pass: fill missing arguments from last seen arguments of same tool name (provider quirk)
       const resolvedCalls = toolCalls.map((tc) => {
@@ -103,7 +117,9 @@ export const toolCalling: Middleware = async (ctx, next) => {
         let result = cache.get(key);
         if (result === undefined) {
           const args = tool.schema?.parse
-            ? tool.schema.parse(call.arguments)
+            ? (tool.schema as { parse: (input: unknown) => unknown }).parse(
+                call.arguments,
+              )
             : call.arguments;
           ctx.log.debug?.("[tool-calling] invoking tool", {
             aliasName: call.name,
@@ -120,7 +136,7 @@ export const toolCalling: Middleware = async (ctx, next) => {
             // Pass deps from state for dependency injection (testing/configuration)
             deps: ctx.state?.toolDeps as Record<string, unknown> | undefined,
           };
-          result = await tool.handler(args, toolCtx);
+          result = await tool.handler(args as never, toolCtx);
           cache.set(key, result);
           lastArgsByName.set(call.name, args);
         } else {
@@ -131,10 +147,12 @@ export const toolCalling: Middleware = async (ctx, next) => {
         }
 
         // Prefer tool_call_id when available (tools API)
-        const toolMsg: any = { role: "tool", content: JSON.stringify(result) };
-        if (call.id) toolMsg.tool_call_id = call.id;
-        else toolMsg.name = call.name;
-        ctx.messages.push(toolMsg as Message);
+        const toolMsg = {
+          role: "tool",
+          content: JSON.stringify(result),
+          ...(call.id ? { tool_call_id: call.id } : { name: call.name }),
+        } as unknown as Message;
+        ctx.messages.push(toolMsg);
         ctx.log.debug?.("[tool-calling] tool result appended", {
           name: call.name,
           id: call.id,
@@ -167,17 +185,19 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
       i,
       messages: ctx.messages.length,
     });
-    const genOpts: any = {
+    const genOpts: GenerateOptions = {
       toolChoice: "auto",
       tools: aliasedTools, // Pass renamed tools to adapter
       parallelToolCalls: false,
       signal: ctx.signal,
     };
-    const out = (await ctx.model.generate(ctx.messages, genOpts)) as any;
-    const msg = out.message as Message;
-    const toolCalls = (msg as any).tool_calls as
-      | Array<{ id?: string; name: string; arguments: any }>
-      | undefined;
+    const out = await ctx.model.generate(ctx.messages, genOpts);
+    const msg = (out as { message: Message }).message;
+    const toolCalls = (
+      msg as Message & {
+        tool_calls?: Array<{ id?: string; name: string; arguments: unknown }>;
+      }
+    ).tool_calls;
     if (toolCalls && toolCalls.length > 0) {
       // include the assistant message that requested tools
       ctx.messages.push(msg);
@@ -190,10 +210,10 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
         })),
       );
 
-      const cache = new Map<string, any>();
-      const keyOf = (tc: { name: string; arguments: any }) =>
+      const cache = new Map<string, unknown>();
+      const keyOf = (tc: { name: string; arguments: unknown }) =>
         `${tc.name}:${safeStableStringify(tc.arguments)}`;
-      const lastArgsByName = new Map<string, any>();
+      const lastArgsByName = new Map<string, unknown>();
 
       const resolvedCalls = toolCalls.map((tc) => {
         if (
@@ -216,7 +236,9 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
         let result = cache.get(key);
         if (result === undefined) {
           const args = tool.schema?.parse
-            ? tool.schema.parse(call.arguments)
+            ? (tool.schema as { parse: (input: unknown) => unknown }).parse(
+                call.arguments,
+              )
             : call.arguments;
           ctx.log.debug?.("[iterative-tool-calling] invoking tool", {
             aliasName: call.name,
@@ -233,7 +255,7 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
             // Pass deps from state for dependency injection (testing/configuration)
             deps: ctx.state?.toolDeps as Record<string, unknown> | undefined,
           };
-          result = await tool.handler(args, toolCtx);
+          result = await tool.handler(args as never, toolCtx);
           cache.set(key, result);
           lastArgsByName.set(call.name, args);
         } else {
@@ -242,10 +264,12 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
             id: call.id,
           });
         }
-        const toolMsg: any = { role: "tool", content: JSON.stringify(result) };
-        if (call.id) toolMsg.tool_call_id = call.id;
-        else toolMsg.name = call.name;
-        ctx.messages.push(toolMsg as Message);
+        const toolMsg = {
+          role: "tool",
+          content: JSON.stringify(result),
+          ...(call.id ? { tool_call_id: call.id } : { name: call.name }),
+        } as unknown as Message;
+        ctx.messages.push(toolMsg);
       }
       continue; // next round may call more tools
     } else {
@@ -258,12 +282,12 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
   }
 };
 
-function safeStableStringify(v: any): string {
+function safeStableStringify(v: unknown): string {
   try {
     if (v && typeof v === "object" && !Array.isArray(v)) {
-      const keys = Object.keys(v).sort();
-      const obj: any = {};
-      for (const k of keys) obj[k] = v[k];
+      const keys = Object.keys(v as Record<string, unknown>).sort();
+      const obj: Record<string, unknown> = {};
+      for (const k of keys) obj[k] = (v as Record<string, unknown>)[k];
       return JSON.stringify(obj);
     }
     return JSON.stringify(v);

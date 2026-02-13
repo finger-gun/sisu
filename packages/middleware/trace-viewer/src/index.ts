@@ -27,11 +27,26 @@ export interface TraceMeta {
   };
 }
 
+type TraceMessage = {
+  role?: string;
+  content?: unknown;
+  reasoning_details?: unknown;
+  ts?: string;
+};
+
+type TraceEvent = {
+  ts?: string;
+  time?: string;
+  level?: string;
+  args?: unknown;
+  message?: unknown;
+};
+
 export interface TraceDoc {
   input?: string;
   final?: string | null;
-  messages: any[];
-  events: any[];
+  messages: TraceMessage[];
+  events: TraceEvent[];
   meta: TraceMeta;
 }
 
@@ -57,23 +72,39 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
     if (!enabled) return next();
 
     // Skip tracing for plain HTTP transport envelopes (server + agent-run-api)
-    const transportType = (ctx as any)?.state?._transport?.type as
-      | string
-      | undefined;
-    const spawnedRun = Boolean((ctx as any)?.state?.agentRun?.spawned);
+    const transportType =
+      (ctx.state as Record<string, unknown> | undefined)?._transport &&
+      (ctx.state as Record<string, unknown>)._transport instanceof Object
+        ? (
+            (ctx.state as Record<string, unknown>)._transport as {
+              type?: string;
+            }
+          ).type
+        : undefined;
+    const spawnedRun = Boolean(
+      (ctx.state as Record<string, unknown> | undefined)?.agentRun &&
+        (ctx.state as Record<string, unknown>).agentRun instanceof Object
+        ? (
+            (ctx.state as Record<string, unknown>).agentRun as Record<
+              string,
+              unknown
+            >
+          ).spawned
+        : undefined,
+    );
     if (transportType === "http" && !spawnedRun) {
       return next();
     }
 
     // Stamp messages with timestamps so the viewer can compute per-message durations
-    const stamp = (m: any) => {
-      if (m && !m.ts) (m as any).ts = new Date().toISOString();
+    const stamp = (m: TraceMessage) => {
+      if (m && !m.ts) m.ts = new Date().toISOString();
     };
     (ctx.messages || []).forEach(stamp);
-    const arr = ctx.messages as any[];
-    if (arr && typeof (arr as any).push === "function") {
+    const arr = ctx.messages as TraceMessage[];
+    if (arr && typeof arr.push === "function") {
       const origPush = arr.push.bind(arr);
-      (arr as any).push = (...args: any[]) => {
+      arr.push = (...args: TraceMessage[]) => {
         args.forEach(stamp);
         return origPush(...args);
       };
@@ -124,8 +155,9 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
       throw err;
     } finally {
       // Check if error-boundary middleware has already captured error details
-      if (!errorDetails && (ctx.state as any)._error) {
-        errorDetails = (ctx.state as any)._error;
+      if (!errorDetails && (ctx.state as Record<string, unknown>)._error) {
+        errorDetails = (ctx.state as Record<string, unknown>)
+          ._error as ReturnType<typeof getErrorDetails>;
         status = "error";
 
         // Also inject error event if coming from error-boundary
@@ -139,7 +171,10 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
       }
       const end = Date.now();
       const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-      const pre = ((ctx as any).state?._tracePreamble || []) as any[];
+      const pre =
+        ((ctx.state as Record<string, unknown> | undefined)?._tracePreamble as
+          | TraceEvent[]
+          | undefined) || [];
       const mergedEvents = [...pre, ...getTrace()];
       const out: TraceDoc = {
         input: ctx.input,
@@ -153,14 +188,29 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
           status,
           model: ctx.model?.name,
           error: errorDetails,
-          usage: (ctx.state as any)?.usage,
+          usage: (ctx.state as Record<string, unknown>)?.usage as
+            | TraceMeta["usage"]
+            | undefined,
         },
       };
 
-      const httpMeta = (ctx as any).state?._http;
-      const runMeta = (ctx as any).state?.agentRun;
+      const httpMeta = (ctx.state as Record<string, unknown>)?._http as
+        | {
+            method?: string;
+            url?: string;
+            ip?: string;
+            headers?: Record<string, unknown>;
+          }
+        | undefined;
+      const runMeta = (ctx.state as Record<string, unknown>)?.agentRun as
+        | {
+            pipeline?: string;
+            route?: string;
+            runId?: string;
+          }
+        | undefined;
       if (httpMeta) {
-        (out.meta as any).transport = {
+        (out.meta as TraceMeta & { transport?: unknown }).transport = {
           method: httpMeta.method,
           url: httpMeta.url,
           ip: httpMeta.ip,
@@ -174,24 +224,39 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
       // Fallback: if usage not populated yet (e.g., usageTracker runs outside/after us),
       // derive simple totals from logged usage events.
       if (!out.meta.usage) {
-        const totals = {
+        const totals: {
+          promptTokens: number;
+          completionTokens: number;
+          totalTokens: number;
+          costUSD: number;
+          imageTokens: number;
+          imageCount: number;
+        } = {
           promptTokens: 0,
           completionTokens: 0,
           totalTokens: 0,
           costUSD: 0,
           imageTokens: 0,
           imageCount: 0,
-        } as any;
+        };
         for (const ev of out.events || []) {
-          const a0 = (ev?.args ?? [])[0];
-          const a1 = (ev?.args ?? [])[1];
+          const argsArray = Array.isArray(ev?.args) ? ev.args : [];
+          const a0 = argsArray[0];
+          const a1 = argsArray[1];
           if (
             typeof a0 === "string" &&
             a0.indexOf("[usage]") >= 0 &&
             a1 &&
             typeof a1 === "object"
           ) {
-            const u = a1 as any;
+            const u = a1 as {
+              promptTokens?: number;
+              completionTokens?: number;
+              totalTokens?: number;
+              estCostUSD?: number;
+              imageTokens?: number;
+              imageCount?: number;
+            };
             if (typeof u.promptTokens === "number")
               totals.promptTokens += u.promptTokens;
             if (typeof u.completionTokens === "number")
@@ -212,9 +277,16 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
           totals.completionTokens > 0 ||
           totals.totalTokens > 0;
         if (seen) {
-          if (!(totals.imageTokens > 0)) delete totals.imageTokens;
-          if (!(totals.imageCount > 0)) delete totals.imageCount;
-          out.meta.usage = totals;
+          out.meta.usage = {
+            promptTokens: totals.promptTokens,
+            completionTokens: totals.completionTokens,
+            totalTokens: totals.totalTokens,
+            costUSD: totals.costUSD,
+            ...(totals.imageTokens > 0
+              ? { imageTokens: totals.imageTokens }
+              : {}),
+            ...(totals.imageCount > 0 ? { imageCount: totals.imageCount } : {}),
+          };
         }
       }
 
@@ -276,13 +348,30 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
             ? pathMod.basename(targetPath).replace(/\.(json|html)$/i, "")
             : `run-${timestamp(new Date(out.meta.start))}`;
         // Normalize events for SPA: ensure `time` is present for timestamps
-        const normalizedEvents = (out.events || []).map((e: any) => ({
+        const normalizedEvents = (out.events || []).map((e: TraceEvent) => ({
           time: (e && (e.time || e.ts)) || "",
           level: e?.level || "",
           args: typeof e?.args !== "undefined" ? e.args : (e?.message ?? e),
         }));
 
-        const runObj: any = {
+        const runObj: {
+          id: string;
+          file: string;
+          title: string;
+          time: string;
+          status: string;
+          duration: number;
+          model: string;
+          input: string;
+          final: string;
+          start: string;
+          end: string;
+          progress: number;
+          messages: TraceMessage[];
+          events: Array<{ time: string; level: string; args: unknown }>;
+          usage?: TraceMeta["usage"];
+          error?: TraceMeta["error"];
+        } = {
           id,
           file: id + ".json",
           title: out.input ? String(out.input).slice(0, 80) : id,
@@ -298,10 +387,8 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
           messages: out.messages || [],
           events: normalizedEvents,
         };
-        if ((out.meta as any).usage)
-          (runObj as any).usage = (out.meta as any).usage;
-        if ((out.meta as any).error)
-          (runObj as any).error = (out.meta as any).error;
+        if (out.meta.usage) runObj.usage = out.meta.usage;
+        if (out.meta.error) runObj.error = out.meta.error;
         const jsName = id + ".js";
         const code =
           'window.SISU_TRACES = window.SISU_TRACES || { runs: [], logo: "" };\n' +
@@ -321,7 +408,23 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
   };
 }
 
-function ensureDir(fs: any, dir: string) {
+type FsLike = {
+  mkdirSync: (dir: string, opts: { recursive: boolean }) => void;
+  writeFileSync: (path: string, data: string, enc: "utf8") => void;
+  readFileSync: (path: string, enc: "utf8") => string;
+  readdirSync: (dir: string) => string[];
+  existsSync: (path: string) => boolean;
+};
+
+type PathLike = {
+  dirname: (p: string) => string;
+  join: (...parts: string[]) => string;
+  basename: (p: string) => string;
+  resolve: (...parts: string[]) => string;
+  sep: string;
+};
+
+function ensureDir(fs: FsLike, dir: string) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
@@ -331,8 +434,8 @@ function timestamp(d = new Date()) {
 }
 
 function writeIndexAssets(
-  fs: any,
-  pathMod: any,
+  fs: FsLike,
+  pathMod: PathLike,
   dir: string,
   _style: TraceStyle,
 ) {
@@ -357,7 +460,7 @@ function writeIndexAssets(
       for (const f of set) {
         if (pred(f)) return f;
       }
-      return undefined as any;
+      return undefined;
     };
     const anyJson =
       findInSet(jsons, (f) => f.replace(/\.json$/i, "") === id) ||
@@ -373,7 +476,16 @@ function writeIndexAssets(
   for (const f of jsons) ids.add(f.replace(/\.json$/i, ""));
   for (const f of jss) ids.add(f.replace(/\.js$/i, ""));
 
-  const parseRunJs = (code: string): any | null => {
+  const parseRunJs = (
+    code: string,
+  ): {
+    title?: string;
+    input?: string;
+    time?: string;
+    start?: string;
+    status?: string;
+    duration?: number;
+  } | null => {
     // Expect: window.SISU_TRACES.runs.push(<json>);
     const m = code.match(/runs\.push\(([\s\S]*?)\);/);
     if (!m) return null;
@@ -388,7 +500,7 @@ function writeIndexAssets(
     const file = pickFileForId(id);
     let title = id;
     let time = "";
-    let status: any = "unknown";
+    let status = "unknown";
     let duration = 0;
     if (file.endsWith(".json")) {
       try {
@@ -401,7 +513,7 @@ function writeIndexAssets(
         duration = (obj && obj.meta && obj.meta.durationMs) || 0;
       } catch (err) {
         void err;
-        return null as any;
+        return null;
       }
     } else if (file.endsWith(".js")) {
       try {
@@ -423,7 +535,18 @@ function writeIndexAssets(
 
   const index = Array.from(ids)
     .map(toSummary)
-    .filter((x: any) => x && x.file);
+    .filter(
+      (
+        x,
+      ): x is {
+        id: string;
+        file: string;
+        title: string;
+        time: string;
+        status: string;
+        duration: number;
+      } => Boolean(x && x.file),
+    );
   // Sort newest first based on time
   index.sort(
     (a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime(),
@@ -503,7 +626,7 @@ function renderTraceHtml(
     );
 
   // Helper to render individual message with reasoning support
-  const renderMessage = (m: any) => {
+  const renderMessage = (m: TraceMessage) => {
     const hasReasoning =
       m.reasoning_details &&
       (Array.isArray(m.reasoning_details) ||
@@ -514,9 +637,11 @@ function renderTraceHtml(
       const details = Array.isArray(m.reasoning_details)
         ? m.reasoning_details
         : [m.reasoning_details];
-      const summary = details.find((d: any) => d?.type === "reasoning.summary");
+      const summary = details.find(
+        (d) => (d as { type?: string })?.type === "reasoning.summary",
+      );
       const encrypted = details.filter(
-        (d: any) => d?.type === "reasoning.encrypted",
+        (d) => (d as { type?: string })?.type === "reasoning.encrypted",
       );
 
       html += `<div class="reasoning-box">`;
@@ -541,13 +666,22 @@ function renderTraceHtml(
   const messages = (out.messages || []).map(renderMessage).join("\n");
   const events = (out.events || [])
     .map(
-      (e: any) =>
+      (e) =>
         `<tr><td>${esc(e.ts || e.time || "")}</td><td>${esc(e.level || "")}</td><td><pre>${esc(JSON.stringify(e.args, null, 2))}</pre></td></tr>`,
     )
     .join("\n");
-  const usage = (out.meta as any).usage || {};
-  const transport = (out.meta as any).transport || undefined;
-  const error = (out.meta as any).error;
+  const usage = out.meta.usage || {};
+  const transport = (
+    out.meta as TraceMeta & {
+      transport?: {
+        method?: string;
+        url?: string;
+        pipeline?: string;
+        runId?: string;
+      };
+    }
+  ).transport;
+  const error = out.meta.error;
 
   return `<!doctype html><html><head><meta charset="utf-8"/><title>Trace</title>
     <style>
@@ -594,6 +728,10 @@ function renderTraceHtml(
   </body></html>`;
 }
 
-function findLogoDataUrl(_fs: any, _pathMod: any, _startDir: string): string {
+function findLogoDataUrl(
+  _fs: FsLike,
+  _pathMod: PathLike,
+  _startDir: string,
+): string {
   return "";
 }

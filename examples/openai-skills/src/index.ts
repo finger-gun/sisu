@@ -35,7 +35,12 @@ const ctx = createCtx({
     "Map where tool aliases are configured in this repo. Use the repo-search skill.",
   systemPrompt:
     "You are a helpful assistant. Use skills when they provide structured guidance.",
-  logLevel: (process.env.LOG_LEVEL as any) ?? "info",
+  logLevel: process.env.LOG_LEVEL as
+    | "debug"
+    | "info"
+    | "warn"
+    | "error"
+    | undefined,
 });
 
 const app = new Agent()
@@ -66,5 +71,5 @@ const app = new Agent()
 console.log("🚀 Running OpenAI skills example...");
 await app.handler()(ctx);
 
-const final = ctx.messages.filter((m: any) => m.role === "assistant").pop();
+const final = ctx.messages.filter((m) => m.role === "assistant").pop();
 console.log("\n✅ Assistant response:\n", final?.content);

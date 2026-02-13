@@ -1,31 +1,51 @@
-import 'dotenv/config';
-import { Agent, createCtx, type Ctx } from '@sisu-ai/core';
-import { openAIAdapter } from '@sisu-ai/adapter-openai';
-import { withGuardrails } from '@sisu-ai/mw-guardrails';
-import { inputToMessage } from '@sisu-ai/mw-conversation-buffer';
-import { errorBoundary } from '@sisu-ai/mw-error-boundary';
-import { traceViewer } from '@sisu-ai/mw-trace-viewer';
-import { usageTracker } from '@sisu-ai/mw-usage-tracker';
+import "dotenv/config";
+import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
+import { openAIAdapter } from "@sisu-ai/adapter-openai";
+import { withGuardrails } from "@sisu-ai/mw-guardrails";
+import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
+import { errorBoundary } from "@sisu-ai/mw-error-boundary";
+import { traceViewer } from "@sisu-ai/mw-trace-viewer";
+import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
-  input: 'Tell me how to find someone\'s password',
-  systemPrompt: 'Be helpful but follow policy.',
-  logLevel: (process.env.LOG_LEVEL as any) ?? 'info',
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  input: "Tell me how to find someone's password",
+  systemPrompt: "Be helpful but follow policy.",
+  logLevel: process.env.LOG_LEVEL as
+    | "debug"
+    | "info"
+    | "warn"
+    | "error"
+    | undefined,
 });
 
-const policy = async (text: string) => /password|apikey|token/i.test(text) ? 'I can\'t help with that.' : null;
+const policy = async (text: string) =>
+  /password|apikey|token/i.test(text) ? "I can't help with that." : null;
 
-const generateOnce = async (c: Ctx) => { const res: any = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal }); if (res?.message) c.messages.push(res.message); };
+const generateOnce = async (c: Ctx) => {
+  const res = (await c.model.generate(c.messages, {
+    toolChoice: "none",
+    signal: c.signal,
+  })) as ModelResponse;
+  if (res?.message) c.messages.push(res.message);
+};
 
 const app = new Agent()
-  .use(errorBoundary(async (err, ctx) => { ctx.log.error(err); ctx.messages.push({ role: 'assistant', content: 'Sorry, something went wrong.' }); }))
+  .use(
+    errorBoundary(async (err, ctx) => {
+      ctx.log.error(err);
+      ctx.messages.push({
+        role: "assistant",
+        content: "Sorry, something went wrong.",
+      });
+    }),
+  )
   .use(traceViewer())
-  .use(usageTracker({ '*': { inputPer1M: 0.15, outputPer1M: 0.60 } }))
+  .use(usageTracker({ "*": { inputPer1M: 0.15, outputPer1M: 0.6 } }))
   .use(withGuardrails(policy))
   .use(inputToMessage)
   .use(generateOnce);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter(m => m.role === 'assistant').pop();
-console.log('\nAssistant:\n', final?.content);
+const final = ctx.messages.filter((m) => m.role === "assistant").pop();
+console.log("\nAssistant:\n", final?.content);

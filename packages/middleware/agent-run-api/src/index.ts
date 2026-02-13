@@ -1,4 +1,4 @@
-/* global AbortController, AbortSignal */
+// AbortController/AbortSignal are globals in runtime environments
 import { randomUUID } from "crypto";
 import { EventEmitter } from "events";
 import {
@@ -6,6 +6,12 @@ import {
   type Agent,
   type Middleware,
   type Memory,
+  type ModelEvent,
+  type LLM,
+  type GenerateOptions,
+  type Message,
+  type ModelResponse,
+  type Ctx,
 } from "@sisu-ai/core";
 import { matchRoute } from "@sisu-ai/server";
 import type { IncomingMessage, ServerResponse } from "http";
@@ -30,13 +36,10 @@ export interface AgentRunApiOptions {
   routes?: Array<StartRoute>;
 }
 
-export interface HttpCtx {
+export interface HttpCtx extends Ctx {
   req: IncomingMessage;
   res: ServerResponse;
-  agent: Agent<any>;
-  input?: unknown;
-  messages?: Array<{ role: string; content: string }>;
-  state?: Record<string, unknown>;
+  agent: Agent<HttpCtx>;
   signal: AbortSignal;
 }
 
@@ -58,7 +61,9 @@ interface RunRecord {
   pipeline?: string;
 }
 
-export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
+export function agentRunApi(
+  opts: AgentRunApiOptions = {},
+): Middleware<HttpCtx> {
   const basePath = opts.basePath ?? "/api";
   const runStore: Memory = opts.runStore ?? new InMemoryKV();
   const maxBody = opts.maxBodyBytes ?? 1_000_000; // 1MB default
@@ -83,7 +88,7 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
     ...Array.from(customStartPaths.keys()).map((p) => `POST ${p}`),
   ];
 
-  const mw: Middleware<any> = async (ctx: HttpCtx, next) => {
+  const mw: Middleware<HttpCtx> = async (ctx, next) => {
     const { req, res } = ctx;
     const url = req.url || "";
     if (!url.startsWith(basePath)) {
@@ -142,17 +147,21 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
         run.updatedAt = Date.now();
         run.emitter.emit("status", { status: run.status });
         await runStore.set(runId, run);
-        const runCtx: any = {
+        const runCtx: HttpCtx = {
           ...ctx,
-          req: { url: "", headers: {}, method: "POST" } as any,
-          res: undefined,
-          input: initial.input,
+          req: {
+            url: "",
+            headers: {},
+            method: "POST",
+          } as IncomingMessage,
+          res: undefined as unknown as ServerResponse,
+          input: typeof initial.input === "string" ? initial.input : undefined,
           signal: controller.signal,
         };
         // Ensure state exists and attach pipeline/options hint for downstream routing
-        runCtx.state = { ...((ctx as any).state ?? {}) };
+        runCtx.state = { ...(ctx.state ?? {}) };
         // Mark this as an internal spawned run (not the HTTP envelope)
-        runCtx.state._transport = { type: "internal" } as any;
+        runCtx.state._transport = { type: "internal" };
         runCtx.state.agentRun = {
           ...(runCtx.state.agentRun ?? {}),
           pipeline,
@@ -160,11 +169,13 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
           spawned: true,
           runId,
           route: url,
-        } as any;
+        } as Record<string, unknown>;
         // Seed a small trace preamble so the spawned run trace shows how it started
-        const http = (ctx as any).state?._http;
+        const http = ctx.state?._http as
+          | { method?: string; url?: string }
+          | undefined;
         const nowIso = new Date().toISOString();
-        (runCtx.state as any)._tracePreamble = [
+        runCtx.state._tracePreamble = [
           {
             ts: nowIso,
             level: "info",
@@ -175,30 +186,36 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
             level: "info",
             args: ["[agent-run-api] run", { runId, pipeline, route: url }],
           },
-        ];
+        ] as Array<{ ts: string; level: string; args: unknown[] }>;
         // Forward streaming token events from the model to the run emitter so SSE clients can receive live tokens.
         if (runCtx.model && typeof runCtx.model.generate === "function") {
           const origGenerate = runCtx.model.generate.bind(runCtx.model);
+          const wrappedGenerate = (
+            messages: Message[],
+            opts?: GenerateOptions,
+          ): Promise<ModelResponse> | AsyncIterable<ModelEvent> => {
+            const res = origGenerate(messages, opts);
+            if (
+              res &&
+              typeof (res as unknown as AsyncIterable<ModelEvent>)[
+                Symbol.asyncIterator
+              ] === "function"
+            ) {
+              const src = res as unknown as AsyncIterable<ModelEvent>;
+              const tee = async function* () {
+                for await (const ev of src) {
+                  if (ev?.type === "token" && ev.token)
+                    run.emitter.emit("token", { token: ev.token });
+                  yield ev;
+                }
+              };
+              return tee();
+            }
+            return res as Promise<ModelResponse>;
+          };
           runCtx.model = {
             ...runCtx.model,
-            generate: (messages: any, opts?: any) => {
-              const res = origGenerate(messages, opts);
-              if (
-                res &&
-                typeof (res as any)[Symbol.asyncIterator] === "function"
-              ) {
-                const src = res as AsyncIterable<any>;
-                const tee = async function* () {
-                  for await (const ev of src) {
-                    if (ev?.type === "token" && ev.token)
-                      run.emitter.emit("token", { token: ev.token });
-                    yield ev;
-                  }
-                };
-                return tee();
-              }
-              return res;
-            },
+            generate: wrappedGenerate as unknown as LLM["generate"],
           };
         }
         try {
@@ -209,10 +226,7 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
             run.emitter.emit("status", { status: run.status });
           } else {
             const final = runCtx.messages
-              ?.filter(
-                (m: { role: string; content: string }) =>
-                  m.role === "assistant",
-              )
+              ?.filter((m) => m.role === "assistant")
               .pop();
             run.status = "succeeded";
             run.result = final?.content;
@@ -221,13 +235,13 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
             run.emitter.emit("final", { result: run.result });
           }
           await runStore.set(runId, run);
-        } catch (err: any) {
+        } catch (err) {
           if (controller.signal.aborted) {
             run.status = "cancelled";
             run.emitter.emit("status", { status: run.status });
           } else {
             run.status = "failed";
-            run.error = err?.message;
+            run.error = err instanceof Error ? err.message : String(err);
             run.emitter.emit("error", { message: run.error });
           }
           run.updatedAt = Date.now();
@@ -242,12 +256,12 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
       (url === `${basePath}/runs/start` || customStartPaths.has(url))
     ) {
       const body = await readJsonBody();
-      if ((body as any)?.__tooLarge) {
+      if ((body as { __tooLarge?: boolean })?.__tooLarge) {
         res.statusCode = 413;
         res.end(JSON.stringify({ error: "body_too_large" }));
         return;
       }
-      if ((body as any)?.__invalidJson) {
+      if ((body as { __invalidJson?: boolean })?.__invalidJson) {
         res.statusCode = 400;
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify({ error: "invalid_json" }));
@@ -259,46 +273,46 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
         try {
           const v = custom.transform
             ? await custom.transform(req, body)
-            : { input: (body as any)?.input };
+            : { input: (body as { input?: unknown })?.input };
           const x: { input: unknown; options?: Record<string, unknown> } =
             typeof v === "object" && v && "input" in v
-              ? (v as any)
+              ? (v as { input: unknown; options?: Record<string, unknown> })
               : { input: undefined };
           if (typeof x.input === "undefined" || x.input === null) {
             res.statusCode = 422;
             res.setHeader("content-type", "application/json");
             res.end(JSON.stringify({ error: "missing_input" }));
-            (ctx as any).log?.info?.(
-              "[agent-run-api] missing input on custom route",
-              { path: url },
-            );
+            ctx.log?.info?.("[agent-run-api] missing input on custom route", {
+              path: url,
+            });
             return;
           }
           await startRun(
             { input: x.input, options: x.options },
             custom.pipeline,
           );
-        } catch (e: any) {
+        } catch (e) {
           res.statusCode = 400;
           res.setHeader("content-type", "application/json");
           res.end(
-            JSON.stringify({ error: "invalid_request", message: e?.message }),
+            JSON.stringify({
+              error: "invalid_request",
+              message: e instanceof Error ? e.message : String(e),
+            }),
           );
-          (ctx as any).log?.warn?.("[agent-run-api] custom transform error", {
+          ctx.log?.warn?.("[agent-run-api] custom transform error", {
             path: url,
-            message: e?.message,
+            message: e instanceof Error ? e.message : String(e),
           });
         }
         return;
       }
-      const defaultInput = (body as any)?.input;
+      const defaultInput = (body as { input?: unknown })?.input;
       if (typeof defaultInput === "undefined" || defaultInput === null) {
         res.statusCode = 422;
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify({ error: "missing_input" }));
-        (ctx as any).log?.info?.(
-          "[agent-run-api] missing input on default start",
-        );
+        ctx.log?.info?.("[agent-run-api] missing input on default start");
         return;
       }
       await startRun({ input: defaultInput });
@@ -317,6 +331,8 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
       res.statusCode = 200;
       res.setHeader("content-type", "application/json");
       const { emitter, controller, ...data } = run;
+      void emitter;
+      void controller;
       res.end(
         JSON.stringify({
           runId: data.id,
@@ -435,6 +451,7 @@ export function agentRunApi(opts: AgentRunApiOptions = {}): Middleware<any> {
 
     await next();
   };
-  (mw as any).bannerEndpoints = endpoints;
+  (mw as Middleware<HttpCtx> & { bannerEndpoints?: string[] }).bannerEndpoints =
+    endpoints;
   return mw;
 }

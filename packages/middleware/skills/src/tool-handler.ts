@@ -2,14 +2,18 @@ import type { Tool, ToolContext } from "@sisu-ai/core";
 import { z } from "zod";
 import { Skill, SkillResource } from "./types.js";
 
-export function createUseSkillTool(skills: Map<string, Skill>): Tool {
+const useSkillSchema = z.object({ skill_name: z.string() });
+
+export function createUseSkillTool(
+  skills: Map<string, Skill>,
+): Tool<z.infer<typeof useSkillSchema>, string> {
   return {
     name: "use_skill",
     description: "Activate a skill to load its full instructions and resources",
-    schema: z.object({ skill_name: z.string() }),
-    handler: async (args: { skill_name: string }, _ctx: ToolContext) => {
+    schema: useSkillSchema,
+    handler: async (args, _ctx: ToolContext) => {
       const skill = skills.get(args.skill_name);
-      if (!skill) return `Skill \"${args.skill_name}\" not found.`;
+      if (!skill) return `Skill "${args.skill_name}" not found.`;
 
       const resources = skill.resources
         .map((r: SkillResource) => `- ${r.path}`)

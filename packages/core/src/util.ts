@@ -8,6 +8,7 @@ import type {
   ToolRegistry,
   LLM,
   Message,
+  ModelResponse,
 } from "./types.js";
 
 type Level = "debug" | "info" | "warn" | "error";
@@ -153,11 +154,11 @@ function matchesPattern(value: string, patterns: RegExp[]): boolean {
 }
 
 function redactObject(
-  input: any,
+  input: unknown,
   keysSet: Set<string>,
   patterns: RegExp[],
   mask: string,
-): any {
+): unknown {
   if (input === null || input === undefined) return input;
   // Preserve Error objects with useful fields
   if (input instanceof Error) {
@@ -167,7 +168,7 @@ function redactObject(
     return input.map((v) => redactObject(v, keysSet, patterns, mask));
   }
   if (typeof input === "object") {
-    const out: Record<string, any> = {};
+    const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(input)) {
       out[k] = keysSet.has(k.toLowerCase())
         ? mask
@@ -188,7 +189,7 @@ function redactArgs(
   patterns: RegExp[],
   mask: string,
 ): unknown[] {
-  return args.map((arg) => redactObject(arg as any, keysSet, patterns, mask));
+  return args.map((arg) => redactObject(arg, keysSet, patterns, mask));
 }
 
 export function redactSensitive(
@@ -205,7 +206,7 @@ export function redactSensitive(
   const keysSet = new Set(keys.map((k) => k.toLowerCase()));
   const patterns = opts.patterns ?? DEFAULT_PATTERNS;
   const mask = opts.mask ?? "***REDACTED***";
-  return redactObject(input as any, keysSet, patterns, mask);
+  return redactObject(input, keysSet, patterns, mask);
 }
 
 export function createRedactingLogger(
@@ -228,7 +229,12 @@ export function createRedactingLogger(
     warn: (...a) => base.warn(...redactArgs(a, keysSet, patterns, mask)),
     error: (...a) => base.error(...redactArgs(a, keysSet, patterns, mask)),
     span: (name, attrs) =>
-      base.span?.(name, redactObject(attrs as any, keysSet, patterns, mask)),
+      base.span?.(
+        name,
+        redactObject(attrs, keysSet, patterns, mask) as
+          | Record<string, unknown>
+          | undefined,
+      ),
   };
 }
 
@@ -293,17 +299,31 @@ export function teeStream(...streams: TokenStream[]): TokenStream {
 }
 
 export const streamOnce: Middleware = async (c: Ctx) => {
-  const out: any = await c.model.generate(c.messages, {
+  const out = await c.model.generate(c.messages, {
     stream: true,
     toolChoice: "none",
     signal: c.signal,
   });
 
-  if (out && typeof out[Symbol.asyncIterator] === "function") {
-    for await (const ev of out as AsyncIterable<any>) {
-      if (ev?.type === "token") c.stream.write(ev.token);
-      else if (ev?.type === "assistant_message" && ev.message)
-        c.messages.push(ev.message);
+  const stream = out as unknown as AsyncIterable<unknown> | ModelResponse;
+  if (
+    stream &&
+    typeof (stream as AsyncIterable<unknown>)[Symbol.asyncIterator] ===
+      "function"
+  ) {
+    for await (const ev of stream as AsyncIterable<unknown>) {
+      if (ev && typeof ev === "object") {
+        const event = ev as {
+          type?: string;
+          token?: string;
+          message?: unknown;
+        };
+        if (event.type === "token" && typeof event.token === "string") {
+          c.stream.write(event.token);
+        } else if (event.type === "assistant_message" && event.message) {
+          c.messages.push(event.message as unknown as Ctx["messages"][number]);
+        }
+      }
     }
     c.stream.end();
   } else if (out?.message) {
@@ -334,7 +354,7 @@ export interface CreateCtxOptions {
   systemPrompt?: string;
   logLevel?: Level;
   timestamps?: boolean; // For logger
-  signal?: AbortSignal;
+  signal?: globalThis.AbortSignal;
   tools?: Tool[] | ToolRegistry; // Accept array OR ToolRegistry instance
   memory?: Memory;
   stream?: TokenStream;
@@ -382,7 +402,7 @@ export function createCtx(options: CreateCtxOptions): Ctx {
     memory: options.memory ?? new InMemoryKV(),
     stream: options.stream ?? new NullStream(),
     state: options.state ?? {},
-    signal: options.signal ?? new AbortController().signal,
+    signal: options.signal ?? new globalThis.AbortController().signal,
     log: createConsoleLogger({
       level: options.logLevel ?? "info",
       timestamps: options.timestamps,
@@ -425,7 +445,7 @@ function kebabForEnv(envName: string): string {
 export function configFromFlagsAndEnv(
   envVars: string[],
   flags: FlagMap = parseFlags(),
-  env: NodeJS.ProcessEnv = process.env,
+  env: typeof process.env = process.env,
 ): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
   for (const name of envVars) {
@@ -440,7 +460,7 @@ export function configFromFlagsAndEnv(
 export function firstConfigValue(
   names: string[],
   flags: FlagMap = parseFlags(),
-  env: NodeJS.ProcessEnv = process.env,
+  env: typeof process.env = process.env,
 ): string | undefined {
   for (const n of names) {
     const flag = kebabForEnv(n);
