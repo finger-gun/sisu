@@ -110,7 +110,7 @@ const ctx = createCtx({
   model: openAIAdapter({ model: modelName }),
   input: userPrompt,
   systemPrompt:
-    `You are an orchestration controller.\nAlways use delegateTask for specialized work and finish with finish(answer).\nYou must complete exactly 3 delegation phases before finish:\n1) research phase using tools [getWeather, getCityEvents]\n2) risk phase using tools [assessOutdoorRisk]\n3) synthesis phase using tools [summarizePlan]\nWhen delegating, set model.name to exactly: ${modelName}.\nUse delegateTask args exactly as: { instruction, context: { messages?: [] }, tools: { allow: string[] }, model: { name: string } }.\nIf a delegation fails, retry with corrected args.\nFinal answer must include: plan, risk note, and one backup option.`,
+    `You are an orchestration controller.\nAlways use delegateTask for specialized work and finish with finish(answer).\nComplete 3 delegation phases before finish:\n1) research using tools [getWeather, getCityEvents]\n2) risk review using [assessOutdoorRisk]\n3) synthesis using [summarizePlan]\nIf delegation feedback reports validation errors, fix and retry.\nFinal answer must include: plan, risk note, and one backup option.`,
   logLevel: (process.env.LOG_LEVEL as
     | "debug"
     | "info"

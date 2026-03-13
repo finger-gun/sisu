@@ -16,6 +16,17 @@ pnpm add @sisu-ai/mw-orchestration
 - Supports pluggable child executors (built-in inline executor included)
 - Emits explicit orchestration events for tracing/observability
 
+## Policy hooks and self-correction
+
+The middleware supports pluggable policy hooks so behavior can be hardened without example-specific logic:
+
+- `normalizeDelegationInput(raw, ctx)`
+- `validateDelegation(input, ctx)`
+- `resolveToolScope(input, ctx)`
+- `modelResolver(modelRef, ctx)`
+
+Delegation failures use a structured error contract (`code`, `message`, `hint`, `details`) so models can self-correct on the next `delegateTask` call.
+
 ## Flow
 
 ```mermaid

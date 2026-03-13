@@ -86,6 +86,7 @@
     "ex:openai:error-handling": "TRACE_HTML=1 pnpm --filter=openai-error-handling dev -- --trace",
     "ex:openai:skills": "TRACE_HTML=1 pnpm --filter=openai-skills dev -- --trace",
     "ex:openai:orchestration": "TRACE_HTML=1 pnpm --filter=openai-orchestration dev -- --trace",
+    "ex:openai:orchestration-adaptive": "TRACE_HTML=1 pnpm --filter=openai-orchestration-adaptive dev -- --trace",
     "ex:anthropic:skills": "TRACE_HTML=1 pnpm --filter=anthropic-skills dev -- --trace",
     "ex:openai:agent-browser": "sh -c 'command -v agent-browser >/dev/null 2>&1 || npm install -g agent-browser; agent-browser install; npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser; TRACE_HTML=1 pnpm --filter=openai-agent-browser dev -- --trace'"
   },

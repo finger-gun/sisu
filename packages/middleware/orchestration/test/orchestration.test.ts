@@ -116,7 +116,95 @@ test("orchestration captures delegate validation failures", async () => {
   await compose([orchestration()])(ctx);
   const toolMessages = ctx.messages.filter((m) => m.role === "tool");
   expect(toolMessages.length).toBe(1);
-  expect(String(toolMessages[0]?.content)).toContain("ValidationError");
+  expect(String(toolMessages[0]?.content)).toContain("SCHEMA_INVALID");
+  expect(String(toolMessages[0]?.content)).toContain("hint");
+});
+
+test("orchestration normalizes delegation payload using defaults", async () => {
+  let calls = 0;
+  const childExecutor = async (
+    req: ChildExecutionRequest,
+  ): Promise<DelegationResult> => ({
+    delegationId: req.delegationId,
+    status: "ok",
+    output: { summary: "ok" },
+    telemetry: {
+      startedAt: new Date().toISOString(),
+      endedAt: new Date().toISOString(),
+      durationMs: 1,
+      model: req.input.model?.name ?? "",
+      toolsAllowed: req.input.tools.allow,
+      toolsUsed: [],
+    },
+    trace: { runId: "child", parentRunId: "parent" },
+  });
+
+  const model: LLM = {
+    name: "gpt-4o-mini",
+    capabilities: { functionCall: true },
+    generate: async () => {
+      calls += 1;
+      if (calls === 1) {
+        return response({
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              id: "delegate-1",
+              name: "delegateTask",
+              arguments: {
+                instruction: "use default model and normalize tools",
+                tools: "echo",
+              },
+            },
+          ],
+        });
+      }
+      return response({
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          { id: "finish-1", name: "finish", arguments: { answer: "done" } },
+        ],
+      });
+    },
+  };
+
+  const ctx = makeCtx(model);
+  ctx.tools.register({
+    name: "echo",
+    schema: { parse: (v: unknown) => v },
+    handler: async () => ({ ok: true }),
+  } as Tool);
+  await compose([orchestration({ childExecutor })])(ctx);
+
+  const toolResult = ctx.messages.find((m) => m.role === "tool");
+  expect(String(toolResult?.content)).toContain('"toolsAllowed":["echo"]');
+  expect(String(toolResult?.content)).toContain('"model":"gpt-4o-mini"');
+});
+
+test("orchestration enforces correction retry budget", async () => {
+  const model: LLM = {
+    name: "gpt-4o-mini",
+    capabilities: { functionCall: true },
+    generate: async () =>
+      response({
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          {
+            id: "delegate-1",
+            name: "delegateTask",
+            arguments: { instruction: "invalid forever" },
+          },
+        ],
+      }),
+  };
+
+  const ctx = makeCtx(model);
+  await expect(
+    compose([orchestration({ maxCorrectionRetries: 1, maxDelegations: 5 })])(ctx),
+  ).rejects.toThrow(/correction retries exceeded/);
 });
 
 test("orchestration uses custom child executor", async () => {

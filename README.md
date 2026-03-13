@@ -190,7 +190,7 @@ const model = openAIAdapter({
 | Conversation   | [`conversationBuffer`](packages/middleware/conversation-buffer/) · [`contextCompressor`](packages/middleware/context-compressor/) |
 | Safety         | [`errorBoundary`](packages/middleware/error-boundary/) · [`guardrails`](packages/middleware/guardrails/) · [`invariants`](packages/middleware/invariants/) |
 | Observability  | [`traceViewer`](packages/middleware/trace-viewer/) · [`usageTracker`](packages/middleware/usage-tracker/) |
-| Advanced       | [`rag`](packages/middleware/rag/) · [`reactParser`](packages/middleware/react-parser/) · [`skills`](packages/middleware/skills/) |
+| Advanced       | [`rag`](packages/middleware/rag/) · [`reactParser`](packages/middleware/react-parser/) · [`skills`](packages/middleware/skills/) · [`orchestration`](packages/middleware/orchestration/) |
 
 ### Tools
 
@@ -211,12 +211,16 @@ cp examples/openai-hello/.env.example examples/openai-hello/.env
 pnpm run ex:openai:hello
 open examples/openai-hello/traces/trace.html
 
+# OpenAI orchestration
+pnpm run ex:openai:orchestration
+pnpm run ex:openai:orchestration-adaptive
+
 # Ollama (local, no API key needed)
 ollama serve && ollama pull llama3.1
 pnpm run ex:ollama:hello
 ```
 
-25+ examples covering streaming, vision, RAG, control flow, guardrails, and more in [`/examples`](examples/).
+25+ examples covering streaming, vision, RAG, control flow, orchestration, guardrails, and more in [`/examples`](examples/).
 
 ---
 
@@ -273,6 +277,7 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 - [@sisu-ai/mw-error-boundary](packages/middleware/error-boundary/README.md)
 - [@sisu-ai/mw-guardrails](packages/middleware/guardrails/README.md)
 - [@sisu-ai/mw-invariants](packages/middleware/invariants/README.md)
+- [@sisu-ai/mw-orchestration](packages/middleware/orchestration/README.md)
 - [@sisu-ai/mw-rag](packages/middleware/rag/README.md)
 - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md)
 - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md)
@@ -305,7 +310,7 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 
 **Ollama** — [hello](examples/ollama-hello/README.md) · [stream](examples/ollama-stream/README.md) · [vision](examples/ollama-vision/README.md) · [weather](examples/ollama-weather/README.md) · [web-search](examples/ollama-web-search/README.md)
 
-**OpenAI** — [hello](examples/openai-hello/README.md) · [weather](examples/openai-weather/README.md) · [stream](examples/openai-stream/README.md) · [vision](examples/openai-vision/README.md) · [reasoning](examples/openai-reasoning/README.md) · [react](examples/openai-react/README.md) · [control-flow](examples/openai-control-flow/README.md) · [branch](examples/openai-branch/README.md) · [parallel](examples/openai-parallel/README.md) · [graph](examples/openai-graph/README.md) · [guardrails](examples/openai-guardrails/README.md) · [error-handling](examples/openai-error-handling/README.md) · [rag-chroma](examples/openai-rag-chroma/README.md) · [web-search](examples/openai-web-search/README.md) · [web-fetch](examples/openai-web-fetch/README.md) · [wikipedia](examples/openai-wikipedia/README.md) · [terminal](examples/openai-terminal/README.md) · [github-projects](examples/openai-github-projects/README.md) · [server](examples/openai-server/README.md) · [aws-s3](examples/openai-aws-s3/README.md) · [azure-blob](examples/openai-azure-blob/README.md)
+**OpenAI** — [hello](examples/openai-hello/README.md) · [weather](examples/openai-weather/README.md) · [stream](examples/openai-stream/README.md) · [vision](examples/openai-vision/README.md) · [reasoning](examples/openai-reasoning/README.md) · [react](examples/openai-react/README.md) · [control-flow](examples/openai-control-flow/README.md) · [branch](examples/openai-branch/README.md) · [parallel](examples/openai-parallel/README.md) · [graph](examples/openai-graph/README.md) · [orchestration](examples/openai-orchestration/README.md) · [orchestration-adaptive](examples/openai-orchestration-adaptive/README.md) · [guardrails](examples/openai-guardrails/README.md) · [error-handling](examples/openai-error-handling/README.md) · [rag-chroma](examples/openai-rag-chroma/README.md) · [web-search](examples/openai-web-search/README.md) · [web-fetch](examples/openai-web-fetch/README.md) · [wikipedia](examples/openai-wikipedia/README.md) · [terminal](examples/openai-terminal/README.md) · [github-projects](examples/openai-github-projects/README.md) · [server](examples/openai-server/README.md) · [aws-s3](examples/openai-aws-s3/README.md) · [azure-blob](examples/openai-azure-blob/README.md)
 </details>
 
 ---

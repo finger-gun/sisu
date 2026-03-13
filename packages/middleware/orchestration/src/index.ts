@@ -37,7 +37,7 @@ export type DelegateTaskInput = {
   instruction: string;
   context: DelegationContext;
   tools: DelegationToolScope;
-  model: DelegationModelRef;
+  model?: DelegationModelRef;
   metadata?: Record<string, unknown>;
 };
 
@@ -81,8 +81,21 @@ export interface DelegationResult {
     message: string;
     code?: string;
     retryable?: boolean;
+    hint?: string;
+    details?: Record<string, unknown>;
   };
 }
+
+export type DelegationValidationResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code: string;
+      message: string;
+      retryable?: boolean;
+      hint?: string;
+      details?: Record<string, unknown>;
+    };
 
 export interface OrchestrationState {
   version: 1;
@@ -109,7 +122,12 @@ export interface OrchestrationState {
       status: "running" | "ok" | "error" | "cancelled" | "timeout";
       usage?: Usage;
       trace?: { runId: string; file?: string };
-      error?: { message: string; code?: string; retryable?: boolean };
+      error?: {
+        message: string;
+        code?: string;
+        retryable?: boolean;
+        hint?: string;
+      };
     }
   >;
   totals: {
@@ -140,8 +158,15 @@ export interface OrchestrationOptions {
   maxDelegations?: number;
   defaultTimeoutMs?: number;
   maxChildTurns?: number;
+  maxCorrectionRetries?: number;
   childExecutor?: ChildExecutor;
   modelResolver?: (modelRef: DelegationModelRef, parentCtx: Ctx) => LLM;
+  normalizeDelegationInput?: (rawInput: unknown, ctx: Ctx) => unknown;
+  validateDelegation?: (
+    input: DelegateTaskInput,
+    ctx: Ctx,
+  ) => DelegationValidationResult;
+  resolveToolScope?: (input: DelegateTaskInput, ctx: Ctx) => string[];
 }
 
 const delegateTaskSchema = z.object({
@@ -167,7 +192,7 @@ const delegateTaskSchema = z.object({
     name: z.string().min(1),
     provider: z.string().optional(),
     opts: z.record(z.string(), z.unknown()).optional(),
-  }),
+  }).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -182,6 +207,7 @@ export const orchestration = (opts: OrchestrationOptions = {}): Middleware => {
   const maxDelegations = opts.maxDelegations ?? 8;
   const defaultTimeoutMs = opts.defaultTimeoutMs ?? 30_000;
   const maxChildTurns = opts.maxChildTurns ?? 8;
+  const maxCorrectionRetries = opts.maxCorrectionRetries ?? 2;
 
   return async (ctx: Ctx, next: () => Promise<void>) => {
     await next();
@@ -209,6 +235,7 @@ export const orchestration = (opts: OrchestrationOptions = {}): Middleware => {
       });
 
     let delegations = 0;
+    let correctionRetries = 0;
 
     while (!ctx.signal.aborted) {
       if (delegations > maxDelegations) {
@@ -260,6 +287,7 @@ export const orchestration = (opts: OrchestrationOptions = {}): Middleware => {
             childExecutor,
             defaultTimeoutMs,
             maxChildTurns,
+            opts,
           );
 
           const step = state.steps[state.steps.length - 1];
@@ -288,9 +316,21 @@ export const orchestration = (opts: OrchestrationOptions = {}): Middleware => {
                   message: result.error.message,
                   code: result.error.code,
                   retryable: result.error.retryable,
+                  hint: result.error.hint,
                 }
               : undefined,
           };
+
+          if (result.status === "error" && result.error?.retryable) {
+            correctionRetries += 1;
+            if (correctionRetries > maxCorrectionRetries) {
+              throw new Error(
+                `[orchestration] correction retries exceeded (${maxCorrectionRetries})`,
+              );
+            }
+          } else {
+            correctionRetries = 0;
+          }
 
           ctx.log.info?.("[orchestration] delegate.result", {
             stepId,
@@ -360,36 +400,56 @@ async function runDelegation(
   childExecutor: ChildExecutor,
   defaultTimeoutMs: number,
   maxChildTurns: number,
+  opts: OrchestrationOptions,
 ): Promise<DelegationResult> {
   const delegationId = call.id || randomUUID();
-  const parsed = delegateTaskSchema.safeParse(call.arguments);
+  const normalized = (opts.normalizeDelegationInput ?? normalizeDelegationInput)(
+    call.arguments,
+    ctx,
+  );
+  const parsed = delegateTaskSchema.safeParse(normalized);
 
   if (!parsed.success) {
-    return {
-      delegationId,
-      status: "error",
-      telemetry: {
-        startedAt: new Date().toISOString(),
-        endedAt: new Date().toISOString(),
-        durationMs: 0,
-        model: "unknown",
-        toolsAllowed: [],
-        toolsUsed: [],
-      },
-      trace: {
-        runId: randomUUID(),
-        parentRunId: state.runId,
-      },
-      error: {
-        name: "ValidationError",
-        message: parsed.error.message,
-      },
-    };
+    const issues = parsed.error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      code: issue.code,
+      message: issue.message,
+    }));
+    return buildErrorResult(delegationId, state.runId, {
+      name: "DelegationValidationError",
+      code: "SCHEMA_INVALID",
+      message: parsed.error.message,
+      retryable: true,
+      hint:
+        "Use delegateTask arguments as { instruction, context?: { messages?: [] }, tools: { allow: string[] }, model?: { name: string } }",
+      details: { issues },
+    });
+  }
+
+  const input = parsed.data;
+  if (!input.model) {
+    input.model = { name: ctx.model.name };
+  }
+
+  input.tools.allow =
+    opts.resolveToolScope?.(input, ctx) ?? input.tools.allow;
+
+  const policy =
+    opts.validateDelegation?.(input, ctx) ?? defaultValidateDelegation(input, ctx);
+  if (!policy.ok) {
+    return buildErrorResult(delegationId, state.runId, {
+      name: "DelegationPolicyError",
+      code: policy.code,
+      message: policy.message,
+      retryable: policy.retryable ?? true,
+      hint: policy.hint,
+      details: policy.details,
+    });
   }
 
   const request: ChildExecutionRequest = {
     delegationId,
-    input: parsed.data,
+    input,
     options: {
       timeoutMs: defaultTimeoutMs,
       maxChildTurns,
@@ -400,26 +460,13 @@ async function runDelegation(
     return await childExecutor(request, ctx);
   } catch (error) {
     const err = error as Error;
-    return {
-      delegationId,
-      status: "error",
-      telemetry: {
-        startedAt: new Date().toISOString(),
-        endedAt: new Date().toISOString(),
-        durationMs: 0,
-        model: parsed.data.model.name,
-        toolsAllowed: parsed.data.tools.allow,
-        toolsUsed: [],
-      },
-      trace: {
-        runId: randomUUID(),
-        parentRunId: state.runId,
-      },
-      error: {
-        name: err.name,
-        message: err.message,
-      },
-    };
+    return buildErrorResult(delegationId, state.runId, {
+      name: err.name || "DelegationExecutionError",
+      code: "EXECUTOR_FAILED",
+      message: err.message,
+      retryable: false,
+      details: { model: input.model?.name, tools: input.tools.allow },
+    });
   }
 }
 
@@ -442,8 +489,11 @@ export function createInlineChildExecutor(
     const input = request.input;
     validateScope(parentCtx, input, opts.allowedModels);
 
+    const modelRef = input.model ?? { name: parentCtx.model.name };
+    input.model = modelRef;
+
     const model =
-      opts.modelResolver?.(input.model, parentCtx) ?? resolveModel(input.model, parentCtx);
+      opts.modelResolver?.(modelRef, parentCtx) ?? resolveModel(modelRef, parentCtx);
 
     const childRunId = randomUUID();
     const parentRunId = parentState.runId;
@@ -495,6 +545,99 @@ export function createInlineChildExecutor(
   };
 }
 
+function normalizeDelegationInput(rawInput: unknown, _ctx: Ctx): unknown {
+  if (!rawInput || typeof rawInput !== "object") return rawInput;
+  const input = { ...(rawInput as Record<string, unknown>) };
+
+  if (!input.context || typeof input.context !== "object") {
+    input.context = {};
+  }
+
+  const tools = input.tools;
+  if (typeof tools === "string") {
+    input.tools = { allow: [tools] };
+  } else if (Array.isArray(tools)) {
+    input.tools = {
+      allow: tools.filter((tool): tool is string => typeof tool === "string"),
+    };
+  } else if (tools && typeof tools === "object") {
+    const scope = tools as Record<string, unknown>;
+    if (typeof scope.allow === "string") {
+      input.tools = { allow: [scope.allow] };
+    }
+  }
+
+  if (typeof input.model === "string") {
+    input.model = { name: input.model };
+  }
+
+  return input;
+}
+
+function defaultValidateDelegation(
+  input: DelegateTaskInput,
+  ctx: Ctx,
+): DelegationValidationResult {
+  if (!Array.isArray(input.tools.allow) || input.tools.allow.length === 0) {
+    return {
+      ok: false,
+      code: "TOOLS_INVALID",
+      message: "Delegation requires at least one allowed tool.",
+      retryable: true,
+      hint: "Set tools.allow to a non-empty string array.",
+    };
+  }
+
+  for (const toolName of input.tools.allow) {
+    if (!ctx.tools.get(toolName)) {
+      return {
+        ok: false,
+        code: "TOOLS_NOT_ALLOWED",
+        message: `Unknown tool '${toolName}' in delegation scope.`,
+        retryable: true,
+        hint: "Use only tools registered in the parent context.",
+        details: {
+          toolName,
+          availableTools: ctx.tools.list().map((tool) => tool.name),
+        },
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
+function buildErrorResult(
+  delegationId: string,
+  parentRunId: string,
+  error: {
+    name: string;
+    code: string;
+    message: string;
+    retryable: boolean;
+    hint?: string;
+    details?: Record<string, unknown>;
+  },
+): DelegationResult {
+  return {
+    delegationId,
+    status: "error",
+    telemetry: {
+      startedAt: new Date().toISOString(),
+      endedAt: new Date().toISOString(),
+      durationMs: 0,
+      model: "unknown",
+      toolsAllowed: [],
+      toolsUsed: [],
+    },
+    trace: {
+      runId: randomUUID(),
+      parentRunId,
+    },
+    error,
+  };
+}
+
 function ensureState(
   ctx: Ctx,
   defaults: {
@@ -540,8 +683,9 @@ function validateScope(
   input: DelegateTaskInput,
   allowedModels: string[],
 ): void {
-  if (allowedModels.length > 0 && !allowedModels.includes(input.model.name)) {
-    throw new Error(`[orchestration] model '${input.model.name}' is not allowed`);
+  const modelName = input.model?.name ?? parentCtx.model.name;
+  if (allowedModels.length > 0 && !isModelAllowed(modelName, allowedModels)) {
+    throw new Error(`[orchestration] model '${modelName}' is not allowed`);
   }
   for (const toolName of input.tools.allow) {
     if (!parentCtx.tools.get(toolName)) {
@@ -724,4 +868,28 @@ function readInstructionFromArgs(args: unknown): string | undefined {
   if (!args || typeof args !== "object") return undefined;
   const instruction = (args as { instruction?: unknown }).instruction;
   return typeof instruction === "string" ? instruction : undefined;
+}
+
+function isModelAllowed(modelName: string, allowedModels: string[]): boolean {
+  if (allowedModels.includes(modelName)) return true;
+
+  const normalizedRequested = normalizeModelName(modelName);
+  return allowedModels.some((allowed) => {
+    if (allowed === modelName) return true;
+    const normalizedAllowed = normalizeModelName(allowed);
+    return normalizedAllowed === normalizedRequested;
+  });
+}
+
+function normalizeModelName(modelName: string): string {
+  const trimmed = modelName.trim();
+  if (!trimmed) return trimmed;
+
+  const slashIdx = trimmed.lastIndexOf("/");
+  const colonIdx = trimmed.lastIndexOf(":");
+  const splitIdx = Math.max(slashIdx, colonIdx);
+  if (splitIdx >= 0 && splitIdx < trimmed.length - 1) {
+    return trimmed.slice(splitIdx + 1);
+  }
+  return trimmed;
 }
