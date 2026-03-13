@@ -1,0 +1,49 @@
+{
+  "name": "@sisu-ai/mw-orchestration",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/middleware/orchestration"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@sisu-ai/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@sisu-ai/core": "workspace:*",
+    "@types/node": "^24.3.1",
+    "vitest": "^3.2.4"
+  },
+  "keywords": [
+    "sisu",
+    "ai",
+    "ai-agent",
+    "agentic",
+    "middleware",
+    "orchestration"
+  ]
+}

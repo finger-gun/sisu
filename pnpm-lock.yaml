@@ -657,6 +657,39 @@ importers:
         specifier: ^16.4.5
         version: 16.6.1
 
+  examples/openai-orchestration:
+    dependencies:
+      '@sisu-ai/adapter-openai':
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
+      '@sisu-ai/mw-error-boundary':
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
+      '@sisu-ai/mw-orchestration':
+        specifier: workspace:*
+        version: link:../../packages/middleware/orchestration
+      '@sisu-ai/mw-register-tools':
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
+      '@sisu-ai/mw-trace-viewer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
+      '@sisu-ai/mw-usage-tracker':
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+
   examples/openai-parallel:
     dependencies:
       '@sisu-ai/adapter-openai':
@@ -1132,6 +1165,22 @@ importers:
       '@sisu-ai/core':
         specifier: ^2.3.1
         version: 2.3.1
+
+  packages/middleware/orchestration:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.10.1
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@24.10.1)(tsx@4.21.0)
 
   packages/middleware/rag:
     dependencies:
