@@ -1,6 +1,6 @@
-# @sisu-ai/skill-test-gen
+# @sisu-ai/skill-repo-search
 
-## 0.2.2
+## 0.1.2
 
 ### Patch Changes
 
@@ -8,16 +8,10 @@
 
   This release updates package documentation openings to be clearer and more benefit-focused, improving first impression and package listing snippets on npm.
 
-## 0.2.1
+## 0.1.1
 
 ### Patch Changes
 
 - Patch release across all published `@sisu-ai/*` packages.
 
   This release increments patch versions for the full package set to publish the latest internal improvements and documentation updates.
-
-## 0.2.0
-
-### Minor Changes
-
-- b17d219: Initial release of the test generation skill package.

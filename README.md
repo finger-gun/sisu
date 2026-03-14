@@ -1,9 +1,14 @@
-![sisu](./sisu-light.svg)
+
+<div align="center">
+
+<p>
+<img src="./sisu-light.svg" alt="SISU Logo" width="400">
+</p>
+
+<h4>A TypeScript framework for reliable AI agents with full transparency and control.
+Inspired by the Finnish concept of <i>sisu</i> calm determination under pressure.</h4>
 
 # Build AI agents that just work.
-
-A TypeScript framework for reliable AI agents with full transparency and control.
-Inspired by the Finnish concept of _sisu_ — calm determination under pressure.
 
 **No surprises.** Explicit middleware, typed tools, deterministic control flow.
 **Full control.** Compose planning, routing, and safety like Express apps.
@@ -15,6 +20,8 @@ Inspired by the Finnish concept of _sisu_ — calm determination under pressure.
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcore)](https://www.npmjs.com/package/@sisu-ai/core)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
+
+</div>
 
 ---
 

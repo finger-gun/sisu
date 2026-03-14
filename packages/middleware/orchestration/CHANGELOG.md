@@ -1,4 +1,4 @@
-# @sisu-ai/mw-skills
+# @sisu-ai/mw-orchestration
 
 ## 0.2.2
 
@@ -26,4 +26,8 @@
 
 ### Minor Changes
 
-- b17d219: Add the skills middleware for filesystem discovery and `use_skill` tool support.
+- Add orchestration middleware for delegated multi-agent execution in Sisu.
+
+  This release introduces `@sisu-ai/mw-orchestration` with a delegate-first control surface (`delegateTask` and `finish`), scoped child execution, explicit orchestration state, and structured delegation results for traceable parent/child runs.
+
+  It also includes policy-oriented improvements for real-world robustness, including pluggable delegation hooks, normalized delegation input handling, structured error codes/hints for model self-correction, and bounded correction retries.
