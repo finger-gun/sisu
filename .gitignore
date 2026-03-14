@@ -32,6 +32,8 @@ coverage/
 **/.env
 **/.env.*
 !**/.env.example
+.npmrc
+**/.npmrc
 
 # Caches
 .cache/

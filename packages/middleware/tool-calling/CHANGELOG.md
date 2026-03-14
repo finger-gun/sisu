@@ -1,5 +1,11 @@
 # @sisu-ai/mw-tool-calling
 
+## 9.0.5
+
+### Patch Changes
+
+- Fix TypeScript build compatibility by safely narrowing tool schemas before invoking `parse`.
+
 ## 9.0.4
 
 ### Patch Changes
