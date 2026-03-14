@@ -43,6 +43,17 @@ function applyAliasesToTools(
   return { aliasedTools, reverseMap };
 }
 
+function hasParseSchema(
+  schema: unknown,
+): schema is { parse: (input: unknown) => unknown } {
+  if (!schema || typeof schema !== "object") {
+    return false;
+  }
+
+  const maybeSchema = schema as { parse?: unknown };
+  return typeof maybeSchema.parse === "function";
+}
+
 export const toolCalling: Middleware = async (ctx, next) => {
   await next();
   const toolList = ctx.tools.list();
@@ -116,10 +127,9 @@ export const toolCalling: Middleware = async (ctx, next) => {
         const key = keyOf(call);
         let result = cache.get(key);
         if (result === undefined) {
-          const args = tool.schema?.parse
-            ? (tool.schema as { parse: (input: unknown) => unknown }).parse(
-                call.arguments,
-              )
+          const schema = tool.schema;
+          const args = hasParseSchema(schema)
+            ? schema.parse(call.arguments)
             : call.arguments;
           ctx.log.debug?.("[tool-calling] invoking tool", {
             aliasName: call.name,
@@ -235,10 +245,9 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
         const key = keyOf(call);
         let result = cache.get(key);
         if (result === undefined) {
-          const args = tool.schema?.parse
-            ? (tool.schema as { parse: (input: unknown) => unknown }).parse(
-                call.arguments,
-              )
+          const schema = tool.schema;
+          const args = hasParseSchema(schema)
+            ? schema.parse(call.arguments)
             : call.arguments;
           ctx.log.debug?.("[iterative-tool-calling] invoking tool", {
             aliasName: call.name,

@@ -12,10 +12,12 @@ jobs:
   tests:
     name: Tests (node-${{ matrix.node }})
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       fail-fast: false
       matrix:
-        node: [18.x, 20.x]
+        node: [22.x, 24.x]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
