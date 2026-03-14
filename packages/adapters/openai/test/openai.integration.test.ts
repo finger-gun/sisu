@@ -18,7 +18,7 @@ import { openAIAdapter } from '../src/index.js';
 const skipIfNoKey = !process.env.OPENAI_API_KEY;
 const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com';
 
-test.skipIf(skipIfNoKey)('real API: gpt-5.1 with reasoning', async () => {
+test.skipIf(skipIfNoKey)('real API: gpt-5.1 with reasoning', { timeout: 60000 }, async () => {
   const llm = openAIAdapter({
     model: 'gpt-5.1',
     apiKey: process.env.OPENAI_API_KEY,
@@ -35,9 +35,9 @@ test.skipIf(skipIfNoKey)('real API: gpt-5.1 with reasoning', async () => {
   
   console.log('Response:', res.message.content);
   console.log('Reasoning details present:', !!res.message.reasoning_details);
-}, { timeout: 60000 }); // 60s timeout for reasoning models
+}); // 60s timeout for reasoning models
 
-test.skipIf(skipIfNoKey)('real API: multi-turn reasoning preservation', async () => {
+test.skipIf(skipIfNoKey)('real API: multi-turn reasoning preservation', { timeout: 90000 }, async () => {
   const llm = openAIAdapter({
     model: 'gpt-5.1',
     apiKey: process.env.OPENAI_API_KEY,
@@ -69,9 +69,9 @@ test.skipIf(skipIfNoKey)('real API: multi-turn reasoning preservation', async ()
   
   console.log('Turn 1 reasoning:', !!reasoningDetails1);
   console.log('Turn 2 reasoning:', !!res2.message.reasoning_details);
-}, { timeout: 90000 });
+});
 
-test.skipIf(skipIfNoKey)('real API: streaming mode works', async () => {
+test.skipIf(skipIfNoKey)('real API: streaming mode works', { timeout: 45000 }, async () => {
   const llm = openAIAdapter({
     model: 'gpt-5.1',
     apiKey: process.env.OPENAI_API_KEY,
@@ -98,4 +98,4 @@ test.skipIf(skipIfNoKey)('real API: streaming mode works', async () => {
   
   console.log('Tokens received:', tokenEvents.length);
   console.log('Final message:', finalMessage.content);
-}, { timeout: 45000 });
+});
