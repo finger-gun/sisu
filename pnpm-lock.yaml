@@ -761,9 +761,6 @@ importers:
       '@sisu-ai/mw-conversation-buffer':
         specifier: workspace:*
         version: link:../../packages/middleware/conversation-buffer
-      '@sisu-ai/mw-rag':
-        specifier: workspace:*
-        version: link:../../packages/middleware/rag
       '@sisu-ai/mw-register-tools':
         specifier: workspace:*
         version: link:../../packages/middleware/register-tools
@@ -773,12 +770,22 @@ importers:
       '@sisu-ai/mw-trace-viewer':
         specifier: workspace:*
         version: link:../../packages/middleware/trace-viewer
-      '@sisu-ai/tool-vec-chroma':
+      '@sisu-ai/rag-core':
         specifier: workspace:*
-        version: link:../../packages/tools/vec-chroma
+        version: link:../../packages/rag/core
+      '@sisu-ai/tool-rag':
+        specifier: workspace:*
+        version: link:../../packages/tools/rag
+      '@sisu-ai/vector-chroma':
+        specifier: workspace:*
+        version: link:../../packages/vector/chroma
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
+    devDependencies:
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
 
   examples/openai-react:
     dependencies:
@@ -1276,6 +1283,12 @@ importers:
         specifier: ^2.3.3
         version: 2.3.3
 
+  packages/rag/core:
+    dependencies:
+      '@sisu-ai/vector-core':
+        specifier: ^1.0.7
+        version: 1.0.7
+
   packages/server:
     dependencies:
       '@sisu-ai/core':
@@ -1336,6 +1349,21 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
 
+  packages/tools/rag:
+    dependencies:
+      '@sisu-ai/core':
+        specifier: ^2.3.3
+        version: 2.3.3
+      '@sisu-ai/rag-core':
+        specifier: workspace:*
+        version: link:../../rag/core
+      '@sisu-ai/vector-core':
+        specifier: ^1.0.7
+        version: 1.0.7
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+
   packages/tools/summarize-text:
     dependencies:
       '@sisu-ai/core':
@@ -1362,12 +1390,12 @@ importers:
       '@sisu-ai/core':
         specifier: ^2.3.3
         version: 2.3.3
+      '@sisu-ai/vector-chroma':
+        specifier: workspace:*
+        version: link:../../vector/chroma
       '@sisu-ai/vector-core':
         specifier: ^1.0.7
         version: 1.0.7
-      chromadb:
-        specifier: ^1.10.5
-        version: 1.10.5
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1407,6 +1435,15 @@ importers:
       zod:
         specifier: ^3.23.8
         version: 3.25.76
+
+  packages/vector/chroma:
+    dependencies:
+      '@sisu-ai/vector-core':
+        specifier: ^1.0.7
+        version: 1.0.7
+      chromadb:
+        specifier: ^1.10.5
+        version: 1.10.5
 
   packages/vector/core: {}
 
@@ -5983,7 +6020,6 @@ snapshots:
       '@esbuild/win32-arm64': 0.27.3
       '@esbuild/win32-ia32': 0.27.3
       '@esbuild/win32-x64': 0.27.3
-    optional: true
 
   escape-string-regexp@4.0.0: {}
 
@@ -6163,7 +6199,6 @@ snapshots:
   get-tsconfig@4.13.6:
     dependencies:
       resolve-pkg-maps: 1.0.0
-    optional: true
 
   glob-parent@5.1.2:
     dependencies:
@@ -6528,8 +6563,7 @@ snapshots:
 
   resolve-from@5.0.0: {}
 
-  resolve-pkg-maps@1.0.0:
-    optional: true
+  resolve-pkg-maps@1.0.0: {}
 
   reusify@1.1.0: {}
 
@@ -6697,7 +6731,6 @@ snapshots:
       get-tsconfig: 4.13.6
     optionalDependencies:
       fsevents: 2.3.3
-    optional: true
 
   turbo-darwin-64@2.6.1:
     optional: true

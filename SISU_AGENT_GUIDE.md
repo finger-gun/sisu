@@ -321,11 +321,17 @@ import { githubProjects } from '@sisu-ai/tool-github-projects';
 ### Data Tools
 
 ```typescript
-import { vectorChroma } from '@sisu-ai/tool-vec-chroma';
+import { createRagTools } from '@sisu-ai/tool-rag';
+import { createChromaVectorStore } from '@sisu-ai/vector-chroma';
 import { extractUrls } from '@sisu-ai/tool-extract-urls';
 import { summarizeText } from '@sisu-ai/tool-summarize-text';
 
-.use(registerTools([vectorChroma, extractUrls, summarizeText]))
+const ragTools = createRagTools({
+  embeddings,
+  vectorStore: createChromaVectorStore({ namespace: 'docs' }),
+});
+
+.use(registerTools([...ragTools, extractUrls, summarizeText]))
 ```
 
 ## Error Handling
@@ -485,25 +491,35 @@ const app = new Agent()
 ### RAG Agent
 
 ```typescript
-import { rag } from "@sisu-ai/mw-rag";
-import { vectorChroma } from "@sisu-ai/tool-vec-chroma";
+import { Agent, createCtx } from "@sisu-ai/core";
+import { openAIAdapter, openAIEmbeddings } from "@sisu-ai/adapter-openai";
+import { registerTools } from "@sisu-ai/mw-register-tools";
+import { toolCalling } from "@sisu-ai/mw-tool-calling";
+import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
+import { createRagTools } from "@sisu-ai/tool-rag";
+import { createChromaVectorStore } from "@sisu-ai/vector-chroma";
+
+const model = openAIAdapter({ model: "gpt-4o-mini" });
+const embeddings = openAIEmbeddings({ model: "text-embedding-3-small" });
+const vectorStore = createChromaVectorStore({ namespace: "docs" });
+const ragTools = createRagTools({
+  embeddings,
+  vectorStore,
+  store: { chunkingStrategy: "sentences", overlap: 1 },
+});
+
+const ctx = createCtx({
+  model,
+  input: "What do the docs say about Malmö fika?",
+  systemPrompt: "Always call retrieveContext before answering doc questions.",
+});
 
 const app = new Agent()
-  .use(errorBoundary())
-  .use(traceViewer())
-  .use(
-    rag({
-      retrieval: (ctx) => ctx.memory.retrieval("docs-index"),
-      topK: 3,
-      injectMode: "system", // or 'user'
-    }),
-  )
+  .use(registerTools(ragTools))
   .use(inputToMessage)
-  .use(conversationBuffer({ window: 8 }))
-  .use(async (ctx) => {
-    const res = await ctx.model.generate(ctx.messages);
-    if (res?.message) ctx.messages.push(res.message);
-  });
+  .use(toolCalling);
+
+await app.handler()(ctx);
 ```
 
 ### Streaming Responses

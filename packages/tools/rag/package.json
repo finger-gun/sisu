@@ -1,6 +1,6 @@
 {
-  "name": "@sisu-ai/tool-vec-chroma",
-  "version": "7.0.4",
+  "name": "@sisu-ai/tool-rag",
+  "version": "0.1.0",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sisu-ai/vector-chroma": "workspace:*",
+    "@sisu-ai/rag-core": "workspace:*",
     "zod": "^3.23.8"
   },
   "peerDependencies": {
@@ -29,7 +29,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/finger-gun/sisu",
-    "directory": "packages/tools/vec-chroma"
+    "directory": "packages/tools/rag"
   },
   "homepage": "https://github.com/finger-gun/sisu#readme",
   "bugs": {
@@ -41,7 +41,6 @@
     "ai-agent",
     "agentic",
     "tool",
-    "vec-chroma",
-    "chromadb"
+    "rag"
   ]
 }

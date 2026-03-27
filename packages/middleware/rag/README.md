@@ -42,6 +42,8 @@ It wires the minimum state in `ctx.state.rag` so you can compose ingestion, retr
   - `rag.queryEmbedding`: `number[]` representing the query embedding.
 - Retrieval matches are placed at `rag.retrieval`. `buildRagPrompt` formats these into a context block and appends a system message to `ctx.messages`.
 
+For agent-facing retrieval/storage tools that handle chunking and embedding orchestration, prefer `@sisu-ai/tool-rag` composed with a backend adapter such as `@sisu-ai/vector-chroma`.
+
 ## Example
 _Exampls using ChromaDb_
 ```ts
@@ -50,7 +52,7 @@ import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type C
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { ragIngest, ragRetrieve, buildRagPrompt } from '@sisu-ai/mw-rag';
-import { vectorTools } from '@sisu-ai/tool-vec-chroma';
+import { vectorPrimitiveTools } from '@sisu-ai/tool-vec-chroma';
 
 // Trivial local embedding for demo purposes (fixed dim=8)
 function embed(text: string): number[] {
@@ -89,7 +91,7 @@ const docs = [
 };
 
 const app = new Agent()
-  .use(registerTools(vectorTools))
+  .use(registerTools(vectorPrimitiveTools))
   .use(ragIngest())
   .use(ragRetrieve({ topK: 2 }))
   .use(buildRagPrompt());

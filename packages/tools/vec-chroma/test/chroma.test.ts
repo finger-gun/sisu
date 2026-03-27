@@ -1,227 +1,119 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-import type { EmbeddingsProvider, ToolContext } from "@sisu-ai/core";
-
-const add = vi.fn(async () => {});
-const query = vi.fn(async () => ({
-  ids: [["a", "b"]],
-  distances: [[0.1, 0.2]],
-  metadatas: [[
-    { text: "A", source: "seed", chunkIndex: 0 },
-    { text: "B", source: "seed", chunkIndex: 1 },
-  ]],
-}));
-const del = vi.fn(async () => {});
-const getOrCreateCollection = vi.fn(async () => ({ add, query, delete: del }));
-
-vi.mock("chromadb", () => ({
-  ChromaClient: vi.fn().mockImplementation(() => ({ getOrCreateCollection })),
-}));
-
+import { describe, expect, test, vi } from "vitest";
 import {
-  vectorUpsert,
-  vectorQuery,
   vectorDelete,
-  createRetrieveTool,
-  createStoreTool,
-  createRagContextTools,
+  vectorQuery,
+  vectorUpsert,
 } from "../src/index.js";
 
-function makeBaseCtx(overrides?: {
-  signal?: globalThis.AbortSignal;
-  deps?: Record<string, unknown>;
-}): ToolContext {
-  return {
-    log: {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    },
-    signal: overrides?.signal ?? new AbortController().signal,
-    memory: { get: vi.fn(), set: vi.fn() },
-    model: { name: "m", capabilities: {}, generate: vi.fn() } as never,
-    deps: overrides?.deps,
-  };
-}
+const { createChromaVectorStoreMock } = vi.hoisted(() => ({
+  createChromaVectorStoreMock: vi.fn(),
+}));
 
-describe("vec-chroma tools", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+vi.mock("@sisu-ai/vector-chroma", () => ({
+  createChromaVectorStore: createChromaVectorStoreMock,
+}));
+
+describe("tool-vec-chroma primitives", () => {
+  test("uses injected vector store from ctx.deps", async () => {
+    const upsert = vi.fn(async () => ({ count: 1 }));
+    const query = vi.fn(async () => ({ matches: [] }));
+    const del = vi.fn(async () => ({ count: 1 }));
+    const ctx = {
+      signal: new AbortController().signal,
+      deps: {
+        vectorStore: { upsert, query, delete: del },
+      },
+    } as any;
+
+    await vectorUpsert.handler(
+      { records: [{ id: "1", embedding: [0.1], metadata: { text: "hello" } }] },
+      ctx,
+    );
+    await vectorQuery.handler({ embedding: [0.1], topK: 2 }, ctx);
+    await vectorDelete.handler({ ids: ["1"] }, ctx);
+
+    expect(upsert).toHaveBeenCalledWith({
+      records: [{ id: "1", embedding: [0.1], metadata: { text: "hello" } }],
+      namespace: "sisu",
+      signal: ctx.signal,
+    });
+    expect(query).toHaveBeenCalledWith({
+      embedding: [0.1],
+      topK: 2,
+      filter: undefined,
+      namespace: "sisu",
+      signal: ctx.signal,
+    });
+    expect(del).toHaveBeenCalledWith({
+      ids: ["1"],
+      namespace: "sisu",
+      signal: ctx.signal,
+    });
   });
 
-  test("upsert sends ids, embeddings, metadatas", async () => {
-    const res = await vectorUpsert.handler(
+  test("falls back to chroma adapter and honors explicit namespace", async () => {
+    const upsert = vi.fn(async () => ({ count: 1 }));
+    const query = vi.fn(async () => ({ matches: [] }));
+    const del = vi.fn(async () => ({ count: 1 }));
+    createChromaVectorStoreMock.mockReturnValue({ upsert, query, delete: del });
+
+    const ctx = {
+      signal: new AbortController().signal,
+      deps: {
+        chromaUrl: "http://localhost:8000",
+        vectorNamespace: "docs",
+      },
+    } as any;
+
+    await vectorUpsert.handler(
       {
-        records: [
-          { id: "1", embedding: [0.1, 0.2, 0.3], metadata: { text: "T1" } },
-          { id: "2", embedding: [0.4, 0.5, 0.6] },
-        ],
+        records: [{ id: "1", embedding: [0.1], metadata: { text: "hello" } }],
+        namespace: "manual",
       },
-      makeBaseCtx(),
+      ctx,
     );
-    expect(res.count).toBe(2);
-    expect(add).toHaveBeenCalledTimes(1);
+    await vectorQuery.handler(
+      { embedding: [0.1], topK: 1, namespace: "manual" },
+      ctx,
+    );
+    await vectorDelete.handler({ ids: ["1"], namespace: "manual" }, ctx);
+
+    expect(createChromaVectorStoreMock).toHaveBeenCalledWith({
+      chromaUrl: "http://localhost:8000",
+      namespace: "docs",
+    });
+    expect(upsert).toHaveBeenCalledWith({
+      records: [{ id: "1", embedding: [0.1], metadata: { text: "hello" } }],
+      namespace: "manual",
+      signal: ctx.signal,
+    });
+    expect(query).toHaveBeenCalledWith({
+      embedding: [0.1],
+      topK: 1,
+      filter: undefined,
+      namespace: "manual",
+      signal: ctx.signal,
+    });
+    expect(del).toHaveBeenCalledWith({
+      ids: ["1"],
+      namespace: "manual",
+      signal: ctx.signal,
+    });
   });
 
-  test("query returns matches with id, score, metadata", async () => {
-    const out = await vectorQuery.handler(
-      { embedding: [0, 1], topK: 2 },
-      makeBaseCtx(),
-    );
-    expect(out.matches.length).toBe(2);
-    expect(out.matches[0]?.id).toBe("a");
-    expect(out.matches[0]?.metadata?.text).toBe("A");
-  });
-
-  test("delete accepts ids", async () => {
-    const res = await vectorDelete.handler(
-      { ids: ["1", "2"] },
-      makeBaseCtx(),
-    );
-    expect(res.count).toBe(2);
-    expect(del).toHaveBeenCalledTimes(1);
-  });
-
-  test("retrieveContext embeds query and returns compact citation output", async () => {
-    const embeddings: EmbeddingsProvider = {
-      embed: vi.fn(async () => [[0.3, 0.4]]),
-    };
-    const tool = createRetrieveTool({ embeddings, defaultTopK: 2 });
-    const out = await tool.handler(
-      {
-        queryText: "malmo fika",
+  test("throws when delete is not implemented", async () => {
+    const ctx = {
+      signal: new AbortController().signal,
+      deps: {
+        vectorStore: {
+          upsert: vi.fn(async () => ({ count: 1 })),
+          query: vi.fn(async () => ({ matches: [] })),
+        },
       },
-      makeBaseCtx(),
+    } as any;
+
+    await expect(vectorDelete.handler({ ids: ["1"] }, ctx)).rejects.toThrow(
+      "Configured vector store does not implement delete",
     );
-    expect(embeddings.embed).toHaveBeenCalledWith(["malmo fika"], {
-      signal: expect.any(Object),
-    });
-    expect(out.total).toBe(2);
-    expect(out.items[0]?.citation.source).toBe("seed");
-    expect(out.items[0]?.text).toBe("A");
-  });
-
-  test("retrieveContext rejects invalid schema input", () => {
-    const tool = createRetrieveTool({
-      embeddings: { embed: vi.fn(async () => [[0.1]]) },
-    });
-    expect(() => tool.schema.parse({ queryText: "" })).toThrow();
-  });
-
-  test("retrieveContext propagates cancellation", async () => {
-    const controller = new AbortController();
-    controller.abort();
-    const tool = createRetrieveTool({
-      embeddings: { embed: vi.fn(async () => [[0.1]]) },
-    });
-    await expect(
-      tool.handler({ queryText: "x" }, makeBaseCtx({ signal: controller.signal })),
-    ).rejects.toThrow(/aborted/i);
-  });
-
-  test("retrieveContext propagates embedding errors", async () => {
-    const tool = createRetrieveTool({
-      embeddings: {
-        embed: vi.fn(async () => {
-          throw new Error("embedding failed");
-        }),
-      },
-    });
-    await expect(tool.handler({ queryText: "x" }, makeBaseCtx())).rejects.toThrow(
-      /embedding failed/i,
-    );
-  });
-
-  test("storeContext chunks, embeds, and upserts bounded data", async () => {
-    const embeddings: EmbeddingsProvider = {
-      embed: vi.fn(async (input) => input.map(() => [0.2, 0.8])),
-    };
-    const tool = createStoreTool({
-      embeddings,
-      chunkSize: 10,
-      maxChunks: 2,
-    });
-    const out = await tool.handler(
-      {
-        content: "1234567890abcdefghijZZZZ",
-        source: "user",
-      },
-      makeBaseCtx(),
-    );
-    expect(embeddings.embed).toHaveBeenCalledTimes(1);
-    expect(out.stored).toBe(2);
-    expect(out.totalChunks).toBe(2);
-    expect(out.truncated).toBe(true);
-    expect(out.ids.length).toBe(2);
-  });
-
-  test("storeContext rejects invalid schema input", () => {
-    const tool = createStoreTool({
-      embeddings: { embed: vi.fn(async () => [[0.1]]) },
-    });
-    expect(() => tool.schema.parse({ content: "" })).toThrow();
-  });
-
-  test("storeContext uses deps.embeddings when options embeddings missing", async () => {
-    const embeddings: EmbeddingsProvider = {
-      embed: vi.fn(async () => [[0.1]]),
-    };
-    const tool = createStoreTool({ chunkSize: 100, maxChunks: 1 });
-    const out = await tool.handler(
-      { content: "hello world" },
-      makeBaseCtx({ deps: { embeddings } }),
-    );
-    expect(out.stored).toBe(1);
-    expect(embeddings.embed).toHaveBeenCalledTimes(1);
-  });
-
-  test("storeContext propagates embedding errors", async () => {
-    const tool = createStoreTool({
-      embeddings: {
-        embed: vi.fn(async () => {
-          throw new Error("embed boom");
-        }),
-      },
-    });
-    await expect(tool.handler({ content: "abc" }, makeBaseCtx())).rejects.toThrow(
-      /embed boom/i,
-    );
-  });
-
-  test("createRagContextTools returns retrieve+store by default", () => {
-    const tools = createRagContextTools({
-      embeddings: { embed: vi.fn(async () => [[0.1]]) },
-    });
-    expect(tools.map((tool) => tool.name)).toEqual([
-      "retrieveContext",
-      "storeContext",
-    ]);
-  });
-
-  test("createRagContextTools can include upsert when explicitly enabled", () => {
-    const tools = createRagContextTools({
-      embeddings: { embed: vi.fn(async () => [[0.1]]) },
-      includeUpsert: true,
-    });
-    expect(tools.map((tool) => tool.name)).toEqual([
-      "vector.upsert",
-      "retrieveContext",
-      "storeContext",
-    ]);
-  });
-
-  test("retrieveContext honors fixed namespace option", async () => {
-    const tool = createRetrieveTool({
-      namespace: "fixed-ns",
-      embeddings: { embed: vi.fn(async () => [[0.1, 0.9]]) },
-    });
-    await tool.handler(
-      {
-        queryText: "test",
-        namespace: "model-provided-ns",
-      },
-      makeBaseCtx(),
-    );
-    expect(getOrCreateCollection).toHaveBeenCalledWith({ name: "fixed-ns" });
   });
 });

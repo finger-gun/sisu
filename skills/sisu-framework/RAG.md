@@ -34,39 +34,44 @@ const app = new Agent()
 ## Using Chroma vector database
 
 ```bash
-pnpm add @sisu-ai/tool-vec-chroma
+pnpm add @sisu-ai/tool-rag
+pnpm add @sisu-ai/rag-core
+pnpm add @sisu-ai/vector-chroma
 ```
 
 ```typescript
-import { vectorChroma } from "@sisu-ai/tool-vec-chroma";
-import { rag } from "@sisu-ai/mw-rag";
+import { openAIEmbeddings } from "@sisu-ai/adapter-openai";
+import { storeRagContent } from "@sisu-ai/rag-core";
+import { registerTools } from "@sisu-ai/mw-register-tools";
+import { toolCalling } from "@sisu-ai/mw-tool-calling";
+import { createRagTools } from "@sisu-ai/tool-rag";
+import { createChromaVectorStore } from "@sisu-ai/vector-chroma";
 
-// Setup Chroma collection
-const collection = await vectorChroma.createCollection("docs");
-await vectorChroma.addDocuments(collection, [
-  { id: "1", text: "Document 1 content...", metadata: {} },
-  { id: "2", text: "Document 2 content...", metadata: {} },
-]);
+const embeddings = openAIEmbeddings({ model: "text-embedding-3-small" });
+const vectorStore = createChromaVectorStore({ namespace: "docs" });
+const ragTools = createRagTools({
+  embeddings,
+  vectorStore,
+  store: { chunkingStrategy: "sentences", chunkSize: 400, overlap: 1 },
+});
 
-// Use in RAG pipeline
+await storeRagContent({
+  content: "Document 1 content...",
+  idPrefix: "1",
+  embeddings,
+  vectorStore,
+  chunkingStrategy: "sentences",
+  chunkSize: 400,
+  overlap: 1,
+});
+
 const app = new Agent()
-  .use(
-    rag({
-      retrieval: async (ctx) => {
-        const query = ctx.input ?? "";
-        const results = await vectorChroma.search(collection, query, 3);
-        return results.map((r) => r.text);
-      },
-      topK: 3,
-      injectMode: "system",
-    }),
-  )
+  .use(registerTools(ragTools))
   .use(inputToMessage)
-  .use(async (ctx) => {
-    const res = await ctx.model.generate(ctx.messages);
-    if (res?.message) ctx.messages.push(res.message);
-  });
+  .use(toolCalling);
 ```
+
+For developer-controlled ingestion, compute embeddings in your app and write directly through `vectorStore.upsert(...)`. For model-facing retrieval/storage, register `createRagTools(...)`.
 
 ## Custom retrieval function
 

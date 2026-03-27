@@ -23,7 +23,7 @@ npm i @sisu-ai/vector-core
   - `dot(a,b)`, `l2Norm(v)`, `normalize(v)`, `cosineSimilarity(a,b)`
 
 ## Typical Usage
-- With vector tools (e.g., `@sisu-ai/tool-vec-chroma`) and RAG middleware (`@sisu-ai/mw-rag`).
+- With agent-facing RAG tools such as `@sisu-ai/tool-rag`, backend adapters such as `@sisu-ai/vector-chroma`, and low-level vector tools such as `@sisu-ai/tool-vec-chroma`.
 
 Example shape of ingestion records:
 ```ts
@@ -105,6 +105,7 @@ Discover what you can do through examples or documentation. Check it out at http
 - [@sisu-ai/tool-azure-blob](packages/tools/azure-blob/README.md)
 - [@sisu-ai/tool-extract-urls](packages/tools/extract-urls/README.md)
 - [@sisu-ai/tool-github-projects](packages/tools/github-projects/README.md)
+- [@sisu-ai/tool-rag](packages/tools/rag/README.md)
 - [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md)
 - [@sisu-ai/tool-terminal](packages/tools/terminal/README.md)
 - [@sisu-ai/tool-vec-chroma](packages/tools/vec-chroma/README.md)
@@ -113,6 +114,19 @@ Discover what you can do through examples or documentation. Check it out at http
 - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)
 - [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md)
 - [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md)
+</details>
+
+<details>
+<summary>All RAG packages</summary>
+
+- [@sisu-ai/rag-core](packages/rag/core/README.md)
+</details>
+
+<details>
+<summary>All vector packages</summary>
+
+- [@sisu-ai/vector-core](packages/vector/core/README.md)
+- [@sisu-ai/vector-chroma](packages/vector/chroma/README.md)
 </details>
 
 <details>

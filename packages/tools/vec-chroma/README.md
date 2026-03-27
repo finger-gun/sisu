@@ -1,6 +1,6 @@
 # @sisu-ai/tool-vec-chroma
 
-Store and query vectors in ChromaDB through tools designed for Sisu RAG pipelines.
+Chroma-backed low-level vector primitives for developer-controlled workflows.
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
@@ -11,53 +11,34 @@ Store and query vectors in ChromaDB through tools designed for Sisu RAG pipeline
 
 # Tools
 
-- `vector.upsert(records)` — add/update embeddings
-- `vector.query({ embedding, topK, filter? })` — nearest neighbors
-- `vector.delete({ ids })` — remove entries
-- `retrieveContext({ queryText, topK?, filter?, namespace? })` — embed + retrieve compact context chunks
-- `storeContext({ content, metadata?, source?, ... })` — chunk + embed + persist conversation-derived context
+- `vector.upsert({ records, namespace? })` — add/update embeddings
+- `vector.query({ embedding, topK, filter?, namespace? })` — nearest neighbors
+- `vector.delete({ ids, namespace? })` — remove entries
 
-Environment:
+Dependency resolution:
 - `CHROMA_URL` (default: `http://localhost:8000`)
-- Optional: `state.vectorNamespace` to override collection name (default: `sisu`)
+- Optional: `state.toolDeps.vectorNamespace` to override collection name (default: `sisu`)
+- Optional: `state.toolDeps.vectorStore` to inject a preconfigured store adapter
 
-Register tools via `@sisu-ai/mw-register-tools`:
+Register primitives via `@sisu-ai/mw-register-tools` when you want developer-controlled vector maintenance flows:
 
 ```ts
 import { registerTools } from '@sisu-ai/mw-register-tools';
-import { vectorTools } from '@sisu-ai/tool-vec-chroma';
-agent.use(registerTools(vectorTools));
+import { vectorPrimitiveTools } from '@sisu-ai/tool-vec-chroma';
+agent.use(registerTools(vectorPrimitiveTools));
 ```
 
-## Embeddings Injection
-
-`retrieveContext` and `storeContext` are provider-agnostic and require an embeddings provider.
-
-- Pass provider instance via tool factory options: `createRetrieveTool({ embeddings })`
-- Or inject via middleware deps: `ctx.state.toolDeps.embeddings`
-
-You can also generate a clean RAG tool bundle with fixed namespace + embeddings:
+For agent-facing, backend-agnostic RAG tools, use:
 
 ```ts
-import { createRagContextTools } from '@sisu-ai/tool-vec-chroma';
+import { createRagTools } from '@sisu-ai/tool-rag';
+import { createChromaVectorStore } from '@sisu-ai/vector-chroma';
 
-const tools = createRagContextTools({
-  namespace: 'sisu',
-  embeddings,
-  // Optional: include low-level primitive only for controlled ingestion paths
-  includeUpsert: true,
-});
+const vectorStore = createChromaVectorStore({ namespace: 'sisu' });
+const ragTools = createRagTools({ embeddings, vectorStore });
 ```
 
-By default, `createRagContextTools()` returns only `retrieveContext` and `storeContext`.
-
-The expected embeddings contract is:
-
-```ts
-type EmbeddingsProvider = {
-  embed(input: string[], opts?: { model?: string; signal?: AbortSignal }): Promise<number[][]>;
-};
-```
+The preferred public RAG composition is `@sisu-ai/tool-rag` + a backend adapter such as `@sisu-ai/vector-chroma`. `@sisu-ai/tool-vec-chroma` remains the low-level primitive layer for direct `vector.*` operations.
 
 
 # Community & Support

@@ -14,6 +14,26 @@ export interface QueryRequest {
   namespace?: string;
 }
 
+export interface VectorUpsertRequest {
+  records: VectorRecord[];
+  namespace?: string;
+  signal?: globalThis.AbortSignal;
+}
+
+export interface VectorQueryRequest extends QueryRequest {
+  signal?: globalThis.AbortSignal;
+}
+
+export interface VectorDeleteRequest {
+  ids: string[];
+  namespace?: string;
+  signal?: globalThis.AbortSignal;
+}
+
+export interface VectorWriteResult {
+  count: number;
+}
+
 export interface QueryResult {
   matches: Array<{
     id: string;
@@ -22,3 +42,8 @@ export interface QueryResult {
   }>;
 }
 
+export interface VectorStore {
+  upsert(input: VectorUpsertRequest): Promise<VectorWriteResult>;
+  query(input: VectorQueryRequest): Promise<QueryResult>;
+  delete?(input: VectorDeleteRequest): Promise<VectorWriteResult>;
+}

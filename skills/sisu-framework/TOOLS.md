@@ -22,6 +22,9 @@ pnpm add @sisu-ai/tool-terminal
 pnpm add @sisu-ai/tool-github-projects
 
 # Data processing
+pnpm add @sisu-ai/rag-core
+pnpm add @sisu-ai/tool-rag
+pnpm add @sisu-ai/vector-chroma
 pnpm add @sisu-ai/tool-vec-chroma
 pnpm add @sisu-ai/tool-extract-urls
 pnpm add @sisu-ai/tool-summarize-text
@@ -129,22 +132,33 @@ Operations: list repos, create issues, manage projects
 
 ## Data processing tools
 
-### vectorChroma - Chroma vector DB
+### ragTools - Agent-facing RAG tools
 
 ```typescript
-import { vectorChroma } from "@sisu-ai/tool-vec-chroma";
+import { createRagTools } from "@sisu-ai/tool-rag";
+import { createChromaVectorStore } from "@sisu-ai/vector-chroma";
 
-// Initialize collection
-const collection = await vectorChroma.createCollection("docs");
+const vectorStore = createChromaVectorStore({ namespace: "docs" });
+const ragTools = createRagTools({
+  embeddings,
+  vectorStore,
+  store: { chunkingStrategy: "sentences", overlap: 1 },
+});
 
-// Add documents
-await vectorChroma.addDocuments(collection, [
-  { id: "1", text: "content...", metadata: {} },
-]);
-
-// Search
-const results = await vectorChroma.search(collection, "query", 5);
+.use(registerTools(ragTools))
 ```
+
+LLM can use: `retrieveContext({ queryText: "..." })` and `storeContext({ content: "..." })`
+
+### vectorPrimitiveTools - Low-level vector operations
+
+```typescript
+import { vectorPrimitiveTools } from "@sisu-ai/tool-vec-chroma";
+
+.use(registerTools(vectorPrimitiveTools))
+```
+
+Use these when you want direct `vector.upsert`, `vector.query`, and `vector.delete` operations under developer control.
 
 ### extractUrls - Extract URLs from text
 

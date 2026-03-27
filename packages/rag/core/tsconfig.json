@@ -7,10 +7,6 @@
     "declaration": true,
     "emitDeclarationOnly": false
   },
-  "include": ["src"]
-  ,
-  "references": [
-    { "path": "../../vector/core" },
-    { "path": "../../vector/chroma" }
-  ]
+  "include": ["src"],
+  "references": [{ "path": "../../vector/core" }]
 }

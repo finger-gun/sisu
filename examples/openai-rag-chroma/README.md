@@ -2,8 +2,11 @@
 
 Demonstrates a two-agent RAG workflow using:
 
-- `@sisu-ai/tool-vec-chroma` agent tools (`retrieveContext`, `storeContext`)
-- direct ingestion via `vectorUpsert` handler (developer-controlled, not model-facing)
+- `@sisu-ai/rag-core` for developer-controlled ingestion and chunking reuse
+- `@sisu-ai/tool-rag` agent tools (`retrieveContext`, `storeContext`)
+- `@sisu-ai/vector-chroma` storage adapter via `createChromaVectorStore`
+- explicit `storeContext` chunking configuration (`sentences`, overlap `1`, chunk size `120`)
+- startup ingestion via `storeRagContent(...)`, reusing the same agnostic chunking strategy as the tool-facing path
 - `@sisu-ai/mw-tool-calling` for model-driven retrieval/storage calls
 - OpenAI chat adapter + OpenAI embeddings adapter
 
