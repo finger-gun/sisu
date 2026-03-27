@@ -12,7 +12,6 @@
 ## Non-goals
 
 - Adding new vector backends in this change.
-- Reworking `@sisu-ai/mw-rag` orchestration semantics.
 - Introducing document parser features (PDF/HTML/etc.) in this phase.
 
 ## What Changes
@@ -21,7 +20,7 @@
 - Add `@sisu-ai/rag-core` for chunking, embedding orchestration, content preparation, and retrieval shaping.
 - Keep `@sisu-ai/tool-rag` as a thin model-facing wrapper over `@sisu-ai/rag-core`.
 - Implement Chroma adapter/port in `@sisu-ai/vector-chroma`.
-- Update exports and docs to clearly distinguish developer primitives (`vector.*`) from agent-facing RAG tools.
+- Update exports and docs to clearly distinguish reusable RAG mechanics, agent-facing RAG tools, middleware composition, and backend adapters.
 - Update affected examples to use `@sisu-ai/rag-core` for developer ingestion and `@sisu-ai/tool-rag` for model-facing composition.
 
 ## Capabilities
@@ -36,15 +35,16 @@
 
 - `agent-retrieval-tooling`: Retrieval tool implementation changes from Chroma-coupled to backend-agnostic contract usage.
 - `agent-storage-tooling`: Storage tool implementation changes from Chroma-coupled to backend-agnostic contract usage.
+- `middleware-rag`: Middleware composition now uses `VectorStore` directly instead of registered `vector.*` tools.
 
 ## Impact
 
 - Affected code:
   - `packages/rag/core/*`
   - `packages/tools/rag/*`
+  - `packages/middleware/rag/*`
   - `packages/vector/core/*`
   - `packages/vector/chroma/*`
-  - `packages/tools/vec-chroma/*` (primitives/compat adjustments)
   - affected examples and docs
 - API surface:
   - introduces `@sisu-ai/rag-core`

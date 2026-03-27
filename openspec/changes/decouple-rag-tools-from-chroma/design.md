@@ -44,14 +44,19 @@ Rationale: these behaviors are reusable domain mechanics, not model-facing tool 
 Rationale: tool packages should be thin model-callable interfaces.
 
 ### 4) Keep Chroma implementation as adapter in vector namespace
-`@sisu-ai/vector-chroma` implements the vector-store port and `@sisu-ai/tool-vec-chroma` continues exposing low-level primitives.
+`@sisu-ai/vector-chroma` implements the vector-store port.
 
-Rationale: preserves backend-specific optimizations and avoids breaking existing low-level usage.
+Rationale: preserves backend-specific logic while avoiding an extra package we do not want to maintain.
 
 ### 5) Maintain explicit agent-safe bundles
-Agent-facing bundles should exclude low-level primitives by default.
+Agent-facing bundles should exclude backend-specific SDK exposure by default.
 
 Rationale: prevents accidental model invocation of developer primitives.
+
+### 6) Let `@sisu-ai/mw-rag` compose against `VectorStore` directly
+`@sisu-ai/mw-rag` should accept a `VectorStore` instead of requiring registered low-level `vector.*` tools.
+
+Rationale: middleware composition is app-controlled, so it should depend on the backend contract directly rather than a removed tool package.
 
 ## Risks / Trade-offs
 
@@ -64,14 +69,13 @@ Rationale: prevents accidental model invocation of developer primitives.
 1. Add/expand vector-store contract types in `@sisu-ai/vector-core`.
 2. Add reusable mechanics in `@sisu-ai/rag-core`.
 3. Refactor `@sisu-ai/tool-rag` into thin wrappers over `@sisu-ai/rag-core`.
-4. Keep Chroma adapter implementation in `@sisu-ai/vector-chroma` and primitives in `@sisu-ai/tool-vec-chroma`.
+4. Keep Chroma adapter implementation in `@sisu-ai/vector-chroma` and update middleware to use `VectorStore` directly.
 5. Update examples to use `rag-core` for developer ingestion and `tool-rag` for model-facing composition.
 6. Validate with targeted tests and package builds/linting.
 
-Rollback: keep existing Chroma-coupled path behind temporary compatibility exports during transition window.
+Rollback: restore the removed package and middleware tool registration path if a direct `VectorStore` middleware model proves insufficient.
 
 ## Open Questions
 
-- Should `@sisu-ai/tool-rag` keep temporary re-exports for moved helpers, or should those move cleanly to `@sisu-ai/rag-core` immediately?
 - What minimal `VectorStore` contract shape should be frozen for v1 portability?
 - Should app seeding examples prefer `prepareRagRecords(...)` or higher-level `storeRagContent(...)` from `@sisu-ai/rag-core`?

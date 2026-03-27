@@ -25,7 +25,6 @@ pnpm add @sisu-ai/tool-github-projects
 pnpm add @sisu-ai/rag-core
 pnpm add @sisu-ai/tool-rag
 pnpm add @sisu-ai/vector-chroma
-pnpm add @sisu-ai/tool-vec-chroma
 pnpm add @sisu-ai/tool-extract-urls
 pnpm add @sisu-ai/tool-summarize-text
 ```
@@ -150,15 +149,15 @@ const ragTools = createRagTools({
 
 LLM can use: `retrieveContext({ queryText: "..." })` and `storeContext({ content: "..." })`
 
-### vectorPrimitiveTools - Low-level vector operations
+### vectorChroma - Chroma backend adapter
 
 ```typescript
-import { vectorPrimitiveTools } from "@sisu-ai/tool-vec-chroma";
+import { createChromaVectorStore } from "@sisu-ai/vector-chroma";
 
-.use(registerTools(vectorPrimitiveTools))
+const vectorStore = createChromaVectorStore({ namespace: "docs" });
 ```
 
-Use these when you want direct `vector.upsert`, `vector.query`, and `vector.delete` operations under developer control.
+Use this when app code or middleware such as `@sisu-ai/mw-rag` needs direct backend access without model-facing tools.
 
 ### extractUrls - Extract URLs from text
 

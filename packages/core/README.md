@@ -69,7 +69,7 @@ console.log('✅', ctx.messages.filter(m => m.role === 'assistant').pop()?.conte
 
 ## What's Inside
 
-### 🎯 Core Types & Contracts
+### Core Types & Contracts
 Build on solid TypeScript foundations:
 
 - **`Ctx`** - The single context object flowing through your pipeline
@@ -96,7 +96,7 @@ Everything you need to get started:
 - **`NullStream`** / **`stdoutStream`** - Token stream implementations
 - **`SimpleTools`** - In-memory tool registry
 
-### 🚨 Error Handling
+### Error Handling
 Structured errors for better debugging:
 
 - **`SisuError`** - Base error with codes and context
@@ -109,7 +109,7 @@ Structured errors for better debugging:
 
 ## Creating a Context
 
-### ✅ Using createCtx (Recommended)
+### Using createCtx (Recommended)
 Reduce boilerplate with sensible defaults:
 
 ```ts
@@ -166,7 +166,7 @@ const ctx: Ctx = {
 
 ---
 
-## 🔌 LLM Adapters
+## LLM Adapters
 
 Use any provider by implementing `LLM.generate(messages, opts)`:
 
@@ -181,7 +181,7 @@ Use any provider by implementing `LLM.generate(messages, opts)`:
 
 ---
 
-## 📊 Logging & Tracing
+## Logging & Tracing
 
 ### Basic Logging
 ```ts
@@ -456,7 +456,7 @@ agent.use(traceViewer());
 
 ---
 
-## 🎨 Philosophy
+## Philosophy
 
 **Small. Explicit. Composable.**
 
@@ -466,7 +466,7 @@ Sisu's core stays intentionally minimal. Everything else—tools, control flow, 
 
 ---
 
-## 📚 Learn More
+## Learn More
 
 - [**Main Documentation**](https://github.com/finger-gun/sisu) - Full framework guide
 - [**Examples**](https://github.com/finger-gun/sisu/tree/main/examples) - Working examples for every use case
@@ -476,7 +476,7 @@ Sisu's core stays intentionally minimal. Everything else—tools, control flow, 
 
 ---
 
-## 🤝 Community & Support
+## Community & Support
 
 - [**Contributing Guide**](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md) - Start here
 - [**Code of Conduct**](https://github.com/finger-gun/sisu/blob/main/CODE_OF_CONDUCT.md)
@@ -531,14 +531,27 @@ Sisu's core stays intentionally minimal. Everything else—tools, control flow, 
 - [@sisu-ai/tool-azure-blob](packages/tools/azure-blob/README.md)
 - [@sisu-ai/tool-extract-urls](packages/tools/extract-urls/README.md)
 - [@sisu-ai/tool-github-projects](packages/tools/github-projects/README.md)
+- [@sisu-ai/tool-rag](packages/tools/rag/README.md)
 - [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md)
 - [@sisu-ai/tool-terminal](packages/tools/terminal/README.md)
-- [@sisu-ai/tool-vec-chroma](packages/tools/vec-chroma/README.md)
 - [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md)
 - [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md)
 - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)
 - [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md)
 - [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md)
+</details>
+
+<details>
+<summary>All RAG packages</summary>
+
+- [@sisu-ai/rag-core](packages/rag/core/README.md)
+</details>
+
+<details>
+<summary>All vector packages</summary>
+
+- [@sisu-ai/vector-core](packages/vector/core/README.md)
+- [@sisu-ai/vector-chroma](packages/vector/chroma/README.md)
 </details>
 
 <details>

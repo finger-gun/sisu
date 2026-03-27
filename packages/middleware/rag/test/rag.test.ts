@@ -1,5 +1,6 @@
 import { test, expect, vi } from 'vitest';
 import type { Ctx, Tool, ToolRegistry } from '@sisu-ai/core';
+import type { VectorStore } from '@sisu-ai/vector-core';
 import { ragIngest, ragRetrieve, buildRagPrompt } from '../src/index.js';
 
 const mkCtx = (toolsList: Tool[] = []): Ctx => {
@@ -22,23 +23,25 @@ const mkCtx = (toolsList: Tool[] = []): Ctx => {
   } as Ctx;
 };
 
-test('ragIngest calls vector.upsert and stores result', async () => {
-  const upsert: Tool = {
-    name: 'vector.upsert', schema: {}, handler: vi.fn(async (args: any) => ({ count: args.records?.length || 0 }))
-  } as any;
-  const ctx = mkCtx([upsert]);
+test('ragIngest calls vectorStore.upsert and stores result', async () => {
+  const vectorStore: VectorStore = {
+    upsert: vi.fn(async (args) => ({ count: args.records?.length || 0 })),
+    query: vi.fn(async () => ({ matches: [] })),
+  };
+  const ctx = mkCtx();
   (ctx.state as any).rag = { records: [{ id: '1', embedding: [0], metadata: { text: 'a' } }] };
-  await ragIngest() (ctx, async () => {});
+  await ragIngest({ vectorStore })(ctx, async () => {});
   expect((ctx.state as any).rag.ingested.count).toBe(1);
 });
 
-test('ragRetrieve calls vector.query and stores retrieval', async () => {
-  const query: Tool = {
-    name: 'vector.query', schema: {}, handler: vi.fn(async () => ({ matches: [{ id: 'x', score: 0.1, metadata: { text: 'Chunk X' } }] }))
-  } as any;
-  const ctx = mkCtx([query]);
+test('ragRetrieve calls vectorStore.query and stores retrieval', async () => {
+  const vectorStore: VectorStore = {
+    upsert: vi.fn(async () => ({ count: 0 })),
+    query: vi.fn(async () => ({ matches: [{ id: 'x', score: 0.1, metadata: { text: 'Chunk X' } }] })),
+  };
+  const ctx = mkCtx();
   (ctx.state as any).rag = { queryEmbedding: [0.1, 0.2, 0.3] };
-  await ragRetrieve({ topK: 1 }) (ctx, async () => {});
+  await ragRetrieve({ vectorStore, topK: 1 }) (ctx, async () => {});
   expect((ctx.state as any).rag.retrieval.matches[0].metadata.text).toContain('Chunk X');
 });
 
@@ -51,4 +54,3 @@ test('buildRagPrompt adds a system message with context and question', async () 
   expect(sys.content).toMatch(/Doc A/);
   expect(sys.content).toMatch(/What is foo\?/);
 });
-

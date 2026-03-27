@@ -9,14 +9,16 @@ Compose retrieval-augmented generation pipelines by connecting vector retrieval 
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
 ## Exports
-- `ragIngest({ toolName?, select? })`
-  - `toolName`: override the tool (default `vector.upsert`).
-  - `select(ctx)`: return `{ records }` or `VectorRecord[]` to ingest.
-- `ragRetrieve({ toolName?, topK?, filter?, select? })`
-  - `toolName`: override the tool (default `vector.query`).
+- `ragIngest({ vectorStore, namespace?, select? })`
+  - `vectorStore`: required `VectorStore` implementation.
+  - `namespace`: optional default namespace.
+  - `select(ctx)`: return `{ records, namespace? }` or `VectorRecord[]` to ingest.
+- `ragRetrieve({ vectorStore, namespace?, topK?, filter?, select? })`
+  - `vectorStore`: required `VectorStore` implementation.
+  - `namespace`: optional default namespace.
   - `topK`: default 5; also accepted via `select`.
-  - `filter`: provider-specific filter object to pass to the tool.
-  - `select(ctx)`: return `{ embedding, topK?, filter? }` or `number[]`.
+  - `filter`: provider-specific filter object to pass to the query.
+  - `select(ctx)`: return `{ embedding, topK?, filter?, namespace? }` or `number[]`.
 - `buildRagPrompt({ template?, select? })`
   - `template`: customize the system prompt; uses a sensible default.
   - `select(ctx)`: return `{ context?, question? }` to override defaults.
@@ -25,18 +27,24 @@ State used under `ctx.state.rag`:
 - `records` (ingest input), `ingested` (result)
 - `queryEmbedding` (retrieve input), `retrieval` (result)
 
+## Choosing a Package
+- Use `@sisu-ai/rag-core` when app code needs reusable chunking, embedding orchestration, seeding, or direct store/retrieve helpers.
+- Use `@sisu-ai/tool-rag` when the model should call `retrieveContext` / `storeContext` as tools.
+- Use `@sisu-ai/mw-rag` when your app already owns embeddings and vector writes/queries, and you want a deterministic middleware pipeline that turns retrieval into prompt context.
+- `@sisu-ai/mw-rag` no longer depends on low-level vector tool registration.
+
 
 ## What It Does
-- `ragIngest` upserts your prepared documents into a vector index via a registered vector tool.
+- `ragIngest` upserts your prepared documents into a vector index via a `VectorStore`.
 - `ragRetrieve` queries nearest neighbors using an embedding for the current question.
 - `buildRagPrompt` turns retrieval results into a grounded system prompt that precedes your user question.
 
 It wires the minimum state in `ctx.state.rag` so you can compose ingestion, retrieval, and prompting without monolithic code.
 
+`@sisu-ai/mw-rag` does not own chunking or embedding generation. You prepare `VectorRecord[]` and query embeddings in app code or another layer, then this middleware handles the retrieval/prompting composition.
+
 ## How It Works
-- Vector operations are provided by tools you register (e.g., `@sisu-ai/tool-vec-chroma`).
-  - `ragIngest` calls a tool named `vector.upsert` by default.
-  - `ragRetrieve` calls a tool named `vector.query` by default.
+- Vector operations are provided by a `VectorStore` implementation such as `@sisu-ai/vector-chroma`.
 - You provide inputs via `ctx.state.rag` or `select` callbacks:
   - `rag.records`: `VectorRecord[]` for ingestion.
   - `rag.queryEmbedding`: `number[]` representing the query embedding.
@@ -44,15 +52,27 @@ It wires the minimum state in `ctx.state.rag` so you can compose ingestion, retr
 
 For agent-facing retrieval/storage tools that handle chunking and embedding orchestration, prefer `@sisu-ai/tool-rag` composed with a backend adapter such as `@sisu-ai/vector-chroma`.
 
+For app-side seeding and reusable chunking/embedding mechanics outside tool-calling, use `@sisu-ai/rag-core` directly.
+
+## When To Use `@sisu-ai/mw-rag`
+- You want deterministic, middleware-driven RAG rather than model tool-calling.
+- You already compute embeddings in your own code and want to keep that explicit.
+- You want prompt injection based on retrieval results without exposing storage/retrieval tools to the model.
+- You want to compose retrieval with other middleware such as guardrails, orchestration, or prompt shaping.
+
+## When Not To Use `@sisu-ai/mw-rag`
+- You want the model to decide when to retrieve or store context; use `@sisu-ai/tool-rag`.
+- You want reusable app-side ingestion helpers; use `@sisu-ai/rag-core`.
+- You only need backend access or maintenance operations; use a backend adapter such as `@sisu-ai/vector-chroma` directly.
+
 ## Example
 _Exampls using ChromaDb_
 ```ts
 import 'dotenv/config';
 import { Agent, createConsoleLogger, InMemoryKV, NullStream, SimpleTools, type Ctx } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
-import { registerTools } from '@sisu-ai/mw-register-tools';
 import { ragIngest, ragRetrieve, buildRagPrompt } from '@sisu-ai/mw-rag';
-import { vectorPrimitiveTools } from '@sisu-ai/tool-vec-chroma';
+import { createChromaVectorStore } from '@sisu-ai/vector-chroma';
 
 // Trivial local embedding for demo purposes (fixed dim=8)
 function embed(text: string): number[] {
@@ -67,6 +87,7 @@ function embed(text: string): number[] {
 
 const model = openAIAdapter({ model: 'gpt-4o-mini' });
 const query = 'Best fika in Malmö?';
+const vectorStore = createChromaVectorStore({ namespace: process.env.VECTOR_NAMESPACE || 'sisu' });
 
 const ctx: Ctx = {
   input: query,
@@ -91,9 +112,8 @@ const docs = [
 };
 
 const app = new Agent()
-  .use(registerTools(vectorPrimitiveTools))
-  .use(ragIngest())
-  .use(ragRetrieve({ topK: 2 }))
+  .use(ragIngest({ vectorStore }))
+  .use(ragRetrieve({ vectorStore, topK: 2 }))
   .use(buildRagPrompt());
 ```
 
@@ -155,14 +175,27 @@ Discover what you can do through examples or documentation. Check it out at http
 - [@sisu-ai/tool-azure-blob](packages/tools/azure-blob/README.md)
 - [@sisu-ai/tool-extract-urls](packages/tools/extract-urls/README.md)
 - [@sisu-ai/tool-github-projects](packages/tools/github-projects/README.md)
+- [@sisu-ai/tool-rag](packages/tools/rag/README.md)
 - [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md)
 - [@sisu-ai/tool-terminal](packages/tools/terminal/README.md)
-- [@sisu-ai/tool-vec-chroma](packages/tools/vec-chroma/README.md)
 - [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md)
 - [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md)
 - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)
 - [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md)
 - [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md)
+</details>
+
+<details>
+<summary>All RAG packages</summary>
+
+- [@sisu-ai/rag-core](packages/rag/core/README.md)
+</details>
+
+<details>
+<summary>All vector packages</summary>
+
+- [@sisu-ai/vector-core](packages/vector/core/README.md)
+- [@sisu-ai/vector-chroma](packages/vector/chroma/README.md)
 </details>
 
 <details>

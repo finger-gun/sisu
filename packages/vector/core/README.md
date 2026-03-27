@@ -13,17 +13,65 @@ Share provider-agnostic vector types and math utilities across Sisu vector tools
 npm i @sisu-ai/vector-core
 ```
 
-## What It Provides
-- Types used by vector tools/middleware:
-  - `Embedding` — `number[]`
-  - `VectorRecord` — `{ id, embedding, metadata?, namespace? }`
-  - `QueryRequest` — `{ embedding, topK, filter?, namespace? }`
-  - `QueryResult` — `{ matches: Array<{ id, score, metadata? }> }`
-- Math helpers for local operations:
-  - `dot(a,b)`, `l2Norm(v)`, `normalize(v)`, `cosineSimilarity(a,b)`
+## Philosophy
 
-## Typical Usage
-- With agent-facing RAG tools such as `@sisu-ai/tool-rag`, backend adapters such as `@sisu-ai/vector-chroma`, and low-level vector tools such as `@sisu-ai/tool-vec-chroma`.
+`@sisu-ai/vector-core` is the storage-contract layer for Sisu.
+
+- It defines the minimal types and interfaces needed to talk to a vector backend.
+- It does not know about chunking, embeddings orchestration, prompt building, or model-facing tools.
+- It gives backend adapters and higher-level RAG packages a small, explicit contract to share.
+
+This keeps Sisu’s boundaries clean:
+
+- `@sisu-ai/vector-core` defines the contract
+- `@sisu-ai/vector-chroma` implements the contract for Chroma
+- `@sisu-ai/rag-core` builds reusable RAG mechanics on top of the contract
+- `@sisu-ai/tool-rag` exposes model-facing tools on top of `@sisu-ai/rag-core`
+- `@sisu-ai/mw-rag` composes deterministic middleware flows on top of a `VectorStore`
+
+## What It Provides
+
+### Contracts
+- `Embedding` — `number[]`
+- `VectorRecord` — `{ id, embedding, metadata?, namespace? }`
+- `QueryRequest` — `{ embedding, topK, filter?, namespace? }`
+- `QueryResult` — `{ matches: Array<{ id, score, metadata? }> }`
+- `VectorStore` — `{ upsert(...), query(...), delete?(...) }`
+
+### Math helpers
+- `dot(a, b)`
+- `l2Norm(v)`
+- `normalize(v)`
+- `cosineSimilarity(a, b)`
+
+## How The Stack Fits Together
+
+The usual stack looks like this:
+
+1. App code or a tool gets embeddings from a provider
+2. A `VectorStore` implementation writes or queries vectors
+3. `@sisu-ai/rag-core` handles chunking, record preparation, and retrieval shaping
+4. `@sisu-ai/tool-rag` or `@sisu-ai/mw-rag` turns that into agent behavior
+
+Example composition:
+
+```ts
+import { openAIEmbeddings } from '@sisu-ai/adapter-openai';
+import { createChromaVectorStore } from '@sisu-ai/vector-chroma';
+import { storeRagContent } from '@sisu-ai/rag-core';
+import { createRagTools } from '@sisu-ai/tool-rag';
+
+const embeddings = openAIEmbeddings({ model: 'text-embedding-3-small' });
+const vectorStore = createChromaVectorStore({ namespace: 'docs' });
+
+await storeRagContent({
+  content: 'Sisu keeps packages small and composable.',
+  embeddings,
+  vectorStore,
+});
+
+const ragTools = createRagTools({ embeddings, vectorStore });
+```
 
 Example shape of ingestion records:
 ```ts
@@ -47,13 +95,48 @@ const res: QueryResult = {
 };
 ```
 
-## Integration With RAG Middleware
-Used by `@sisu-ai/mw-rag`:
-- `ragIngest()` expects `ctx.state.rag.records: VectorRecord[]`
-- `ragRetrieve()` expects `ctx.state.rag.queryEmbedding: Embedding`
-- Stores retrieval at `ctx.state.rag.retrieval: QueryResult`
+## Building a New Vector Provider
 
-See examples in `examples/openai-rag-chroma`.
+To add a new backend, implement `VectorStore` in a `vector-*` package.
+
+Example skeleton:
+
+```ts
+import type { VectorStore } from '@sisu-ai/vector-core';
+
+export function createExampleVectorStore(): VectorStore {
+  return {
+    async upsert({ records, namespace, signal }) {
+      return { count: records.length };
+    },
+    async query({ embedding, topK, filter, namespace, signal }) {
+      return { matches: [] };
+    },
+    async delete({ ids, namespace, signal }) {
+      return { count: ids.length };
+    },
+  };
+}
+```
+
+That adapter can then be used by:
+
+- `@sisu-ai/rag-core`
+- `@sisu-ai/tool-rag`
+- `@sisu-ai/mw-rag`
+
+`@sisu-ai/vector-chroma` is the concrete example to follow.
+
+## What Does Not Belong Here
+
+These concerns live elsewhere on purpose:
+
+- chunking and content preparation → `@sisu-ai/rag-core`
+- model-facing tools → `@sisu-ai/tool-rag`
+- middleware prompt composition → `@sisu-ai/mw-rag`
+- backend SDK implementation details → `vector-*` adapter packages
+
+See `examples/openai-rag-chroma` for the full composition path.
 
 ## Notes
 - Namespaces: optional per‑provider routing. If you don’t need them, omit.
@@ -108,7 +191,6 @@ Discover what you can do through examples or documentation. Check it out at http
 - [@sisu-ai/tool-rag](packages/tools/rag/README.md)
 - [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md)
 - [@sisu-ai/tool-terminal](packages/tools/terminal/README.md)
-- [@sisu-ai/tool-vec-chroma](packages/tools/vec-chroma/README.md)
 - [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md)
 - [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md)
 - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)

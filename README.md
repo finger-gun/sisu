@@ -206,7 +206,25 @@ const model = openAIAdapter({
 | Web      | [`webFetch`](packages/tools/web-fetch/) · [`webSearch`](packages/tools/web-search-google/) · [`wikipedia`](packages/tools/wikipedia/) |
 | Cloud    | [`awsS3`](packages/tools/aws-s3/) · [`azureBlob`](packages/tools/azure-blob/) |
 | Dev      | [`terminal`](packages/tools/terminal/) · [`githubProjects`](packages/tools/github-projects/) |
-| Data     | [`ragCore`](packages/rag/core/) · [`ragTools`](packages/tools/rag/) · [`vectorChromaAdapter`](packages/vector/chroma/) · [`vectorPrimitives`](packages/tools/vec-chroma/) · [`extractUrls`](packages/tools/extract-urls/) · [`summarizeText`](packages/tools/summarize-text/) |
+| Data     | [`ragTools`](packages/tools/rag/) · [`extractUrls`](packages/tools/extract-urls/) · [`summarizeText`](packages/tools/summarize-text/) |
+
+### Libraries
+
+| Category | Packages |
+| -------- | -------- |
+| RAG & Vector | [`ragCore`](packages/rag/core/) · [`vectorCore`](packages/vector/core/) · [`vectorChromaAdapter`](packages/vector/chroma/) |
+
+### RAG Stack
+
+Sisu keeps RAG split into small layers:
+
+- [`@sisu-ai/vector-core`](packages/vector/core/README.md) defines the `VectorStore` contract
+- [`@sisu-ai/vector-chroma`](packages/vector/chroma/README.md) implements that contract for Chroma
+- [`@sisu-ai/rag-core`](packages/rag/core/README.md) handles chunking, record prep, and direct store/retrieve helpers
+- [`@sisu-ai/tool-rag`](packages/tools/rag/README.md) exposes model-facing retrieval/storage tools
+- [`@sisu-ai/mw-rag`](packages/middleware/rag/README.md) supports deterministic middleware-driven RAG flows
+
+That keeps backend code, reusable mechanics, tool-calling, and middleware composition separate.
 
 ---
 
@@ -303,7 +321,6 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 - [@sisu-ai/tool-rag](packages/tools/rag/README.md)
 - [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md)
 - [@sisu-ai/tool-terminal](packages/tools/terminal/README.md)
-- [@sisu-ai/tool-vec-chroma](packages/tools/vec-chroma/README.md)
 - [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md)
 - [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md)
 - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)

@@ -1,5 +1,9 @@
-import type { Middleware, Ctx, Message, Tool } from "@sisu-ai/core";
-import type { VectorRecord, QueryResult } from "@sisu-ai/vector-core";
+import type { Middleware, Ctx, Message } from "@sisu-ai/core";
+import type {
+  QueryResult,
+  VectorRecord,
+  VectorStore,
+} from "@sisu-ai/vector-core";
 
 type Select<T> = (ctx: Ctx) => T;
 
@@ -11,38 +15,49 @@ type RagState = {
 };
 
 export interface RagIngestOptions {
-  toolName?: string; // defaults to vector.upsert
-  select?: Select<{ records: VectorRecord[] } | VectorRecord[]>;
+  vectorStore?: VectorStore;
+  namespace?: string;
+  select?: Select<{ records: VectorRecord[]; namespace?: string } | VectorRecord[]>;
 }
 
 export const ragIngest =
   (opts: RagIngestOptions = {}): Middleware =>
   async (ctx, next) => {
-    const name = opts.toolName || "vector.upsert";
-    const tool = ctx.tools.get(name) as Tool | undefined;
-    if (!tool)
-      throw new Error(
-        `ragIngest: missing tool ${name}. Did you register vec-chroma tools?`,
-      );
+    const vectorStore = opts.vectorStore;
+    if (!vectorStore) {
+      throw new Error("ragIngest: missing vectorStore");
+    }
     const sel = opts.select?.(ctx);
     const state = ctx.state as { rag?: RagState };
     const records = Array.isArray(sel)
       ? sel
       : (sel?.records ?? state.rag?.records);
+    const namespace =
+      Array.isArray(sel) ? opts.namespace : (sel?.namespace ?? opts.namespace);
     if (!records || !Array.isArray(records) || records.length === 0)
       throw new Error("ragIngest: no records to upsert");
-    const result = await tool.handler({ records }, ctx as Ctx);
+    const result = await vectorStore.upsert({
+      records,
+      namespace,
+      signal: ctx.signal,
+    });
     const srag = (state.rag ||= {});
     srag.ingested = result;
     await next();
   };
 
 export interface RagRetrieveOptions {
-  toolName?: string; // defaults to vector.query
+  vectorStore?: VectorStore;
+  namespace?: string;
   topK?: number;
   filter?: Record<string, unknown>;
   select?: Select<
-    | { embedding: number[]; topK?: number; filter?: Record<string, unknown> }
+    | {
+        embedding: number[];
+        topK?: number;
+        filter?: Record<string, unknown>;
+        namespace?: string;
+      }
     | number[]
   >;
 }
@@ -50,12 +65,10 @@ export interface RagRetrieveOptions {
 export const ragRetrieve =
   (opts: RagRetrieveOptions = {}): Middleware =>
   async (ctx, next) => {
-    const name = opts.toolName || "vector.query";
-    const tool = ctx.tools.get(name) as Tool | undefined;
-    if (!tool)
-      throw new Error(
-        `ragRetrieve: missing tool ${name}. Did you register vec-chroma tools?`,
-      );
+    const vectorStore = opts.vectorStore;
+    if (!vectorStore) {
+      throw new Error("ragRetrieve: missing vectorStore");
+    }
     const sel = opts.select?.(ctx);
     const state = ctx.state as { rag?: RagState };
     const embedding = Array.isArray(sel)
@@ -72,10 +85,17 @@ export const ragRetrieve =
       (Array.isArray(sel)
         ? undefined
         : (sel as { filter?: Record<string, unknown> })?.filter) ?? opts.filter;
-    const result = (await tool.handler(
-      { embedding, topK, filter },
-      ctx as Ctx,
-    )) as QueryResult;
+    const namespace =
+      (Array.isArray(sel)
+        ? undefined
+        : (sel as { namespace?: string })?.namespace) ?? opts.namespace;
+    const result = (await vectorStore.query({
+      embedding,
+      topK,
+      filter,
+      namespace,
+      signal: ctx.signal,
+    })) as QueryResult;
     const srag = (state.rag ||= {});
     srag.retrieval = result;
     ctx.log.debug?.(`[rag] retrieved ${result?.matches?.length || 0} matches`);

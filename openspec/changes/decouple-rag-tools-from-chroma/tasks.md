@@ -19,21 +19,26 @@
 ## 4. Chroma Adapter Integration
 
 - [x] 4.1 Implement Chroma vector-store adapter conforming to the shared contract (`@sisu-ai/vector-chroma`).
-- [x] 4.2 Ensure low-level `vector.upsert/query/delete` remain available for developer-controlled flows.
-- [x] 4.3 Wire Chroma adapter into generic tools for current example compatibility.
+- [x] 4.2 Wire Chroma adapter into generic tools and middleware for current example compatibility.
+- [x] 4.3 Remove the old Chroma primitive tool package from the maintained public architecture.
 
-## 5. Tests
+## 5. Middleware Alignment
 
-- [x] 5.1 Add tests for `@sisu-ai/rag-core` chunking and orchestration behavior.
-- [x] 5.2 Add wrapper-level tests for `@sisu-ai/tool-rag` behavior using mocked dependencies.
-- [x] 5.3 Add adapter tests ensuring Chroma implementation preserves expected upsert/query semantics.
+- [x] 5.1 Refactor `@sisu-ai/mw-rag` to depend on `VectorStore` directly.
+- [x] 5.2 Update middleware tests and docs to match direct `VectorStore` composition.
 
-## 6. Examples and Docs
+## 6. Tests
 
-- [x] 6.1 Update `openai-rag-chroma` to use `@sisu-ai/rag-core` for developer ingestion and `@sisu-ai/tool-rag` + `@sisu-ai/vector-chroma` for model-facing composition.
-- [x] 6.2 Update package docs to explain package roles and migration path.
+- [x] 6.1 Add tests for `@sisu-ai/rag-core` chunking and orchestration behavior.
+- [x] 6.2 Add wrapper-level tests for `@sisu-ai/tool-rag` behavior using mocked dependencies.
+- [x] 6.3 Add adapter and middleware tests ensuring Chroma/vector-store composition preserves expected semantics.
 
-## 7. Validation
+## 7. Examples and Docs
 
-- [x] 7.1 Run targeted tests/typechecks for touched packages.
-- [x] 7.2 Run package build/lint/test validation and fix introduced issues.
+- [x] 7.1 Update `openai-rag-chroma` to use `@sisu-ai/rag-core` for developer ingestion and `@sisu-ai/tool-rag` + `@sisu-ai/vector-chroma` for model-facing composition.
+- [x] 7.2 Update package docs to explain package roles and migration path.
+
+## 8. Validation
+
+- [x] 8.1 Run targeted tests/typechecks for touched packages.
+- [x] 8.2 Run package build/lint/test validation and fix introduced issues.
