@@ -104,6 +104,15 @@ export interface ModelResponse {
   usage?: Usage;
 }
 
+export interface EmbedOptions {
+  model?: string;
+  signal?: globalThis.AbortSignal;
+}
+
+export interface EmbeddingsProvider {
+  embed(input: string[], opts?: EmbedOptions): Promise<number[][]>;
+}
+
 /** Adapter contract */
 export interface LLM {
   name: string;

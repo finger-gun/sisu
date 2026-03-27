@@ -6,7 +6,7 @@ Demonstrates using the agent-browser skill from the skills.sh ecosystem with SIS
 
 - Node.js >= 18.17
 - pnpm
-- `OPENAI_API_KEY` in your environment
+- `API_KEY` in your environment
 - agent-browser CLI installed
 
 ## Install agent-browser

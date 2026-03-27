@@ -32,14 +32,14 @@ Demonstrates reasoning model support (o1, o3, ChatGPT 5.1) with preserved reason
 
 ### Regular OpenAI (Recommended for testing)
 ```bash
-export OPENAI_API_KEY=sk-your-key-here
+export API_KEY=sk-your-key-here
 export OPENAI_MODEL=gpt-4o  # Has reasoning capabilities
 # OPENAI_BASE_URL is not needed (uses default)
 ```
 
 ### OpenAI o1/o3 Series (Advanced reasoning)
 ```bash
-export OPENAI_API_KEY=sk-your-key-here
+export API_KEY=sk-your-key-here
 export OPENAI_MODEL=o1-preview  # or o1-mini, o3-mini
 # OPENAI_BASE_URL is not needed (uses default)
 ```
@@ -47,7 +47,7 @@ export OPENAI_MODEL=o1-preview  # or o1-mini, o3-mini
 ### OpenRouter (ChatGPT 5.1)
 ```bash
 export OPENAI_BASE_URL=https://openrouter.ai/api/v1
-export OPENAI_API_KEY=sk-or-v1-xxx
+export API_KEY=sk-or-v1-xxx
 export OPENAI_MODEL=openai/gpt-5.1
 ```
 

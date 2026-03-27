@@ -1,5 +1,5 @@
 {
-  "name": "@sisu-ai/example-openai-rag-chroma",
+  "name": "openai-rag-chroma",
   "version": "0.1.23",
   "type": "module",
   "private": true,
@@ -15,9 +15,11 @@
   "dependencies": {
     "@sisu-ai/core": "workspace:*",
     "@sisu-ai/adapter-openai": "workspace:*",
+    "@sisu-ai/mw-conversation-buffer": "workspace:*",
     "@sisu-ai/mw-trace-viewer": "workspace:*",
     "@sisu-ai/mw-register-tools": "workspace:*",
     "@sisu-ai/mw-rag": "workspace:*",
+    "@sisu-ai/mw-tool-calling": "workspace:*",
     "@sisu-ai/tool-vec-chroma": "workspace:*",
     "dotenv": "^16.4.5"
   }

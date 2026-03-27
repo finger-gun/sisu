@@ -758,12 +758,18 @@ importers:
       '@sisu-ai/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
       '@sisu-ai/mw-rag':
         specifier: workspace:*
         version: link:../../packages/middleware/rag
       '@sisu-ai/mw-register-tools':
         specifier: workspace:*
         version: link:../../packages/middleware/register-tools
+      '@sisu-ai/mw-tool-calling':
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
       '@sisu-ai/mw-trace-viewer':
         specifier: workspace:*
         version: link:../../packages/middleware/trace-viewer

@@ -28,11 +28,14 @@ Discover what you can do through examples or documentation. Check it out at http
 
 ## Usage
 ```ts
-import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { openAIAdapter, openAIEmbeddings } from '@sisu-ai/adapter-openai';
 
 const model = openAIAdapter({ model: 'gpt-4o-mini' });
 // or with a gateway
 const model = openAIAdapter({ model: 'gpt-4o-mini', baseUrl: 'https://openrouter.ai/api/' });
+
+const embeddings = openAIEmbeddings({ model: 'text-embedding-3-small' });
+const vectors = await embeddings.embed(['first text', 'second text']);
 ```
 
 ## Images (Vision)

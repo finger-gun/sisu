@@ -14,6 +14,8 @@ Store and query vectors in ChromaDB through tools designed for Sisu RAG pipeline
 - `vector.upsert(records)` — add/update embeddings
 - `vector.query({ embedding, topK, filter? })` — nearest neighbors
 - `vector.delete({ ids })` — remove entries
+- `retrieveContext({ queryText, topK?, filter?, namespace? })` — embed + retrieve compact context chunks
+- `storeContext({ content, metadata?, source?, ... })` — chunk + embed + persist conversation-derived context
 
 Environment:
 - `CHROMA_URL` (default: `http://localhost:8000`)
@@ -25,6 +27,36 @@ Register tools via `@sisu-ai/mw-register-tools`:
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { vectorTools } from '@sisu-ai/tool-vec-chroma';
 agent.use(registerTools(vectorTools));
+```
+
+## Embeddings Injection
+
+`retrieveContext` and `storeContext` are provider-agnostic and require an embeddings provider.
+
+- Pass provider instance via tool factory options: `createRetrieveTool({ embeddings })`
+- Or inject via middleware deps: `ctx.state.toolDeps.embeddings`
+
+You can also generate a clean RAG tool bundle with fixed namespace + embeddings:
+
+```ts
+import { createRagContextTools } from '@sisu-ai/tool-vec-chroma';
+
+const tools = createRagContextTools({
+  namespace: 'sisu',
+  embeddings,
+  // Optional: include low-level primitive only for controlled ingestion paths
+  includeUpsert: true,
+});
+```
+
+By default, `createRagContextTools()` returns only `retrieveContext` and `storeContext`.
+
+The expected embeddings contract is:
+
+```ts
+type EmbeddingsProvider = {
+  embed(input: string[], opts?: { model?: string; signal?: AbortSignal }): Promise<number[][]>;
+};
 ```
 
 
