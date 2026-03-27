@@ -25,6 +25,7 @@ This keeps Sisu’s boundaries clean:
 
 - `@sisu-ai/vector-core` defines the contract
 - `@sisu-ai/vector-chroma` implements the contract for Chroma
+- `@sisu-ai/vector-vectra` implements the contract for local file-backed Vectra indexes
 - `@sisu-ai/rag-core` builds reusable RAG mechanics on top of the contract
 - `@sisu-ai/tool-rag` exposes model-facing tools on top of `@sisu-ai/rag-core`
 - `@sisu-ai/mw-rag` composes deterministic middleware flows on top of a `VectorStore`
@@ -57,12 +58,12 @@ Example composition:
 
 ```ts
 import { openAIEmbeddings } from '@sisu-ai/adapter-openai';
-import { createChromaVectorStore } from '@sisu-ai/vector-chroma';
+import { createVectraVectorStore } from '@sisu-ai/vector-vectra';
 import { storeRagContent } from '@sisu-ai/rag-core';
 import { createRagTools } from '@sisu-ai/tool-rag';
 
 const embeddings = openAIEmbeddings({ model: 'text-embedding-3-small' });
-const vectorStore = createChromaVectorStore({ namespace: 'docs' });
+const vectorStore = createVectraVectorStore({ folderPath: '.vectra', namespace: 'docs' });
 
 await storeRagContent({
   content: 'Sisu keeps packages small and composable.',
@@ -125,7 +126,7 @@ That adapter can then be used by:
 - `@sisu-ai/tool-rag`
 - `@sisu-ai/mw-rag`
 
-`@sisu-ai/vector-chroma` is the concrete example to follow.
+`@sisu-ai/vector-chroma` and `@sisu-ai/vector-vectra` are the concrete maintained examples to follow.
 
 ## What Does Not Belong Here
 
@@ -136,7 +137,7 @@ These concerns live elsewhere on purpose:
 - middleware prompt composition → `@sisu-ai/mw-rag`
 - backend SDK implementation details → `vector-*` adapter packages
 
-See `examples/openai-rag-chroma` for the full composition path.
+See `examples/openai-rag-chroma` and `examples/openai-rag-vectra` for full composition paths.
 
 ## Notes
 - Namespaces: optional per‑provider routing. If you don’t need them, omit.
@@ -209,6 +210,7 @@ Discover what you can do through examples or documentation. Check it out at http
 
 - [@sisu-ai/vector-core](packages/vector/core/README.md)
 - [@sisu-ai/vector-chroma](packages/vector/chroma/README.md)
+- [@sisu-ai/vector-vectra](packages/vector/vectra/README.md)
 </details>
 
 <details>
@@ -218,7 +220,7 @@ Discover what you can do through examples or documentation. Check it out at http
 
 **Ollama** — [hello](examples/ollama-hello/README.md) · [stream](examples/ollama-stream/README.md) · [vision](examples/ollama-vision/README.md) · [weather](examples/ollama-weather/README.md) · [web-search](examples/ollama-web-search/README.md)
 
-**OpenAI** — [hello](examples/openai-hello/README.md) · [weather](examples/openai-weather/README.md) · [stream](examples/openai-stream/README.md) · [vision](examples/openai-vision/README.md) · [reasoning](examples/openai-reasoning/README.md) · [react](examples/openai-react/README.md) · [control-flow](examples/openai-control-flow/README.md) · [branch](examples/openai-branch/README.md) · [parallel](examples/openai-parallel/README.md) · [graph](examples/openai-graph/README.md) · [orchestration](examples/openai-orchestration/README.md) · [orchestration-adaptive](examples/openai-orchestration-adaptive/README.md) · [guardrails](examples/openai-guardrails/README.md) · [error-handling](examples/openai-error-handling/README.md) · [rag-chroma](examples/openai-rag-chroma/README.md) · [web-search](examples/openai-web-search/README.md) · [web-fetch](examples/openai-web-fetch/README.md) · [wikipedia](examples/openai-wikipedia/README.md) · [terminal](examples/openai-terminal/README.md) · [github-projects](examples/openai-github-projects/README.md) · [server](examples/openai-server/README.md) · [aws-s3](examples/openai-aws-s3/README.md) · [azure-blob](examples/openai-azure-blob/README.md)
+**OpenAI** — [hello](examples/openai-hello/README.md) · [weather](examples/openai-weather/README.md) · [stream](examples/openai-stream/README.md) · [vision](examples/openai-vision/README.md) · [reasoning](examples/openai-reasoning/README.md) · [react](examples/openai-react/README.md) · [control-flow](examples/openai-control-flow/README.md) · [branch](examples/openai-branch/README.md) · [parallel](examples/openai-parallel/README.md) · [graph](examples/openai-graph/README.md) · [orchestration](examples/openai-orchestration/README.md) · [orchestration-adaptive](examples/openai-orchestration-adaptive/README.md) · [guardrails](examples/openai-guardrails/README.md) · [error-handling](examples/openai-error-handling/README.md) · [rag-chroma](examples/openai-rag-chroma/README.md) · [rag-vectra](examples/openai-rag-vectra/README.md) · [web-search](examples/openai-web-search/README.md) · [web-fetch](examples/openai-web-fetch/README.md) · [wikipedia](examples/openai-wikipedia/README.md) · [terminal](examples/openai-terminal/README.md) · [github-projects](examples/openai-github-projects/README.md) · [server](examples/openai-server/README.md) · [aws-s3](examples/openai-aws-s3/README.md) · [azure-blob](examples/openai-azure-blob/README.md)
 </details>
 
 ---

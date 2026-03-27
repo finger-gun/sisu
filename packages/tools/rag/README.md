@@ -31,7 +31,7 @@ Type exports are re-exposed for convenience, but reusable chunking and ingestion
 - `embeddings` provider (`embed(input[]) => vectors[]`)
 - `vectorStore` implementation (`upsert`, `query`)
 
-Use backend adapters such as `@sisu-ai/vector-chroma` to provide `vectorStore`.
+Use backend adapters such as `@sisu-ai/vector-chroma` or `@sisu-ai/vector-vectra` to provide `vectorStore`.
 
 For startup seeding, chunking helpers, and developer-controlled ingestion, use `@sisu-ai/rag-core` directly.
 

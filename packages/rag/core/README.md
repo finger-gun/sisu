@@ -31,6 +31,7 @@ Use `@sisu-ai/rag-core` when you need RAG mechanics outside tool-calling, such a
 - `@sisu-ai/tool-rag` wraps this package for model-facing tool calls
 - `@sisu-ai/vector-core` provides vector contracts
 - `@sisu-ai/vector-chroma` provides a Chroma-backed `VectorStore`
+- `@sisu-ai/vector-vectra` provides a local file-backed `VectorStore`
 
 ## What It Owns
 
@@ -44,7 +45,7 @@ Use `@sisu-ai/rag-core` when you need RAG mechanics outside tool-calling, such a
 
 - model-facing tool schemas or descriptions → `@sisu-ai/tool-rag`
 - middleware prompt injection → `@sisu-ai/mw-rag`
-- vector backend SDK code → `@sisu-ai/vector-chroma` or another `vector-*` package
+- vector backend SDK code → `@sisu-ai/vector-chroma`, `@sisu-ai/vector-vectra`, or another `vector-*` package
 
 ## Typical Flow
 

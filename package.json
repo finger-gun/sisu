@@ -79,6 +79,7 @@
     "ex:openai:terminal": "TRACE_HTML=1 pnpm --filter=openai-terminal dev",
     "ex:openai:github-projects": "TRACE_HTML=1 pnpm --filter=openai-github-projects dev",
     "ex:openai:rag-chroma": "TRACE_HTML=1 pnpm --filter=openai-rag-chroma dev",
+    "ex:openai:rag-vectra": "TRACE_HTML=1 pnpm --filter=openai-rag-vectra dev",
     "ex:openai:openai-azure-blob": "TRACE_HTML=1 pnpm --filter=openai-azure-blob dev",
     "ex:openai:extract-urls": "TRACE_HTML=1 pnpm --filter=openai-extract-urls dev",
     "ex:openai:aws-s3": "TRACE_HTML=1 pnpm --filter=openai-aws-s3 dev",
