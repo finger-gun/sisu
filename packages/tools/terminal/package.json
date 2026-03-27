@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/tool-terminal",
-  "version": "7.1.2",
+  "version": "8.0.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,7 +19,7 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "^2.3.3"
+    "@sisu-ai/core": "^2.4.0"
   },
   "repository": {
     "type": "git",

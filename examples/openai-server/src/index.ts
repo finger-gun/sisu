@@ -9,7 +9,7 @@ import {
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
-import { agentRunApi, type HttpCtx } from "@sisu-ai/mw-agent-run-api";
+import { agentRunApi } from "@sisu-ai/mw-agent-run-api";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { cors } from "@sisu-ai/mw-cors";
 import { Server } from "@sisu-ai/server";
@@ -20,7 +20,7 @@ const basePath = process.env.BASE_PATH || "/api";
 const healthPath = process.env.HEALTH_PATH || "/health";
 const apiKey = process.env.API_KEY;
 
-const generateOnce = async (c: HttpCtx) => {
+const generateOnce = async (c: Ctx) => {
   if (c.input) c.messages.push({ role: "user", content: c.input });
   const out = await c.model.generate(c.messages, {
     toolChoice: "none",
@@ -44,7 +44,7 @@ const generateOnce = async (c: HttpCtx) => {
 };
 const store = new InMemoryKV();
 const runApi = agentRunApi({ runStore: store, basePath, apiKey });
-const app = new Agent<HttpCtx>()
+const app = new Agent()
   .use(
     errorBoundary(async (err, c) => {
       c.log.error(err);
@@ -89,7 +89,7 @@ const server = new Server(app, {
           | "error"
           | undefined,
       }),
-    }) as HttpCtx,
+        }),
 });
 
 server.listen();

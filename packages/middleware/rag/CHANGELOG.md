@@ -1,5 +1,36 @@
 # @sisu-ai/mw-rag
 
+## 9.0.0
+
+### Major Changes
+
+- Updates RAG middleware to use an explicit vector store contract instead of implicit `vector.*` tool lookups.
+
+  ### Migration
+  - `ragIngest(...)` and `ragRetrieve(...)` now require a `vectorStore` option.
+  - If you previously relied on `vector.upsert` / `vector.query` tools (including old vec-chroma flows), pass a `VectorStore` implementation directly.
+
+  Example:
+
+  ```ts
+  import { ragIngest, ragRetrieve } from "@sisu-ai/mw-rag";
+  import { createChromaVectorStore } from "@sisu-ai/vector-chroma";
+
+  const vectorStore = createChromaVectorStore({
+    chromaUrl: process.env.CHROMA_URL,
+  });
+
+  app.use(ragIngest({ vectorStore }));
+  app.use(ragRetrieve({ vectorStore, topK: 4 }));
+  ```
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @sisu-ai/core@2.4.0
+  - @sisu-ai/vector-core@1.1.0
+
 ## 8.0.4
 
 ### Patch Changes

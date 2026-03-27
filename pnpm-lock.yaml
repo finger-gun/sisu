@@ -1,7 +1,7 @@
 lockfileVersion: '9.0'
 
 settings:
-  autoInstallPeers: true
+  autoInstallPeers: false
   excludeLinksFromLockfile: false
 
 importers:
@@ -1178,76 +1178,33 @@ importers:
         specifier: ^16.4.5
         version: 16.6.1
 
-  packages/adapters/anthropic:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/adapters/anthropic: {}
 
-  packages/adapters/ollama:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/adapters/ollama: {}
 
-  packages/adapters/openai:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/adapters/openai: {}
 
   packages/core: {}
 
   packages/middleware/agent-run-api:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+    devDependencies:
       '@sisu-ai/server':
-        specifier: ^7.0.4
-        version: 7.0.4(@sisu-ai/core@2.3.3)
+        specifier: workspace:*
+        version: link:../../server
 
-  packages/middleware/context-compressor:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/context-compressor: {}
 
-  packages/middleware/control-flow:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/control-flow: {}
 
-  packages/middleware/conversation-buffer:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/conversation-buffer: {}
 
-  packages/middleware/cors:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/cors: {}
 
-  packages/middleware/error-boundary:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/error-boundary: {}
 
-  packages/middleware/guardrails:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/guardrails: {}
 
-  packages/middleware/invariants:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/invariants: {}
 
   packages/middleware/orchestration:
     dependencies:
@@ -1265,26 +1222,11 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@24.10.1)(tsx@4.21.0)
 
-  packages/middleware/rag:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
-      '@sisu-ai/vector-core':
-        specifier: ^1.0.7
-        version: 1.0.7
+  packages/middleware/rag: {}
 
-  packages/middleware/react-parser:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/react-parser: {}
 
-  packages/middleware/register-tools:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/register-tools: {}
 
   packages/middleware/skills:
     dependencies:
@@ -1302,11 +1244,7 @@ importers:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@20.19.33)
 
-  packages/middleware/tool-calling:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/tool-calling: {}
 
   packages/middleware/trace-viewer:
     devDependencies:
@@ -1314,23 +1252,11 @@ importers:
         specifier: workspace:*
         version: link:../../core
 
-  packages/middleware/usage-tracker:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/middleware/usage-tracker: {}
 
-  packages/rag/core:
-    dependencies:
-      '@sisu-ai/vector-core':
-        specifier: ^1.0.7
-        version: 1.0.7
+  packages/rag/core: {}
 
-  packages/server:
-    dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
+  packages/server: {}
 
   packages/skills/skill-code-review: {}
 
@@ -1350,8 +1276,8 @@ importers:
         specifier: ^3.0.0
         version: 3.934.0
       '@sisu-ai/core':
-        specifier: 2.3.3
-        version: 2.3.3
+        specifier: 2.4.0
+        version: link:../../core
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1361,60 +1287,39 @@ importers:
       '@azure/storage-blob':
         specifier: ^12.15.0
         version: 12.29.1
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
 
   packages/tools/extract-urls:
     dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
 
   packages/tools/github-projects:
     dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
 
   packages/tools/rag:
     dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       '@sisu-ai/rag-core':
         specifier: workspace:*
         version: link:../../rag/core
-      '@sisu-ai/vector-core':
-        specifier: ^1.0.7
-        version: 1.0.7
       zod:
         specifier: ^3.23.8
         version: 3.25.76
 
   packages/tools/summarize-text:
     dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
 
   packages/tools/terminal:
     dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       minimatch:
         specifier: ^9.0.3
         version: 9.0.5
@@ -1424,45 +1329,30 @@ importers:
 
   packages/tools/web-fetch:
     dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
 
   packages/tools/web-search-duckduckgo:
     dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
 
   packages/tools/web-search-openai:
     dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
 
   packages/tools/wikipedia:
     dependencies:
-      '@sisu-ai/core':
-        specifier: ^2.3.3
-        version: 2.3.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
 
   packages/vector/chroma:
     dependencies:
-      '@sisu-ai/vector-core':
-        specifier: ^1.0.7
-        version: 1.0.7
       chromadb:
         specifier: ^1.10.5
         version: 1.10.5(openai@4.104.0(zod@3.25.76))
@@ -1471,9 +1361,6 @@ importers:
 
   packages/vector/vectra:
     dependencies:
-      '@sisu-ai/vector-core':
-        specifier: ^1.0.7
-        version: 1.0.7
       vectra:
         specifier: ^0.12.3
         version: 0.12.3(zod@3.25.76)
@@ -2453,17 +2340,6 @@ packages:
 
   '@sinclair/typebox@0.27.10':
     resolution: {integrity: sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA==}
-
-  '@sisu-ai/core@2.3.3':
-    resolution: {integrity: sha512-Ff22t3yfJyAK7SLR0/6b0uhMRQUOaCoaAgAows3J1l0962AQGSjbLsw3DJL6IZCink+jnX8khQLsotI1RMJvzA==}
-
-  '@sisu-ai/server@7.0.4':
-    resolution: {integrity: sha512-+BjF1A09coZUYtFayurTZZ6UiXbbhS/xpkZaLxXWdqOk7b9ZPMfHj+r1q0O+rBfe5FUqSlI2KHVXQN2pNMjh1g==}
-    peerDependencies:
-      '@sisu-ai/core': ^2.3.3
-
-  '@sisu-ai/vector-core@1.0.7':
-    resolution: {integrity: sha512-AhaPvD4ToqJPpTjwXMQ7t3eYXHbE8HbeZK+At/8hjQlBud8kd52MnNGrrDyJIIJEHRZLGXfzp5UEGhpfczzYyg==}
 
   '@smithy/abort-controller@4.2.5':
     resolution: {integrity: sha512-j7HwVkBw68YW8UmFRcjZOmssE77Rvk0GWAIN1oFBhsaovQmZWYCIcGa9/pwRB0ExI8Sk9MWNALTjftjHZea7VA==}
@@ -5523,14 +5399,6 @@ snapshots:
     optional: true
 
   '@sinclair/typebox@0.27.10': {}
-
-  '@sisu-ai/core@2.3.3': {}
-
-  '@sisu-ai/server@7.0.4(@sisu-ai/core@2.3.3)':
-    dependencies:
-      '@sisu-ai/core': 2.3.3
-
-  '@sisu-ai/vector-core@1.0.7': {}
 
   '@smithy/abort-controller@4.2.5':
     dependencies:

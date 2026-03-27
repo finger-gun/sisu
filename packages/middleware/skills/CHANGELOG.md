@@ -1,5 +1,12 @@
 # @sisu-ai/mw-skills
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@2.4.0
+
 ## 0.2.2
 
 ### Patch Changes

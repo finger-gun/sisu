@@ -1,5 +1,14 @@
 # @sisu-ai/core
 
+## 2.4.0
+
+### Minor Changes
+
+- Adds first-class embeddings support and execution telemetry for tool workflows.
+  - `@sisu-ai/core` now exports `EmbeddingsProvider` and `EmbedOptions` so packages can share a typed embeddings contract.
+  - `@sisu-ai/adapter-openai` adds `openAIEmbeddings(...)` for OpenAI-compatible embedding generation with typed options and error handling.
+  - `@sisu-ai/mw-tool-calling` now normalizes JSON-string tool arguments before schema parsing and records tool execution details in `ctx.state.toolExecutions`.
+
 ## 2.3.3
 
 ### Patch Changes

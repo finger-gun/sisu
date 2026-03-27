@@ -1,5 +1,13 @@
 # @sisu-ai/vector-core
 
+## 1.1.0
+
+### Minor Changes
+
+- Adds typed vector-store interfaces for backend-agnostic integrations.
+  - New exported types include `VectorStore`, `VectorUpsertRequest`, `VectorQueryRequest`, `VectorDeleteRequest`, and `VectorWriteResult`.
+  - These additions enable adapters and middleware to integrate with vector backends through a shared contract without breaking existing vector math or record/query types.
+
 ## 1.0.7
 
 ### Patch Changes

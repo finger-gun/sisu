@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/rag-core",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@sisu-ai/vector-core": "^1.0.7"
+    "@sisu-ai/vector-core": "^1.1.0"
   },
   "repository": {
     "type": "git",
