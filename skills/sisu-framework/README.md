@@ -1,10 +1,10 @@
 # Sisu Framework Skill
 
-A Agent Skill for working with the Sisu TypeScript framework for building AI agents.
+An agent skill and reference bundle for working with the Sisu TypeScript framework for building AI agents.
 
 ## What is this?
 
-This is a [Agent Skill](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) that provides comprehensive knowledge about the Sisu framework. It enables agents to help you build agents using Sisu's middleware-based architecture.
+This is an [Agent Skill](https://agentskills.io/) that provides comprehensive knowledge about the Sisu framework. It enables agents to help you build agents using Sisu's middleware-based architecture.
 
 ## Structure
 
@@ -22,10 +22,37 @@ sisu-framework/
 
 ## Using this skill
 
-### In Agent Code
+### Quick install
 
-1. Copy this directory to `~/.claude/skills/sisu-framework/`
-2. Claude will automatically discover and use it when relevant
+Use the installer CLI:
+
+```bash
+npx sisu-skill-install
+```
+
+Supported targets:
+
+- Claude Code / Claude Desktop
+- Cline
+- Roo Code
+- Windsurf
+- Kilo Code
+- Codex CLI
+- GitHub Copilot
+
+For Codex and Copilot, the installer adds a managed bridge file and also copies the full reference docs under `.sisu/skills/sisu-framework/`.
+
+### Manual install
+
+Copy this directory into your tool's skill folder, for example:
+
+- `~/.claude/skills/sisu-framework/`
+- `.claude/skills/sisu-framework/`
+- `.cline/skills/sisu-framework/`
+- `.roo/skills/sisu-framework/`
+- `.windsurf/skills/sisu-framework/`
+
+Codex and Copilot are not native `SKILL.md` loaders, so prefer `npx sisu-skill-install` for those targets.
 
 ### In Agent API
 
@@ -54,7 +81,7 @@ const app = new Agent().use(
 - **Skills** - Sisu's own skills support
 - **Examples** - 25+ working examples
 
-## When Agents uses this skill
+## When agents use this skill
 
 Agents automatically loads this skill when you:
 
@@ -69,7 +96,7 @@ Agents automatically loads this skill when you:
 
 ## Progressive disclosure
 
-The skill uses Agents's progressive disclosure pattern:
+The skill uses the standard progressive disclosure pattern:
 
 1. **Metadata** (always loaded) - Brief description
 2. **Main instructions** (loaded on trigger) - SKILL.md
@@ -92,7 +119,7 @@ To update:
 
 1. Pull latest Sisu docs from GitHub
 2. Update relevant .md files
-3. Test with Claude
+3. Test with your target agent environment
 4. Redistribute to team
 
 ## Related

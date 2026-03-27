@@ -25,6 +25,7 @@ pnpm add @sisu-ai/tool-github-projects
 pnpm add @sisu-ai/rag-core
 pnpm add @sisu-ai/tool-rag
 pnpm add @sisu-ai/vector-chroma
+pnpm add @sisu-ai/vector-vectra
 pnpm add @sisu-ai/tool-extract-urls
 pnpm add @sisu-ai/tool-summarize-text
 ```
@@ -158,6 +159,19 @@ const vectorStore = createChromaVectorStore({ namespace: "docs" });
 ```
 
 Use this when app code or middleware such as `@sisu-ai/mw-rag` needs direct backend access without model-facing tools.
+
+### vectorVectra - Local file-backed vector adapter
+
+```typescript
+import { createVectraVectorStore } from "@sisu-ai/vector-vectra";
+
+const vectorStore = createVectraVectorStore({
+  folderPath: ".vectra",
+  namespace: "docs",
+});
+```
+
+Use this when you want a local file-backed vector index instead of a running Chroma server.
 
 ### extractUrls - Extract URLs from text
 

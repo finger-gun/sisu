@@ -248,6 +248,21 @@ pnpm run ex:ollama:hello
 
 25+ examples covering streaming, vision, RAG, control flow, orchestration, guardrails, and more in [`/examples`](examples/).
 
+Agent skill users can install the Sisu reference bundle with:
+
+```bash
+npx sisu-skill-install
+```
+
+Framework users can also inspect maintained packages and scaffold starters with:
+
+```bash
+npx sisu list tools
+npx sisu info mw-rag
+npx sisu create chat-agent my-app
+npx sisu install skill
+```
+
 ---
 
 ## Configuration
@@ -333,6 +348,24 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 <summary>RAG packages</summary>
 
 - [@sisu-ai/rag-core](packages/rag/core/README.md)
+</details>
+
+<details>
+<summary>All skill packages</summary>
+
+- [@sisu-ai/skill-code-review](packages/skills/skill-code-review/README.md)
+- [@sisu-ai/skill-debug](packages/skills/skill-debug/README.md)
+- [@sisu-ai/skill-deploy](packages/skills/skill-deploy/README.md)
+- [@sisu-ai/skill-explain](packages/skills/skill-explain/README.md)
+- [@sisu-ai/skill-repo-search](packages/skills/skill-repo-search/README.md)
+- [@sisu-ai/skill-test-gen](packages/skills/skill-test-gen/README.md)
+- [`sisu-skill-install`](packages/skills/skill-install/README.md)
+</details>
+
+<details>
+<summary>CLI packages</summary>
+
+- [`sisu`](packages/cli/sisu/README.md)
 </details>
 
 <details>
