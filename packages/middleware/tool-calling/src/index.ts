@@ -6,6 +6,23 @@ import type {
   Tool,
 } from "@sisu-ai/core";
 
+type ToolExecutionRecord = {
+  aliasName: string;
+  canonicalName: string;
+  callId?: string;
+  args: unknown;
+  result: unknown;
+};
+
+function pushToolExecution(ctx: { state: Record<string, unknown> }, record: ToolExecutionRecord): void {
+  const existing = ctx.state.toolExecutions;
+  if (Array.isArray(existing)) {
+    existing.push(record);
+    return;
+  }
+  ctx.state.toolExecutions = [record];
+}
+
 /**
  * Apply user-configured aliases to tools before passing to adapter.
  * Creates new tool objects with aliased names while keeping originals in registry.
@@ -52,6 +69,30 @@ function hasParseSchema(
 
   const maybeSchema = schema as { parse?: unknown };
   return typeof maybeSchema.parse === "function";
+}
+
+function normalizeToolArguments(args: unknown): unknown {
+  if (typeof args !== "string") {
+    return args;
+  }
+
+  let current: unknown = args;
+  for (let i = 0; i < 2; i++) {
+    if (typeof current !== "string") {
+      return current;
+    }
+    const trimmed = current.trim();
+    if (!trimmed) {
+      return args;
+    }
+
+    try {
+      current = JSON.parse(trimmed);
+    } catch {
+      return current;
+    }
+  }
+  return current;
 }
 
 export const toolCalling: Middleware = async (ctx, next) => {
@@ -128,9 +169,10 @@ export const toolCalling: Middleware = async (ctx, next) => {
         let result = cache.get(key);
         if (result === undefined) {
           const schema = tool.schema;
+          const normalizedArgs = normalizeToolArguments(call.arguments);
           const args = hasParseSchema(schema)
-            ? schema.parse(call.arguments)
-            : call.arguments;
+            ? schema.parse(normalizedArgs)
+            : normalizedArgs;
           ctx.log.debug?.("[tool-calling] invoking tool", {
             aliasName: call.name,
             canonicalName: canonicalName,
@@ -163,6 +205,13 @@ export const toolCalling: Middleware = async (ctx, next) => {
           ...(call.id ? { tool_call_id: call.id } : { name: call.name }),
         } as unknown as Message;
         ctx.messages.push(toolMsg);
+        pushToolExecution(ctx, {
+          aliasName: call.name,
+          canonicalName,
+          callId: call.id,
+          args: lastArgsByName.get(call.name),
+          result,
+        });
         ctx.log.debug?.("[tool-calling] tool result appended", {
           name: call.name,
           id: call.id,
@@ -246,9 +295,10 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
         let result = cache.get(key);
         if (result === undefined) {
           const schema = tool.schema;
+          const normalizedArgs = normalizeToolArguments(call.arguments);
           const args = hasParseSchema(schema)
-            ? schema.parse(call.arguments)
-            : call.arguments;
+            ? schema.parse(normalizedArgs)
+            : normalizedArgs;
           ctx.log.debug?.("[iterative-tool-calling] invoking tool", {
             aliasName: call.name,
             canonicalName: canonicalName,
@@ -279,6 +329,13 @@ export const iterativeToolCalling: Middleware = async (ctx, next) => {
           ...(call.id ? { tool_call_id: call.id } : { name: call.name }),
         } as unknown as Message;
         ctx.messages.push(toolMsg);
+        pushToolExecution(ctx, {
+          aliasName: call.name,
+          canonicalName,
+          callId: call.id,
+          args: lastArgsByName.get(call.name),
+          result,
+        });
       }
       continue; // next round may call more tools
     } else {

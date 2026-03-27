@@ -1,31 +1,15 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
-import { openAIAdapter } from "@sisu-ai/adapter-openai";
+import { Agent, createCtx, type ToolContext } from "@sisu-ai/core";
+import { openAIAdapter, openAIEmbeddings } from "@sisu-ai/adapter-openai";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { registerTools } from "@sisu-ai/mw-register-tools";
-import { ragIngest, ragRetrieve, buildRagPrompt } from "@sisu-ai/mw-rag";
-import { vectorTools } from "@sisu-ai/tool-vec-chroma";
+import { toolCalling } from "@sisu-ai/mw-tool-calling";
+import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
+import {
+  vectorUpsert,
+  createRagContextTools,
+} from "@sisu-ai/tool-vec-chroma";
 
-// Trivial local embedding for demo purposes (fixed dim=8)
-function embed(text: string): number[] {
-  const dim = 8;
-  const v = new Array(dim).fill(0);
-  for (const w of text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean)) {
-    let h = 0;
-    for (let i = 0; i < w.length; i++) h = (h * 31 + w.charCodeAt(i)) >>> 0;
-    v[h % dim] += 1;
-  }
-  // L2 normalize
-  const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1;
-  return v.map((x) => x / norm);
-}
-
-const query = "Best fika in Malmö?";
-
-// Seed docs for ingestion
 const docs = [
   {
     id: "d1",
@@ -33,74 +17,88 @@ const docs = [
   },
   { id: "d2", text: "Travel notes from Helsinki. Sauna etiquette and tips." },
   { id: "d3", text: "Open-source RAG patterns with ChromaDB and Sisu." },
+  { id: "d4", text: "Best programming languages in 2024: Python, JavaScript, Rust." },
+  { id: "d5", text: "Sisu AI: Revolutionizing AI with open-source tools." },
+  { id: "d6", text: "Sisu AI: Open-source tools for building AI applications." },
+  { id: "d7", text: "Best fika in Copenhagen is at Cafe Hygge." }
 ];
 
-const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
-  input: query,
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
-  state: {
-    chromaUrl: process.env.CHROMA_URL,
-    vectorNamespace: process.env.VECTOR_NAMESPACE || "sisu",
-    rag: {
-      records: docs.map((d) => ({
-        id: d.id,
-        embedding: embed(d.text),
-        metadata: { text: d.text },
-      })),
-      queryEmbedding: embed(query),
-    },
-  },
+const model = openAIAdapter({
+  model: process.env.MODEL || "gpt-4o-mini",
+  baseUrl: process.env.BASE_URL,
+});
+const embeddings = openAIEmbeddings({
+  model: process.env.EMBEDDING_MODEL || "text-embedding-3-small",
+  baseUrl: process.env.BASE_URL,
 });
 
-const inputToMessage = async (c: Ctx, next: () => Promise<void>) => {
-  if (c.input) c.messages.push({ role: "user", content: c.input });
-  await next();
-};
-const generateOnce = async (c: Ctx) => {
-  const res = (await c.model.generate(c.messages, {
-    toolChoice: "none",
-    signal: c.signal,
-  })) as ModelResponse;
-  if (res?.message) c.messages.push(res.message);
+const sharedState = {
+  toolDeps: {
+    chromaUrl: process.env.CHROMA_URL,
+    vectorNamespace: process.env.VECTOR_NAMESPACE || "sisu",
+    embeddings,
+  },
 };
 
-const app = new Agent()
-  .use(traceViewer())
-  .use(registerTools(vectorTools))
-  .use(ragIngest())
-  .use(ragRetrieve({ topK: 2 }))
-  .use(buildRagPrompt())
-  .use(inputToMessage)
-  .use(generateOnce);
+const ingestCtx = createCtx({
+  model,
+  input: "",
+  state: sharedState,
+});
 
-await app.handler()(ctx);
-const retrieved =
-  (
-    ctx.state as {
-      rag?: {
-        retrieval?: {
-          matches?: Array<{
-            id: string;
-            score?: number;
-            metadata?: { text?: string };
-          }>;
-        };
-      };
-    }
-  )?.rag?.retrieval?.matches || [];
-if (retrieved.length) {
-  console.log(
-    "Retrieved from Chroma:",
-    retrieved
-      .map((m) => ({ id: m.id, score: m.score, text: m?.metadata?.text }))
-      .slice(0, 5),
+const runIngestion = async () => {
+  const vectors = await embeddings.embed(
+    docs.map((doc) => doc.text),
+    { signal: ingestCtx.signal },
   );
-}
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
+  const records = docs.map((doc, index) => ({
+    id: doc.id,
+    embedding: vectors[index] || [],
+    metadata: {
+      text: doc.text,
+      source: "seed",
+      chunkIndex: 0,
+    },
+  }));
+
+  const toolCtx: ToolContext = {
+    memory: ingestCtx.memory,
+    signal: ingestCtx.signal,
+    log: ingestCtx.log,
+    model: ingestCtx.model,
+    deps: ingestCtx.state.toolDeps as Record<string, unknown>,
+  };
+
+  const res = await vectorUpsert.handler({ records }, toolCtx);
+  console.log("Ingestion complete:", res);
+};
+
+const queryCtx = createCtx({
+  model,
+  input: "What is the best cafe in Malmö?",
+  systemPrompt:
+    `You are a retrieval assistant. 
+    Always call retrieveContext before final answer. 
+    If retrieval returns items, ground the answer in those items and include citation ids from result.citation.id. 
+    Do not replace retrieved facts with outside assumptions.
+    If retrieval is empty, say that no relevant indexed context was found, then provide best-effort guidance.
+     If the user shares important long-form information, call storeContext to persist it for future questions.`,
+  state: sharedState,
+});
+
+const ragTools = createRagContextTools({
+    namespace: sharedState.toolDeps.vectorNamespace as string,
+    embeddings,
+  });
+
+const queryAgent = new Agent()
+  .use(traceViewer())
+  .use(registerTools(ragTools))
+  .use(inputToMessage)
+  .use(toolCalling);
+
+await runIngestion();
+await queryAgent.handler()(queryCtx);
+
+const final = queryCtx.messages.filter((message) => message.role === "assistant").pop();
 console.log("\nAssistant:\n", final?.content);

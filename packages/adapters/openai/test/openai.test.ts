@@ -1,6 +1,6 @@
 import { test, expect, vi, afterEach } from "vitest";
 import { Readable } from "stream";
-import { openAIAdapter } from "../src/index.js";
+import { openAIAdapter, openAIEmbeddings } from "../src/index.js";
 import type { Message, Tool } from "@sisu-ai/core";
 
 afterEach(() => {
@@ -14,6 +14,57 @@ test("openAIAdapter throws without API key", async () => {
   expect(() => openAIAdapter({ model: "gpt-4o-mini" })).toThrow(
     /Missing OPENAI_API_KEY/,
   );
+});
+
+test("openAIEmbeddings throws without API key", async () => {
+  delete (process.env as any).OPENAI_API_KEY;
+  expect(() => openAIEmbeddings()).toThrow(/Missing OPENAI_API_KEY/);
+});
+
+test("openAIEmbeddings maps ordered batch embeddings", async () => {
+  process.env.OPENAI_API_KEY = "embed-key";
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () =>
+      JSON.stringify({
+        data: [
+          { embedding: [0.1, 0.2] },
+          { embedding: [0.3, 0.4] },
+        ],
+      }),
+  } as any);
+
+  const embeddings = openAIEmbeddings({ model: "text-embedding-3-small" });
+  const vectors = await embeddings.embed(["a", "b"]);
+  expect(vectors).toEqual([
+    [0.1, 0.2],
+    [0.3, 0.4],
+  ]);
+});
+
+test("openAIEmbeddings propagates API failures", async () => {
+  process.env.OPENAI_API_KEY = "embed-key";
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: false,
+    status: 500,
+    statusText: "Boom",
+    text: async () => JSON.stringify({ error: { message: "provider failed" } }),
+  } as any);
+
+  const embeddings = openAIEmbeddings();
+  await expect(embeddings.embed(["x"]))
+    .rejects.toThrow(/provider failed/i);
+});
+
+test("openAIEmbeddings supports cancellation", async () => {
+  process.env.OPENAI_API_KEY = "embed-key";
+  const controller = new AbortController();
+  controller.abort();
+  const embeddings = openAIEmbeddings();
+  await expect(embeddings.embed(["x"], { signal: controller.signal })).rejects
+    .toThrow(/aborted/i);
 });
 
 test("openAIAdapter streams tokens when stream option is set", async () => {

@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import type { Ctx, Tool } from "@sisu-ai/core";
+import type { Ctx, Tool, Message, GenerateOptions } from "@sisu-ai/core";
 import { InMemoryKV, NullStream, SimpleTools, compose } from "@sisu-ai/core";
 import { toolCalling, iterativeToolCalling } from "../src/index.js";
 
@@ -137,6 +137,145 @@ test("tool-calling appends assistant when no tool_calls present", async () => {
   await compose([toolCalling])(ctx);
   const last = ctx.messages.at(-1) as any;
   expect(last?.content).toBe("plain");
+});
+
+test("tool-calling parses JSON-string tool arguments before schema validation", async () => {
+  const echo: Tool<{ text: string }> = {
+    name: "echo",
+    schema: { parse: (x: unknown) => x as { text: string } },
+    handler: async ({ text }: { text: string }) => ({ echoed: text }),
+  } as Tool<{ text: string }>;
+
+  const tools = new SimpleTools();
+  tools.register(echo);
+
+  const ctx = makeCtx({
+    tools,
+    model: {
+      name: "dummy",
+      capabilities: { functionCall: true },
+      generate: async (_messages: Message[], opts: GenerateOptions) => {
+        if (opts.toolChoice !== "none") {
+          return {
+            message: {
+              role: "assistant",
+              content: "",
+              tool_calls: [
+                {
+                  id: "1",
+                  name: "echo",
+                  arguments: JSON.stringify({ text: "from-json" }),
+                },
+              ],
+            },
+          } as unknown as { message: Message };
+        }
+        return { message: { role: "assistant", content: "done" } } as unknown as {
+          message: Message;
+        };
+      },
+    } as Ctx["model"],
+  });
+
+  await compose([toolCalling])(ctx);
+  const toolMsg = ctx.messages.find((m) => m.role === "tool");
+  expect(toolMsg).toBeDefined();
+  expect(String(toolMsg?.content)).toContain("from-json");
+});
+
+test("tool-calling parses double-encoded JSON-string tool arguments", async () => {
+  const echo: Tool<{ text: string }> = {
+    name: "echo",
+    schema: { parse: (x: unknown) => x as { text: string } },
+    handler: async ({ text }: { text: string }) => ({ echoed: text }),
+  } as Tool<{ text: string }>;
+
+  const tools = new SimpleTools();
+  tools.register(echo);
+
+  const ctx = makeCtx({
+    tools,
+    model: {
+      name: "dummy",
+      capabilities: { functionCall: true },
+      generate: async (_messages: Message[], opts: GenerateOptions) => {
+        if (opts.toolChoice !== "none") {
+          const onceEncoded = JSON.stringify({ text: "from-double-json" });
+          const doubleEncoded = JSON.stringify(onceEncoded);
+          return {
+            message: {
+              role: "assistant",
+              content: "",
+              tool_calls: [
+                {
+                  id: "1",
+                  name: "echo",
+                  arguments: doubleEncoded,
+                },
+              ],
+            },
+          } as unknown as { message: Message };
+        }
+        return { message: { role: "assistant", content: "done" } } as unknown as {
+          message: Message;
+        };
+      },
+    } as Ctx["model"],
+  });
+
+  await compose([toolCalling])(ctx);
+  const toolMsg = ctx.messages.find((m) => m.role === "tool");
+  expect(toolMsg).toBeDefined();
+  expect(String(toolMsg?.content)).toContain("from-double-json");
+});
+
+test("tool-calling stores tool execution records in ctx.state", async () => {
+  const echo: Tool<{ text: string }> = {
+    name: "echo",
+    schema: { parse: (value: unknown) => value as { text: string } },
+    handler: async ({ text }: { text: string }) => ({ echoed: text }),
+  } as Tool<{ text: string }>;
+
+  const tools = new SimpleTools();
+  tools.register(echo);
+
+  const ctx = makeCtx({
+    tools,
+    model: {
+      name: "dummy",
+      capabilities: { functionCall: true },
+      generate: async (_messages: Message[], opts: GenerateOptions) => {
+        if (opts.toolChoice !== "none") {
+          return {
+            message: {
+              role: "assistant",
+              content: "",
+              tool_calls: [
+                { id: "call-1", name: "echo", arguments: { text: "saved" } },
+              ],
+            },
+          } as unknown as { message: Message };
+        }
+        return { message: { role: "assistant", content: "done" } } as unknown as {
+          message: Message;
+        };
+      },
+    } as Ctx["model"],
+  });
+
+  await compose([toolCalling])(ctx);
+
+  const executions = ctx.state.toolExecutions as Array<{
+    aliasName: string;
+    canonicalName: string;
+    callId?: string;
+    args: unknown;
+    result: unknown;
+  }>;
+  expect(Array.isArray(executions)).toBe(true);
+  expect(executions.length).toBeGreaterThan(0);
+  expect(executions[0]?.canonicalName).toBe("echo");
+  expect(executions[0]?.callId).toBe("call-1");
 });
 
 test("iterativeToolCalling supports multiple tool rounds", async () => {

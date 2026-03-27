@@ -1,10 +1,15 @@
 # OpenAI RAG with ChromaDB
 
-Demonstrates a minimal RAG flow using:
+Demonstrates a two-agent RAG workflow using:
 
-- `@sisu-ai/tool-vec-chroma` tools (`vector.upsert`, `vector.query`)
-- `@sisu-ai/mw-rag` middlewares (`ragIngest`, `ragRetrieve`, `buildRagPrompt`)
-- OpenAI adapter to synthesize the final answer
+- `@sisu-ai/tool-vec-chroma` agent tools (`retrieveContext`, `storeContext`)
+- direct ingestion via `vectorUpsert` handler (developer-controlled, not model-facing)
+- `@sisu-ai/mw-tool-calling` for model-driven retrieval/storage calls
+- OpenAI chat adapter + OpenAI embeddings adapter
+
+Workflow:
+- Ingestion agent: seeds Chroma with baseline documents.
+- Query agent: receives user input, calls retrieval tool, and can persist useful user-provided context for later.
 
 ## What is ChromaDB?
 
@@ -43,10 +48,13 @@ Either option exposes the same REST API consumed by `ChromaClient`.
 2) Set environment:
 
 ```
-export OPENAI_API_KEY=sk-...
+export API_KEY=sk-...
+export MODEL=gpt-4o-mini
+export BASE_URL=https://api.openai.com
 # optional overrides
 export CHROMA_URL=http://localhost:8000
 export VECTOR_NAMESPACE=sisu
+# compatibility aliases also work: OPENAI_API_KEY / OPENAI_BASE_URL
 ```
 
 3) From repo root:
@@ -55,8 +63,22 @@ export VECTOR_NAMESPACE=sisu
 npm run ex -w examples/openai-rag-chroma -- "Which doc talks about Malmö fika?"
 ```
 
+If your runner forwards flags like `--trace`, set query explicitly:
+
+```
+QUERY="Which doc talks about Malmö fika?" pnpm ex:openai:rag-chroma
+```
+
+Optional embedding override:
+
+```
+export EMBEDDING_MODEL=text-embedding-3-small
+```
+
 ## Troubleshooting
 
 - Connection refused: ensure Chroma is running and `CHROMA_URL` matches the host/port you exposed.
-- Empty results: this example ingests a small in‑memory dataset on startup; re‑run to re‑seed if needed.
+- Empty results: this example ingests a small in-memory dataset at startup; re-run to re-seed if needed.
 - SSL/TLS: the quickstarts above run HTTP; if you proxy behind HTTPS, set `CHROMA_URL` accordingly.
+- `ECONNREFUSED 127.0.0.1:1234`: your `BASE_URL` likely points at a local service. Set `BASE_URL=https://api.openai.com` (or your intended provider endpoint).
+- If you intentionally use a local endpoint at `:1234`, set `ALLOW_LOCAL_BASE_URL=1`.

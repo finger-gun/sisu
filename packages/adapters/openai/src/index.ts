@@ -10,6 +10,15 @@ import type {
 } from "@sisu-ai/core";
 import { firstConfigValue } from "@sisu-ai/core";
 
+export interface EmbedOptions {
+  model?: string;
+  signal?: globalThis.AbortSignal;
+}
+
+export interface EmbeddingsProvider {
+  embed(input: string[], opts?: EmbedOptions): Promise<number[][]>;
+}
+
 // Small typed helpers for parsing OpenAI shapes without using `any`
 type OpenAITool = {
   type: "function";
@@ -73,6 +82,93 @@ export interface OpenAIAdapterOptions {
   baseUrl?: string;
   responseModel?: string;
 }
+
+export interface OpenAIEmbeddingsOptions {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+}
+
+type OpenAIEmbeddingsResponse = {
+  data?: Array<{ embedding?: number[] }>;
+};
+
+export function openAIEmbeddings(
+  opts: OpenAIEmbeddingsOptions = {},
+): EmbeddingsProvider {
+  const apiKey =
+    opts.apiKey ?? firstConfigValue(["OPENAI_API_KEY", "API_KEY"]) ?? "";
+  const envBase = firstConfigValue(["OPENAI_BASE_URL", "BASE_URL"]);
+  const baseUrl = (opts.baseUrl ?? envBase ?? "https://api.openai.com").replace(
+    /\/$/,
+    "",
+  );
+  const defaultModel = opts.model || "text-embedding-3-small";
+  if (!apiKey) {
+    throw new Error(
+      "[openAIEmbeddings] Missing OPENAI_API_KEY or API_KEY — set it in your environment or pass { apiKey }",
+    );
+  }
+
+  return {
+    async embed(input: string[], embedOptions?: EmbedOptions): Promise<number[][]> {
+      if (!Array.isArray(input) || input.length === 0) {
+        throw new Error("[openAIEmbeddings] input must contain at least one string");
+      }
+      if (embedOptions?.signal?.aborted) {
+        throw new Error("[openAIEmbeddings] embedding request aborted");
+      }
+
+      const response = await fetch(`${baseUrl}/v1/embeddings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: embedOptions?.model || defaultModel,
+          input,
+        }),
+        signal: embedOptions?.signal,
+      });
+
+      const raw = await response.text();
+      if (!response.ok) {
+        let details = raw;
+        try {
+          const parsed = JSON.parse(raw) as { error?: { message?: string } };
+          details = parsed.error?.message || raw;
+        } catch {
+          details = raw;
+        }
+        throw new Error(
+          `[openAIEmbeddings] OpenAI API error: ${response.status} ${response.statusText} - ${details}`,
+        );
+      }
+
+      let parsed: OpenAIEmbeddingsResponse;
+      try {
+        parsed = JSON.parse(raw) as OpenAIEmbeddingsResponse;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "unknown parse error";
+        throw new Error(
+          `[openAIEmbeddings] Failed to parse embeddings response: ${message}`,
+        );
+      }
+
+      const embeddings = (parsed.data || []).map((entry) => entry.embedding || []);
+      if (embeddings.length !== input.length) {
+        throw new Error(
+          `[openAIEmbeddings] Expected ${input.length} embeddings, received ${embeddings.length}`,
+        );
+      }
+      return embeddings;
+    },
+  };
+}
+
 export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
   const apiKey =
     opts.apiKey ?? firstConfigValue(["OPENAI_API_KEY", "API_KEY"]) ?? "";

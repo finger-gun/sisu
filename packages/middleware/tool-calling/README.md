@@ -88,6 +88,22 @@ agent.use(toolCalling);
 agent.use(iterativeToolCalling);
 ```
 
+## Tool Execution Records
+
+Each executed tool call is appended to `ctx.state.toolExecutions`:
+
+```ts
+type ToolExecutionRecord = {
+  aliasName: string;
+  canonicalName: string;
+  callId?: string;
+  args: unknown;
+  result: unknown;
+};
+```
+
+This is useful for diagnostics and post-run inspection without manually parsing `tool` messages.
+
 # Community & Support
 
 Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu. Example projects live under [`examples/`](https://github.com/finger-gun/sisu/tree/main/examples) in the repo.
