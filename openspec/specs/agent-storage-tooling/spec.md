@@ -1,11 +1,11 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Communication-Aware Storage Tool
 The `@sisu-ai/tool-rag` package SHALL expose a separate high-level storage tool that allows agents to persist communication-derived content for future semantic retrieval.
 
 #### Scenario: Agent stores user-provided information
 - **WHEN** an agent calls the storage tool with text content extracted from user communication
-- **THEN** the tool MUST process and persist that content into the configured vector store through reusable backend-agnostic mechanics
+- **THEN** the tool MUST resolve its dependencies and delegate processing/persistence to backend-agnostic RAG mechanics through the vector store contract
 
 ### Requirement: Provider-Agnostic Embedding Integration
 The storage tool MUST consume embeddings through an injected normalized embeddings API and SHALL NOT hard-code provider-specific embedding calls.
@@ -22,7 +22,7 @@ The storage tool MUST define and enforce a Zod schema for input payloads and MUS
 - **THEN** the tool MUST fail validation and return an error indicating the invalid field
 
 ### Requirement: Embedding and Upsert Orchestration
-The storage tool SHALL embed accepted content and write vectors/metadata via the shared vector-store contract.
+The storage tool SHALL embed accepted content and write vectors/metadata via the vector-store contract.
 
 #### Scenario: Storage succeeds
 - **WHEN** valid content is provided and embedding/upsert operations complete

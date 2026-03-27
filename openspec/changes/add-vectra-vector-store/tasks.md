@@ -18,4 +18,4 @@
 ## 4. Docs and Validation
 
 - [x] 4.1 Update vector/RAG docs and the root README to list Vectra as a maintained backend.
-- [ ] 4.2 Install dependencies and run targeted build, typecheck, lint, and test validation.
+- [x] 4.2 Install dependencies and run targeted build, typecheck, lint, and test validation.

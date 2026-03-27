@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Middleware RAG Uses VectorStore Contract
 The `@sisu-ai/mw-rag` package SHALL compose ingestion and retrieval against an injected `VectorStore` contract.

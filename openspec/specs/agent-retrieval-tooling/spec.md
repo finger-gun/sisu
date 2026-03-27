@@ -1,11 +1,11 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Query-Text Retrieval Tool
 The `@sisu-ai/tool-rag` package SHALL expose a high-level retrieval tool that accepts plain query text and performs semantic retrieval without requiring callers to precompute embeddings.
 
 #### Scenario: Agent invokes retrieval with query text
 - **WHEN** an agent calls the retrieval tool with `queryText` and optional retrieval options
-- **THEN** the tool MUST embed the query text, execute vector retrieval through reusable backend-agnostic mechanics, and return compact retrieval results
+- **THEN** the tool MUST resolve its dependencies and delegate retrieval orchestration to backend-agnostic RAG mechanics, returning compact retrieval results
 
 ### Requirement: Provider-Agnostic Embedding Integration
 The retrieval tool MUST consume embeddings through an injected normalized embeddings API and SHALL NOT hard-code provider-specific embedding calls.
