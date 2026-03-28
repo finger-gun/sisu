@@ -10,6 +10,7 @@ export interface TraceMeta {
   durationMs: number;
   status: "success" | "error";
   model?: string;
+  fullTracePath?: string;
   error?: {
     name: string;
     message: string;
@@ -312,6 +313,19 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
       const lower = targetPath.toLowerCase();
       const toHtmlPath = (p: string) => p.replace(/\.json$/i, ".html");
       const toJsonPath = (p: string) => p.replace(/\.html$/i, ".json");
+      const jsonOutputPath = lower.endsWith(".html")
+        ? toJsonPath(targetPath)
+        : targetPath;
+      const htmlOutputPath = lower.endsWith(".json")
+        ? toHtmlPath(targetPath)
+        : lower.endsWith(".html")
+          ? targetPath
+          : targetPath + ".html";
+      out.meta.fullTracePath = wantJson
+        ? jsonOutputPath
+        : wantHtml
+          ? htmlOutputPath
+          : undefined;
       if (lower.endsWith(".json")) {
         // Write JSON (if enabled) and HTML next to it (if enabled)
         if (wantJson) {
@@ -371,6 +385,7 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
           events: Array<{ time: string; level: string; args: unknown }>;
           usage?: TraceMeta["usage"];
           error?: TraceMeta["error"];
+          fullTracePath?: string;
         } = {
           id,
           file: id + ".json",
@@ -389,6 +404,7 @@ export function traceViewer(opts: TraceViewerOptions = {}): Middleware {
         };
         if (out.meta.usage) runObj.usage = out.meta.usage;
         if (out.meta.error) runObj.error = out.meta.error;
+        if (out.meta.fullTracePath) runObj.fullTracePath = out.meta.fullTracePath;
         const jsName = id + ".js";
         const code =
           'window.SISU_TRACES = window.SISU_TRACES || { runs: [], logo: "" };\n' +
@@ -485,6 +501,7 @@ function writeIndexAssets(
     start?: string;
     status?: string;
     duration?: number;
+    fullTracePath?: string;
   } | null => {
     // Expect: window.SISU_TRACES.runs.push(<json>);
     const m = code.match(/runs\.push\(([\s\S]*?)\);/);
@@ -502,6 +519,7 @@ function writeIndexAssets(
     let time = "";
     let status = "unknown";
     let duration = 0;
+    let fullTracePath = "";
     if (file.endsWith(".json")) {
       try {
         const obj = JSON.parse(
@@ -511,6 +529,7 @@ function writeIndexAssets(
         time = (obj && obj.meta && obj.meta.start) || "";
         status = (obj && obj.meta && obj.meta.status) || "unknown";
         duration = (obj && obj.meta && obj.meta.durationMs) || 0;
+        fullTracePath = (obj && obj.meta && obj.meta.fullTracePath) || "";
       } catch (err) {
         void err;
         return null;
@@ -525,12 +544,13 @@ function writeIndexAssets(
           time = obj.time || obj.start || "";
           status = obj.status || "unknown";
           duration = obj.duration || 0;
+          fullTracePath = obj.fullTracePath || "";
         }
       } catch (err) {
         void err;
       }
     }
-    return { id, file, title, time, status, duration };
+    return { id, file, title, time, status, duration, fullTracePath };
   };
 
   const index = Array.from(ids)
@@ -545,6 +565,7 @@ function writeIndexAssets(
         time: string;
         status: string;
         duration: number;
+        fullTracePath: string;
       } => Boolean(x && x.file),
     );
   // Sort newest first based on time
