@@ -48,7 +48,7 @@ function getTemplateRoot(): string {
 function getSkillInstallerCliPath(): string {
   const require = createRequire(import.meta.url);
   try {
-    const installerPackageJson = require.resolve('sisu-skill-install/package.json');
+    const installerPackageJson = require.resolve('@sisu-ai/skill-install/package.json');
     return path.join(path.dirname(installerPackageJson), 'dist', 'cli.js');
   } catch {
     const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -56,7 +56,7 @@ function getSkillInstallerCliPath(): string {
     if (existsSync(fallback)) {
       return fallback;
     }
-    throw new Error('Could not resolve sisu-skill-install. Build or install the skill installer package first.');
+    throw new Error('Could not resolve @sisu-ai/skill-install. Build or install the skill installer package first.');
   }
 }
 
@@ -120,7 +120,7 @@ async function main(): Promise<void> {
       });
       child.on('exit', (code) => {
         if (code && code !== 0) {
-          reject(new Error(`sisu-skill-install exited with code ${code}`));
+          reject(new Error(`@sisu-ai/skill-install exited with code ${code}`));
           return;
         }
         resolve();

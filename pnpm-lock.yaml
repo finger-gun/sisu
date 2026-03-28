@@ -1198,7 +1198,7 @@ importers:
 
   packages/cli/sisu:
     dependencies:
-      sisu-skill-install:
+      '@sisu-ai/skill-install':
         specifier: workspace:*
         version: link:../../skills/skill-install
 
@@ -1474,7 +1474,7 @@ importers:
         version: 1.1.0
       chromadb:
         specifier: ^1.10.5
-        version: 1.10.5(openai@4.104.0(zod@4.3.6))
+        version: 1.10.5(openai@4.104.0(zod@3.25.76))
 
   packages/vector/core: {}
 
@@ -1485,7 +1485,7 @@ importers:
         version: 1.1.0
       vectra:
         specifier: ^0.12.3
-        version: 0.12.3(zod@4.3.6)
+        version: 0.12.3(zod@3.25.76)
 
 packages:
 
@@ -6544,12 +6544,12 @@ snapshots:
       undici: 7.24.6
       whatwg-mimetype: 4.0.0
 
-  chromadb@1.10.5(openai@4.104.0(zod@4.3.6)):
+  chromadb@1.10.5(openai@4.104.0(zod@3.25.76)):
     dependencies:
       cliui: 8.0.1
       isomorphic-fetch: 3.0.0
     optionalDependencies:
-      openai: 4.104.0(zod@4.3.6)
+      openai: 4.104.0(zod@3.25.76)
     transitivePeerDependencies:
       - encoding
 
@@ -7289,7 +7289,7 @@ snapshots:
     dependencies:
       mimic-fn: 4.0.0
 
-  openai@4.104.0(zod@4.3.6):
+  openai@4.104.0(zod@3.25.76):
     dependencies:
       '@types/node': 18.19.130
       '@types/node-fetch': 2.6.13
@@ -7299,7 +7299,7 @@ snapshots:
       formdata-node: 4.4.1
       node-fetch: 2.7.0
     optionalDependencies:
-      zod: 4.3.6
+      zod: 3.25.76
     transitivePeerDependencies:
       - encoding
 
@@ -7690,14 +7690,14 @@ snapshots:
 
   v8-compile-cache-lib@3.0.1: {}
 
-  vectra@0.12.3(zod@4.3.6):
+  vectra@0.12.3(zod@3.25.76):
     dependencies:
       axios: 1.13.6
       cheerio: 1.2.0
       dotenv: 16.6.1
       gpt-tokenizer: 3.4.0
       json-colorizer: 3.0.1
-      openai: 4.104.0(zod@4.3.6)
+      openai: 4.104.0(zod@3.25.76)
       turndown: 7.2.2
       uuid: 11.1.0
       wink-bm25-text-search: 3.1.2

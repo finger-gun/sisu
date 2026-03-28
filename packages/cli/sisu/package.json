@@ -1,5 +1,5 @@
 {
-  "name": "sisu",
+  "name": "@sisu-ai/cli",
   "version": "0.2.0",
   "license": "Apache-2.0",
   "type": "module",
@@ -12,7 +12,7 @@
     "dist"
   ],
   "dependencies": {
-    "sisu-skill-install": "workspace:*"
+    "@sisu-ai/skill-install": "workspace:*"
   },
   "publishConfig": {
     "access": "public"

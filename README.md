@@ -251,16 +251,16 @@ pnpm run ex:ollama:hello
 Agent skill users can install the Sisu reference bundle with:
 
 ```bash
-npx sisu-skill-install
+npx @sisu-ai/skill-install
 ```
 
 Framework users can also inspect maintained packages and scaffold starters with:
 
 ```bash
-npx sisu list tools
-npx sisu info mw-rag
-npx sisu create chat-agent my-app
-npx sisu install skill
+npx @sisu-ai/cli list tools
+npx @sisu-ai/cli info mw-rag
+npx @sisu-ai/cli create chat-agent my-app
+npx @sisu-ai/cli install skill
 ```
 
 ---
@@ -359,7 +359,7 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 - [@sisu-ai/skill-explain](packages/skills/skill-explain/README.md)
 - [@sisu-ai/skill-repo-search](packages/skills/skill-repo-search/README.md)
 - [@sisu-ai/skill-test-gen](packages/skills/skill-test-gen/README.md)
-- [`sisu-skill-install`](packages/skills/skill-install/README.md)
+- [@sisu-ai/skill-install](packages/skills/skill-install/README.md)
 </details>
 
 <details>

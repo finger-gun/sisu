@@ -412,8 +412,8 @@ export const catalog: CatalogEntry[] = [
   {
     id: 'skill-install',
     category: 'skills',
-    title: 'sisu-skill-install',
-    packageName: 'sisu-skill-install',
+    title: '@sisu-ai/skill-install',
+    packageName: '@sisu-ai/skill-install',
     summary: 'Interactive installer for the Sisu framework skill.',
     docsPath: 'packages/skills/skill-install/README.md',
     tags: ['skills', 'installer'],

@@ -1,5 +1,5 @@
 {
-  "name": "sisu-skill-install",
+  "name": "@sisu-ai/skill-install",
   "version": "0.2.0",
   "license": "Apache-2.0",
   "type": "module",

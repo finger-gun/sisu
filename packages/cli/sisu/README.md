@@ -1,20 +1,26 @@
-# `sisu cli`
+# `@sisu-ai/cli`
 
 CLI for discovering Sisu packages and scaffolding maintained starter projects.
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/npm/dm/sisu)](https://www.npmjs.com/package/sisu)
+[![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcli)](https://www.npmjs.com/package/@sisu-ai/cli)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
 ## Usage
 
 ```bash
-npx sisu list tools
-npx sisu info vector-vectra
-npx sisu create chat-agent my-app
-npx sisu install skill
+npx @sisu-ai/cli list tools
+npx @sisu-ai/cli info vector-vectra
+npx @sisu-ai/cli create chat-agent my-app
+npx @sisu-ai/cli install skill
+```
+
+After global install, you can also run:
+
+```bash
+sisu list tools
 ```
 
 ## Commands
@@ -47,7 +53,7 @@ Sisu already has a lot of maintained middleware, tools, adapters, and examples. 
 It also provides a built-in path to install the `sisu-framework` skill:
 
 ```bash
-npx sisu install skill
+npx @sisu-ai/cli install skill
 ```
 
 ---
@@ -67,7 +73,7 @@ We build Sisu in the open. Contributions welcome.
 - [@sisu-ai/skill-explain](packages/skills/skill-explain/README.md)
 - [@sisu-ai/skill-repo-search](packages/skills/skill-repo-search/README.md)
 - [@sisu-ai/skill-test-gen](packages/skills/skill-test-gen/README.md)
-- [`sisu-skill-install`](packages/skills/skill-install/README.md)
+- [@sisu-ai/skill-install](packages/skills/skill-install/README.md)
 </details>
 
 ---

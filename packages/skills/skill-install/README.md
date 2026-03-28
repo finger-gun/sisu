@@ -1,17 +1,23 @@
-# `sisu-skill-install`
+# `@sisu-ai/skill-install`
 
 Install the `sisu-framework` skill into supported agent environments from a single CLI.
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/finger-gun/sisu/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/npm/dm/sisu-skill-install)](https://www.npmjs.com/package/sisu-skill-install)
+[![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fskill-install)](https://www.npmjs.com/package/@sisu-ai/skill-install)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
 ## Usage
 
 ```bash
-npx sisu-skill-install
+npx @sisu-ai/skill-install
+```
+
+After global install, you can also run:
+
+```bash
+sisu-skill-install
 ```
 
 Interactive targets include:
@@ -27,9 +33,9 @@ Interactive targets include:
 ## Flags
 
 ```bash
-npx sisu-skill-install --target codex --scope workspace --yes
-npx sisu-skill-install --target copilot --dir /path/to/project --scope custom --yes
-npx sisu-skill-install --list
+npx @sisu-ai/skill-install --target codex --scope workspace --yes
+npx @sisu-ai/skill-install --target copilot --dir /path/to/project --scope custom --yes
+npx @sisu-ai/skill-install --list
 ```
 
 ## What It Installs
@@ -55,7 +61,7 @@ We build Sisu in the open. Contributions welcome.
 - [@sisu-ai/skill-explain](packages/skills/skill-explain/README.md)
 - [@sisu-ai/skill-repo-search](packages/skills/skill-repo-search/README.md)
 - [@sisu-ai/skill-test-gen](packages/skills/skill-test-gen/README.md)
-- [`sisu-skill-install`](packages/skills/skill-install/README.md)
+- [@sisu-ai/skill-install](packages/skills/skill-install/README.md)
 </details>
 
 ---

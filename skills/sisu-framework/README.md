@@ -27,7 +27,7 @@ sisu-framework/
 Use the installer CLI:
 
 ```bash
-npx sisu-skill-install
+npx @sisu-ai/skill-install
 ```
 
 Supported targets:
@@ -52,7 +52,7 @@ Copy this directory into your tool's skill folder, for example:
 - `.roo/skills/sisu-framework/`
 - `.windsurf/skills/sisu-framework/`
 
-Codex and Copilot are not native `SKILL.md` loaders, so prefer `npx sisu-skill-install` for those targets.
+Codex and Copilot are not native `SKILL.md` loaders, so prefer `npx @sisu-ai/skill-install` for those targets.
 
 ### In Agent API
 
