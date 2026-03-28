@@ -206,7 +206,26 @@ const model = openAIAdapter({
 | Web      | [`webFetch`](packages/tools/web-fetch/) · [`webSearch`](packages/tools/web-search-google/) · [`wikipedia`](packages/tools/wikipedia/) |
 | Cloud    | [`awsS3`](packages/tools/aws-s3/) · [`azureBlob`](packages/tools/azure-blob/) |
 | Dev      | [`terminal`](packages/tools/terminal/) · [`githubProjects`](packages/tools/github-projects/) |
-| Data     | [`vectorChroma`](packages/tools/vec-chroma/) · [`extractUrls`](packages/tools/extract-urls/) · [`summarizeText`](packages/tools/summarize-text/) |
+| Data     | [`ragTools`](packages/tools/rag/) · [`extractUrls`](packages/tools/extract-urls/) · [`summarizeText`](packages/tools/summarize-text/) |
+
+### Libraries
+
+| Category | Packages |
+| -------- | -------- |
+| RAG & Vector | [`ragCore`](packages/rag/core/) · [`vectorCore`](packages/vector/core/) · [`vectorChromaAdapter`](packages/vector/chroma/) · [`vectorVectraAdapter`](packages/vector/vectra/) |
+
+### RAG Stack
+
+Sisu keeps RAG split into small layers:
+
+- [`@sisu-ai/vector-core`](packages/vector/core/README.md) defines the `VectorStore` contract
+- [`@sisu-ai/vector-chroma`](packages/vector/chroma/README.md) implements that contract for Chroma
+- [`@sisu-ai/vector-vectra`](packages/vector/vectra/README.md) implements that contract for local file-backed Vectra indexes
+- [`@sisu-ai/rag-core`](packages/rag/core/README.md) handles chunking, record prep, and direct store/retrieve helpers
+- [`@sisu-ai/tool-rag`](packages/tools/rag/README.md) exposes model-facing retrieval/storage tools
+- [`@sisu-ai/mw-rag`](packages/middleware/rag/README.md) supports deterministic middleware-driven RAG flows
+
+That keeps backend code, reusable mechanics, tool-calling, and middleware composition separate.
 
 ---
 
@@ -228,6 +247,21 @@ pnpm run ex:ollama:hello
 ```
 
 25+ examples covering streaming, vision, RAG, control flow, orchestration, guardrails, and more in [`/examples`](examples/).
+
+Agent skill users can install the Sisu reference bundle with:
+
+```bash
+npx @sisu-ai/skill-install
+```
+
+Framework users can also inspect maintained packages and scaffold starters with:
+
+```bash
+npx @sisu-ai/cli list tools
+npx @sisu-ai/cli info mw-rag
+npx @sisu-ai/cli create chat-agent my-app
+npx @sisu-ai/cli install skill
+```
 
 ---
 
@@ -300,14 +334,46 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 - [@sisu-ai/tool-azure-blob](packages/tools/azure-blob/README.md)
 - [@sisu-ai/tool-extract-urls](packages/tools/extract-urls/README.md)
 - [@sisu-ai/tool-github-projects](packages/tools/github-projects/README.md)
+- [@sisu-ai/tool-rag](packages/tools/rag/README.md)
 - [@sisu-ai/tool-summarize-text](packages/tools/summarize-text/README.md)
 - [@sisu-ai/tool-terminal](packages/tools/terminal/README.md)
-- [@sisu-ai/tool-vec-chroma](packages/tools/vec-chroma/README.md)
 - [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md)
 - [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md)
 - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)
 - [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md)
 - [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md)
+</details>
+
+<details>
+<summary>RAG packages</summary>
+
+- [@sisu-ai/rag-core](packages/rag/core/README.md)
+</details>
+
+<details>
+<summary>All skill packages</summary>
+
+- [@sisu-ai/skill-code-review](packages/skills/skill-code-review/README.md)
+- [@sisu-ai/skill-debug](packages/skills/skill-debug/README.md)
+- [@sisu-ai/skill-deploy](packages/skills/skill-deploy/README.md)
+- [@sisu-ai/skill-explain](packages/skills/skill-explain/README.md)
+- [@sisu-ai/skill-repo-search](packages/skills/skill-repo-search/README.md)
+- [@sisu-ai/skill-test-gen](packages/skills/skill-test-gen/README.md)
+- [@sisu-ai/skill-install](packages/skills/skill-install/README.md)
+</details>
+
+<details>
+<summary>CLI packages</summary>
+
+- [`sisu`](packages/cli/sisu/README.md)
+</details>
+
+<details>
+<summary>Vector packages</summary>
+
+- [@sisu-ai/vector-core](packages/vector/core/README.md)
+- [@sisu-ai/vector-chroma](packages/vector/chroma/README.md)
+- [@sisu-ai/vector-vectra](packages/vector/vectra/README.md)
 </details>
 
 <details>
@@ -317,7 +383,7 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 
 **Ollama** — [hello](examples/ollama-hello/README.md) · [stream](examples/ollama-stream/README.md) · [vision](examples/ollama-vision/README.md) · [weather](examples/ollama-weather/README.md) · [web-search](examples/ollama-web-search/README.md)
 
-**OpenAI** — [hello](examples/openai-hello/README.md) · [weather](examples/openai-weather/README.md) · [stream](examples/openai-stream/README.md) · [vision](examples/openai-vision/README.md) · [reasoning](examples/openai-reasoning/README.md) · [react](examples/openai-react/README.md) · [control-flow](examples/openai-control-flow/README.md) · [branch](examples/openai-branch/README.md) · [parallel](examples/openai-parallel/README.md) · [graph](examples/openai-graph/README.md) · [orchestration](examples/openai-orchestration/README.md) · [orchestration-adaptive](examples/openai-orchestration-adaptive/README.md) · [guardrails](examples/openai-guardrails/README.md) · [error-handling](examples/openai-error-handling/README.md) · [rag-chroma](examples/openai-rag-chroma/README.md) · [web-search](examples/openai-web-search/README.md) · [web-fetch](examples/openai-web-fetch/README.md) · [wikipedia](examples/openai-wikipedia/README.md) · [terminal](examples/openai-terminal/README.md) · [github-projects](examples/openai-github-projects/README.md) · [server](examples/openai-server/README.md) · [aws-s3](examples/openai-aws-s3/README.md) · [azure-blob](examples/openai-azure-blob/README.md)
+**OpenAI** — [hello](examples/openai-hello/README.md) · [weather](examples/openai-weather/README.md) · [stream](examples/openai-stream/README.md) · [vision](examples/openai-vision/README.md) · [reasoning](examples/openai-reasoning/README.md) · [react](examples/openai-react/README.md) · [control-flow](examples/openai-control-flow/README.md) · [branch](examples/openai-branch/README.md) · [parallel](examples/openai-parallel/README.md) · [graph](examples/openai-graph/README.md) · [orchestration](examples/openai-orchestration/README.md) · [orchestration-adaptive](examples/openai-orchestration-adaptive/README.md) · [guardrails](examples/openai-guardrails/README.md) · [error-handling](examples/openai-error-handling/README.md) · [rag-chroma](examples/openai-rag-chroma/README.md) · [rag-vectra](examples/openai-rag-vectra/README.md) · [web-search](examples/openai-web-search/README.md) · [web-fetch](examples/openai-web-fetch/README.md) · [wikipedia](examples/openai-wikipedia/README.md) · [terminal](examples/openai-terminal/README.md) · [github-projects](examples/openai-github-projects/README.md) · [server](examples/openai-server/README.md) · [aws-s3](examples/openai-aws-s3/README.md) · [azure-blob](examples/openai-azure-blob/README.md)
 </details>
 
 ---

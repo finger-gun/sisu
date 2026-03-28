@@ -6,11 +6,14 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
+  "privatePackages": {
+    "version": false,
+    "tag": false
+  },
   "ignore": [
     "openai-*",
     "anthropic-*",
-    "ollama-*",
-    "@sisu-ai/example-*"
+    "ollama-*"
   ]
 }
 

@@ -1,5 +1,12 @@
 # @sisu-ai/mw-register-tools
 
+## 10.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@2.4.0
+
 ## 9.1.2
 
 ### Patch Changes

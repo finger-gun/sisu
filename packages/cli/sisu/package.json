@@ -1,0 +1,44 @@
+{
+  "name": "@sisu-ai/cli",
+  "version": "0.3.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/lib.js",
+  "types": "dist/lib.d.ts",
+  "bin": {
+    "sisu": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@sisu-ai/skill-install": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b && node ./scripts/copy-assets.mjs",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/cli/sisu"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  },
+  "keywords": [
+    "sisu",
+    "cli",
+    "agents",
+    "middleware",
+    "tools",
+    "templates"
+  ]
+}

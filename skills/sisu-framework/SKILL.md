@@ -16,6 +16,34 @@ Build reliable AI agents in TypeScript with full transparency and control.
 - Debugging agent behavior with trace viewers
 - Building RAG (Retrieval Augmented Generation) systems
 
+## Discovery-first rule
+
+Before inventing new Sisu middleware, tools, adapters, or RAG primitives:
+
+1. check the maintained package surface first
+2. prefer composition of existing packages over custom framework code
+3. only propose new middleware/tools when an existing maintained package truly does not fit
+
+If the `sisu` CLI is available, use it first:
+
+```bash
+sisu list middleware
+sisu list tools
+sisu list adapters
+sisu list vector
+sisu info mw-rag
+sisu info tool-rag
+```
+
+If the CLI is not available, inspect:
+
+- `packages/middleware/*`
+- `packages/tools/*`
+- `packages/vector/*`
+- `examples/*`
+
+Do not invent ad-hoc `rag(...)`, custom vector abstractions, or custom tool registries when maintained Sisu packages already exist.
+
 ## Quick start
 
 ### Installation

@@ -1,5 +1,12 @@
 # @sisu-ai/mw-context-compressor
 
+## 9.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @sisu-ai/core@2.4.0
+
 ## 8.0.3
 
 ### Patch Changes

@@ -38,6 +38,7 @@ pnpm ex:openai:server       # HTTP server
 
 # RAG and vector
 pnpm ex:openai:rag-chroma   # RAG with Chroma
+pnpm ex:openai:rag-vectra   # RAG with Vectra
 
 # Cloud storage
 pnpm ex:openai:aws-s3       # AWS S3 operations
@@ -84,6 +85,7 @@ pnpm ex:anthropic:skills    # Anthropic + skills
 ### RAG and vector
 
 - **[openai-rag-chroma](https://github.com/finger-gun/sisu/tree/main/examples/openai-rag-chroma)** - RAG with Chroma vector DB
+- **[openai-rag-vectra](https://github.com/finger-gun/sisu/tree/main/examples/openai-rag-vectra)** - RAG with local file-backed Vectra
 
 ### Cloud storage
 
@@ -216,7 +218,8 @@ Recommended order for learning:
    - `openai-server` - HTTP API
 
 4. **Advanced topics**
-   - `openai-rag-chroma` - RAG systems
+   - `openai-rag-chroma` - RAG with Chroma
+   - `openai-rag-vectra` - RAG with Vectra
    - `openai-skills` - Filesystem skills
    - `openai-graph` - Complex routing
 
@@ -264,7 +267,7 @@ const app = new Agent().use(inputToMessage).use(async (ctx) => {
 
 ### RAG agent
 
-See: `openai-rag-chroma`
+See: `openai-rag-chroma`, `openai-rag-vectra`
 
 ```typescript
 const app = new Agent()

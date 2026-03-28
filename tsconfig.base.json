@@ -3,6 +3,11 @@
     "target": "ES2021",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@sisu-ai/vector-core": ["packages/vector/core/src/index.ts"],
+      "@sisu-ai/rag-core": ["packages/rag/core/src/index.ts"]
+    },
     "lib": [
       "ES2021"
     ],

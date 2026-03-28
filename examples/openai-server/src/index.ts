@@ -2,7 +2,6 @@ import "dotenv/config";
 import {
   Agent,
   createCtx,
-  type Ctx,
   type ModelEvent,
   type ModelResponse,
 } from "@sisu-ai/core";
@@ -69,7 +68,7 @@ const app = new Agent<HttpCtx>()
 
 const port = Number(process.env.PORT) || 3000;
 
-const server = new Server(app, {
+const server = new Server<HttpCtx>(app, {
   logLevel: "debug",
   port,
   basePath,
@@ -89,7 +88,7 @@ const server = new Server(app, {
           | "error"
           | undefined,
       }),
-    }) as HttpCtx,
+    } as HttpCtx),
 });
 
 server.listen();

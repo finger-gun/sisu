@@ -1,0 +1,41 @@
+{
+  "name": "@sisu-ai/skill-install",
+  "version": "0.3.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/lib.js",
+  "types": "dist/lib.d.ts",
+  "bin": {
+    "sisu-skill-install": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b && node ./scripts/copy-assets.mjs",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/skills/skill-install"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  },
+  "keywords": [
+    "sisu",
+    "skill",
+    "installer",
+    "codex",
+    "copilot",
+    "claude"
+  ]
+}

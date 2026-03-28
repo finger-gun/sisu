@@ -1,295 +1,139 @@
 # RAG - Retrieval Augmented Generation
 
-Use RAG middleware to inject relevant context from vector databases or retrieval systems.
+Sisu keeps RAG split into small layers instead of one monolithic package.
 
-## Installation
+## RAG stack
 
-```bash
-pnpm add @sisu-ai/mw-rag
-```
+- `@sisu-ai/vector-core` defines the shared `VectorStore` contract
+- `@sisu-ai/vector-chroma` implements that contract for Chroma
+- `@sisu-ai/vector-vectra` implements that contract for local file-backed Vectra indexes
+- `@sisu-ai/rag-core` owns chunking, embeddings orchestration, and direct store/retrieve helpers
+- `@sisu-ai/tool-rag` exposes model-facing `retrieveContext` / `storeContext`
+- `@sisu-ai/mw-rag` composes deterministic middleware-driven retrieval over a `VectorStore`
 
-## Basic RAG pattern
+Use the package that matches the layer you actually need.
 
-```typescript
-import { rag } from "@sisu-ai/mw-rag";
-import { Agent, createCtx } from "@sisu-ai/core";
+## Tool-driven RAG
 
-const app = new Agent()
-  .use(errorBoundary())
-  .use(
-    rag({
-      retrieval: (ctx) => ctx.memory.retrieval("docs-index"),
-      topK: 3,
-      injectMode: "system", // or 'user'
-    }),
-  )
-  .use(inputToMessage)
-  .use(conversationBuffer({ window: 8 }))
-  .use(async (ctx) => {
-    const res = await ctx.model.generate(ctx.messages);
-    if (res?.message) ctx.messages.push(res.message);
-  });
-```
-
-## Using Chroma vector database
+Use this when the model should decide when to retrieve or store context.
 
 ```bash
-pnpm add @sisu-ai/tool-vec-chroma
+pnpm add @sisu-ai/rag-core
+pnpm add @sisu-ai/tool-rag
+pnpm add @sisu-ai/vector-chroma
 ```
 
 ```typescript
-import { vectorChroma } from "@sisu-ai/tool-vec-chroma";
-import { rag } from "@sisu-ai/mw-rag";
+import { Agent } from "@sisu-ai/core";
+import { openAIEmbeddings } from "@sisu-ai/adapter-openai";
+import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
+import { registerTools } from "@sisu-ai/mw-register-tools";
+import { toolCalling } from "@sisu-ai/mw-tool-calling";
+import { storeRagContent } from "@sisu-ai/rag-core";
+import { createRagTools } from "@sisu-ai/tool-rag";
+import { createChromaVectorStore } from "@sisu-ai/vector-chroma";
 
-// Setup Chroma collection
-const collection = await vectorChroma.createCollection("docs");
-await vectorChroma.addDocuments(collection, [
-  { id: "1", text: "Document 1 content...", metadata: {} },
-  { id: "2", text: "Document 2 content...", metadata: {} },
-]);
+const embeddings = openAIEmbeddings({ model: "text-embedding-3-small" });
+const vectorStore = createChromaVectorStore({ namespace: "docs" });
 
-// Use in RAG pipeline
-const app = new Agent()
-  .use(
-    rag({
-      retrieval: async (ctx) => {
-        const query = ctx.input ?? "";
-        const results = await vectorChroma.search(collection, query, 3);
-        return results.map((r) => r.text);
-      },
-      topK: 3,
-      injectMode: "system",
-    }),
-  )
-  .use(inputToMessage)
-  .use(async (ctx) => {
-    const res = await ctx.model.generate(ctx.messages);
-    if (res?.message) ctx.messages.push(res.message);
-  });
-```
+await storeRagContent({
+  content: "Sisu keeps packages small and composable.",
+  source: "seed",
+  idPrefix: "doc-1",
+  embeddings,
+  vectorStore,
+  chunkingStrategy: "sentences",
+  chunkSize: 400,
+  overlap: 1,
+});
 
-## Custom retrieval function
-
-```typescript
-import { rag } from '@sisu-ai/mw-rag';
-
-const customRetrieval = async (ctx) => {
-  const query = ctx.input ?? '';
-
-  // Your custom retrieval logic
-  const results = await yourVectorDB.search(query, {
-    limit: 5,
-    filter: { category: 'technical' }
-  });
-
-  return results.map(r => r.content);
-};
-
-.use(rag({
-  retrieval: customRetrieval,
-  topK: 5,
-  injectMode: 'user'
-}))
-```
-
-## Injection modes
-
-### System injection (recommended)
-
-Adds retrieved context to system message:
-
-```typescript
-.use(rag({
-  retrieval: myRetrieval,
-  topK: 3,
-  injectMode: 'system'
-}))
-```
-
-Result:
-
-```typescript
-{
-  role: 'system',
-  content: 'You are a helpful assistant.\n\nRelevant context:\n- Doc 1...\n- Doc 2...'
-}
-```
-
-### User injection
-
-Adds context to user message:
-
-```typescript
-.use(rag({
-  retrieval: myRetrieval,
-  topK: 3,
-  injectMode: 'user'
-}))
-```
-
-Result:
-
-```typescript
-{
-  role: 'user',
-  content: 'Context:\n- Doc 1...\n\nUser question: What is...?'
-}
-```
-
-## Dynamic retrieval based on context
-
-```typescript
-const dynamicRetrieval = async (ctx) => {
-  // Check conversation history to determine what to retrieve
-  const lastMessage = ctx.messages.at(-1);
-  const topic = extractTopic(lastMessage?.content);
-
-  // Retrieve documents relevant to the topic
-  const results = await vectorDB.search(ctx.input ?? '', {
-    filter: { topic },
-    limit: 3
-  });
-
-  return results.map(r => r.text);
-};
-
-.use(rag({
-  retrieval: dynamicRetrieval,
-  topK: 3
-}))
-```
-
-## Conditional RAG
-
-Only retrieve when needed:
-
-```typescript
-import { branch } from '@sisu-ai/mw-control-flow';
-
-const needsRetrieval = (ctx) => {
-  return /documentation|how to|what is/i.test(ctx.input ?? '');
-};
-
-const withRAG = sequence([
-  rag({ retrieval: myRetrieval, topK: 3 }),
-  generateResponse
-]);
-
-const withoutRAG = sequence([
-  generateResponse
-]);
-
-.use(branch(needsRetrieval, withRAG, withoutRAG))
-```
-
-## Complete example
-
-```typescript
-import { Agent, createCtx } from "@sisu-ai/core";
-import { openAIAdapter } from "@sisu-ai/adapter-openai";
-import { rag } from "@sisu-ai/mw-rag";
-import { errorBoundary } from "@sisu-ai/mw-error-boundary";
-import {
-  inputToMessage,
-  conversationBuffer,
-} from "@sisu-ai/mw-conversation-buffer";
-import { traceViewer } from "@sisu-ai/mw-trace-viewer";
-
-// Mock retrieval system
-const mockRetrieval = async (ctx) => {
-  const query = ctx.input ?? "";
-
-  // Simulate vector search
-  const docs = [
-    "Sisu is a TypeScript framework for AI agents.",
-    "Use middleware to compose agent pipelines.",
-    "Tools are defined with Zod schemas.",
-  ];
-
-  return docs;
-};
-
-const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
-  input: "How do I define tools in Sisu?",
-  systemPrompt: "You are a helpful coding assistant.",
+const ragTools = createRagTools({
+  embeddings,
+  vectorStore,
+  namespace: "docs",
+  store: { chunkingStrategy: "sentences", chunkSize: 400, overlap: 1 },
 });
 
 const app = new Agent()
-  .use(errorBoundary())
-  .use(traceViewer())
-  .use(
-    rag({
-      retrieval: mockRetrieval,
-      topK: 3,
-      injectMode: "system",
-    }),
-  )
+  .use(registerTools(ragTools))
   .use(inputToMessage)
-  .use(conversationBuffer({ window: 8 }))
-  .use(async (ctx) => {
-    const res = await ctx.model.generate(ctx.messages, {
-      signal: ctx.signal,
-    });
-    if (res?.message) ctx.messages.push(res.message);
-  });
-
-await app.handler()(ctx);
+  .use(toolCalling);
 ```
 
-## Best practices
-
-1. **Use system injection** for most cases - keeps user message clean
-2. **Limit topK to 3-5** documents to avoid context bloat
-3. **Filter retrieved docs** by relevance score threshold
-4. **Include metadata** (source, timestamp) with documents
-5. **Test retrieval quality** separately from LLM generation
-6. **Cache embeddings** for frequently accessed documents
-7. **Use hybrid search** (vector + keyword) for better recall
-
-## Common mistakes
-
-### ❌ Retrieving too many documents
+Switch to Vectra for local file-backed storage:
 
 ```typescript
-// WRONG - too much context
-.use(rag({ retrieval: myRetrieval, topK: 20 }))
+import { createVectraVectorStore } from "@sisu-ai/vector-vectra";
 
-// CORRECT
-.use(rag({ retrieval: myRetrieval, topK: 3 }))
+const vectorStore = createVectraVectorStore({
+  folderPath: ".vectra",
+  namespace: "docs",
+});
 ```
 
-### ❌ Not handling empty results
+## Middleware-driven RAG
+
+Use this when your app already computes embeddings and you want deterministic retrieval + prompt shaping.
+
+```bash
+pnpm add @sisu-ai/mw-rag
+pnpm add @sisu-ai/vector-core
+```
 
 ```typescript
-// WRONG - doesn't handle no results
-const retrieval = async (ctx) => {
-  const results = await vectorDB.search(ctx.input);
-  return results.map((r) => r.text);
-};
+import { Agent } from "@sisu-ai/core";
+import { ragIngest, ragRetrieve, buildRagPrompt } from "@sisu-ai/mw-rag";
 
-// CORRECT - graceful fallback
-const retrieval = async (ctx) => {
-  const results = await vectorDB.search(ctx.input);
-  if (results.length === 0) {
-    return ["No relevant documentation found."];
-  }
-  return results.map((r) => r.text);
-};
+const app = new Agent()
+  .use(ragIngest({ vectorStore }))
+  .use(ragRetrieve({ vectorStore, topK: 3 }))
+  .use(buildRagPrompt());
 ```
 
-### ❌ Including entire documents
+`@sisu-ai/mw-rag` does not chunk or embed for you. Prepare `VectorRecord[]` and query embeddings in your own code, then let middleware handle retrieval and prompt assembly.
+
+## Choosing a backend
+
+### Chroma
+
+Use Chroma when you want a dedicated vector database service:
 
 ```typescript
-// WRONG - entire document in context
-return [fullDocument];
+import { createChromaVectorStore } from "@sisu-ai/vector-chroma";
 
-// CORRECT - extract relevant chunks
-return [relevantChunk1, relevantChunk2, relevantChunk3];
+const vectorStore = createChromaVectorStore({
+  chromaUrl: process.env.CHROMA_URL,
+  namespace: "docs",
+});
 ```
 
-## External docs
+### Vectra
 
-- [RAG middleware README](https://github.com/finger-gun/sisu/tree/main/packages/middleware/rag)
+Use Vectra when you want a local file-backed vector index with no extra server:
+
+```typescript
+import { createVectraVectorStore } from "@sisu-ai/vector-vectra";
+
+const vectorStore = createVectraVectorStore({
+  folderPath: ".vectra",
+  namespace: "docs",
+});
+```
+
+Namespaces map to folders with Vectra and to backend collections with Chroma.
+
+## Package boundaries
+
+- Put reusable chunking and ingestion logic in `@sisu-ai/rag-core`
+- Put model-facing tools in `@sisu-ai/tool-rag`
+- Put deterministic retrieval middleware in `@sisu-ai/mw-rag`
+- Put backend-specific SDK concerns in `@sisu-ai/vector-*`
+
+If a design mixes those responsibilities, it is probably fighting the framework.
+
+## Example references
+
 - [RAG example with Chroma](https://github.com/finger-gun/sisu/tree/main/examples/openai-rag-chroma)
-- [Vector tools](https://github.com/finger-gun/sisu/tree/main/packages/tools/vec-chroma)
+- [RAG example with Vectra](https://github.com/finger-gun/sisu/tree/main/examples/openai-rag-vectra)
+- [RAG middleware package docs](https://github.com/finger-gun/sisu/tree/main/packages/middleware/rag)
+- [RAG core package docs](https://github.com/finger-gun/sisu/tree/main/packages/rag/core)
