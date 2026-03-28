@@ -7,18 +7,20 @@ afterEach(() => {
   vi.restoreAllMocks();
   delete (process.env as any).OPENAI_API_KEY;
   delete (process.env as any).OPENAI_BASE_URL;
+  delete (process.env as any).API_KEY;
+  delete (process.env as any).BASE_URL;
 });
 
 test("openAIAdapter throws without API key", async () => {
   delete (process.env as any).OPENAI_API_KEY;
   expect(() => openAIAdapter({ model: "gpt-4o-mini" })).toThrow(
-    /Missing OPENAI_API_KEY/,
+    /Missing API_KEY or OPENAI_API_KEY/,
   );
 });
 
 test("openAIEmbeddings throws without API key", async () => {
   delete (process.env as any).OPENAI_API_KEY;
-  expect(() => openAIEmbeddings()).toThrow(/Missing OPENAI_API_KEY/);
+  expect(() => openAIEmbeddings()).toThrow(/Missing API_KEY or OPENAI_API_KEY/);
 });
 
 test("openAIEmbeddings maps ordered batch embeddings", async () => {
@@ -65,6 +67,30 @@ test("openAIEmbeddings supports cancellation", async () => {
   const embeddings = openAIEmbeddings();
   await expect(embeddings.embed(["x"], { signal: controller.signal })).rejects
     .toThrow(/aborted/i);
+});
+
+test("openAIAdapter prefers generic API_KEY and BASE_URL over adapter-specific env", async () => {
+  process.env.API_KEY = "generic-key";
+  process.env.OPENAI_API_KEY = "provider-key";
+  process.env.BASE_URL = "https://generic.example.com";
+  process.env.OPENAI_BASE_URL = "https://provider.example.com";
+
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () =>
+      JSON.stringify({
+        choices: [{ message: { role: "assistant", content: "ok" } }],
+      }),
+  } as any);
+
+  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  await llm.generate([{ role: "user", content: "hello" } as any]);
+
+  const [url, init] = fetchMock.mock.calls[0] as any;
+  expect(String(url)).toBe("https://generic.example.com/v1/chat/completions");
+  expect(init.headers.Authorization).toBe("Bearer generic-key");
 });
 
 test("openAIAdapter streams tokens when stream option is set", async () => {

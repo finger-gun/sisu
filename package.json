@@ -67,6 +67,7 @@
     "ex:openai:parallel": "TRACE_HTML=1 pnpm --filter=openai-parallel dev",
     "ex:openai:graph": "TRACE_HTML=1 pnpm --filter=openai-graph dev",
     "ex:ollama:hello": "TRACE_HTML=1 pnpm --filter=ollama-hello dev",
+    "ex:ollama:rag-vectra": "TRACE_HTML=1 pnpm --filter=ollama-rag-vectra dev",
     "ex:ollama:weather": "TRACE_HTML=1 pnpm --filter=ollama-weather dev",
     "ex:ollama:vision": "TRACE_HTML=1 pnpm --filter=ollama-vision dev",
     "ex:anthropic:stream": "TRACE_HTML=1 pnpm --filter=anthropic-stream dev",

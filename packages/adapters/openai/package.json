@@ -30,6 +30,9 @@
   "peerDependencies": {
     "@sisu-ai/core": "^2.4.0"
   },
+  "devDependencies": {
+    "@sisu-ai/core": "workspace:*"
+  },
   "keywords": [
     "sisu",
     "ai",

@@ -6,7 +6,7 @@ Demonstrates skills middleware with Anthropic models and ecosystem tool aliases.
 
 - Node.js >= 18.17
 - pnpm
-- `ANTHROPIC_API_KEY` in your environment
+- `API_KEY` in your environment
 
 ## Setup
 

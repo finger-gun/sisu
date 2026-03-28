@@ -6,8 +6,49 @@ import type {
   Tool,
   ModelEvent,
   ToolCall,
+  EmbeddingsProvider,
 } from "@sisu-ai/core";
-import { firstConfigValue } from "@sisu-ai/core";
+import { createEmbeddingsClient, firstConfigValue } from "@sisu-ai/core";
+
+export interface AnthropicEmbeddingsOptions {
+  baseUrl: string;
+  model: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
+}
+
+function resolveBaseUrl(
+  explicitBaseUrl: string | undefined,
+  envBaseUrl: string | undefined,
+  fallback: string,
+): string {
+  const candidate = explicitBaseUrl || envBaseUrl;
+  return (candidate && candidate !== "/" ? candidate : fallback).replace(
+    /\/$/,
+    "",
+  );
+}
+
+export function anthropicEmbeddings(
+  opts: AnthropicEmbeddingsOptions,
+): EmbeddingsProvider {
+  if (!opts.baseUrl) {
+    throw new Error(
+      "[anthropicEmbeddings] baseUrl is required because Anthropic does not provide a native embeddings API",
+    );
+  }
+  if (!opts.model) {
+    throw new Error("[anthropicEmbeddings] model is required");
+  }
+
+  return createEmbeddingsClient({
+    apiKey: opts.apiKey,
+    baseUrl: opts.baseUrl,
+    headers: opts.headers,
+    model: opts.model,
+    clientName: "anthropicEmbeddings",
+  });
+}
 
 type FetchResponse = Awaited<ReturnType<typeof fetch>>;
 type ToolCallLike = { id?: string; name?: string; arguments?: unknown };
@@ -62,20 +103,20 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
   }
 
   const apiKey =
-    opts.apiKey ?? firstConfigValue(["ANTHROPIC_API_KEY", "API_KEY"]) ?? "";
-  const envBase = firstConfigValue(["ANTHROPIC_BASE_URL", "BASE_URL"]);
-  const baseUrl = (
-    opts.baseUrl ??
-    envBase ??
-    "https://api.anthropic.com"
-  ).replace(/\/$/, "");
+    opts.apiKey ?? firstConfigValue(["API_KEY", "ANTHROPIC_API_KEY"]) ?? "";
+  const envBase = firstConfigValue(["BASE_URL", "ANTHROPIC_BASE_URL"]);
+  const baseUrl = resolveBaseUrl(
+    opts.baseUrl,
+    envBase,
+    "https://api.anthropic.com",
+  );
   const timeout = opts.timeout ?? DEFAULT_TIMEOUT;
   const maxRetries = opts.maxRetries ?? DEFAULT_MAX_RETRIES;
   const anthropicVersion = opts.anthropicVersion ?? DEFAULT_ANTHROPIC_VERSION;
 
   if (!apiKey) {
     throw new Error(
-      "[anthropicAdapter] Missing ANTHROPIC_API_KEY or API_KEY — set it in your environment or pass { apiKey }",
+      "[anthropicAdapter] Missing API_KEY or ANTHROPIC_API_KEY — set it in your environment or pass { apiKey }",
     );
   }
 

@@ -6,8 +6,9 @@ import type {
   Tool,
   ModelEvent,
   ToolCall,
+  EmbeddingsProvider,
 } from "@sisu-ai/core";
-import { firstConfigValue } from "@sisu-ai/core";
+import { createEmbeddingsClient, firstConfigValue } from "@sisu-ai/core";
 
 type OllamaToolCall = {
   id?: string;
@@ -32,6 +33,24 @@ export interface OllamaAdapterOptions {
   headers?: Record<string, string>;
 }
 
+export interface OllamaEmbeddingsOptions {
+  model: string;
+  baseUrl?: string;
+  headers?: Record<string, string>;
+}
+
+function resolveBaseUrl(
+  explicitBaseUrl: string | undefined,
+  envBaseUrl: string | undefined,
+  fallback: string,
+): string {
+  const candidate = explicitBaseUrl || envBaseUrl;
+  return (candidate && candidate !== "/" ? candidate : fallback).replace(
+    /\/$/,
+    "",
+  );
+}
+
 type OllamaChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
   content?: string | null;
@@ -41,12 +60,31 @@ type OllamaChatMessage = {
   tool_calls?: OllamaToolCall[];
 };
 
+export function ollamaEmbeddings(
+  opts: OllamaEmbeddingsOptions,
+): EmbeddingsProvider {
+  if (!opts.model) {
+    throw new Error("[ollamaEmbeddings] model is required");
+  }
+  const envBase = firstConfigValue(["BASE_URL", "OLLAMA_BASE_URL"]);
+  const baseUrl = resolveBaseUrl(opts.baseUrl, envBase, "http://localhost:11434");
+
+  return createEmbeddingsClient({
+    baseUrl,
+    path: "/api/embed",
+    headers: opts.headers,
+    model: opts.model,
+    clientName: "ollamaEmbeddings",
+    parseResponse: (raw: string) => {
+      const parsed = JSON.parse(raw) as { embeddings?: number[][] };
+      return parsed.embeddings ?? [];
+    },
+  });
+}
+
 export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
-  const envBase = firstConfigValue(["OLLAMA_BASE_URL", "BASE_URL"]);
-  const baseUrl = (opts.baseUrl ?? envBase ?? "http://localhost:11434").replace(
-    /\/$/,
-    "",
-  );
+  const envBase = firstConfigValue(["BASE_URL", "OLLAMA_BASE_URL"]);
+  const baseUrl = resolveBaseUrl(opts.baseUrl, envBase, "http://localhost:11434");
   const modelName = `ollama:${opts.model}`;
 
   const generate = ((

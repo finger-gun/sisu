@@ -13,9 +13,9 @@ Connect Sisu to OpenAI and OpenAI-compatible APIs with tools and streaming suppo
 npm i @sisu-ai/adapter-openai
 ```
 
-- Env: `OPENAI_API_KEY` (preferred) or `API_KEY` required.
+- Env: `API_KEY`.
 - Optional: `DEBUG_LLM=1` to log redacted request/response summaries on errors.
- - Base URL: `OPENAI_BASE_URL` or `BASE_URL` can override the base URL (or pass `baseUrl` in code).
+ - Base URL: `BASE_URL` (or pass `baseUrl` in code).
  - Examples may support CLI flags to override env at runtime, e.g. `--openai-api-key`, `--openai-base-url`, `--openai-model`.
 
 ## Documentation
@@ -28,6 +28,7 @@ Discover what you can do through examples or documentation. Check it out at http
 
 ## Usage
 ```ts
+import { createEmbeddingsClient } from '@sisu-ai/core';
 import { openAIAdapter, openAIEmbeddings } from '@sisu-ai/adapter-openai';
 
 const model = openAIAdapter({ model: 'gpt-4o-mini' });
@@ -36,6 +37,12 @@ const model = openAIAdapter({ model: 'gpt-4o-mini', baseUrl: 'https://openrouter
 
 const embeddings = openAIEmbeddings({ model: 'text-embedding-3-small' });
 const vectors = await embeddings.embed(['first text', 'second text']);
+
+const genericEmbeddings = createEmbeddingsClient({
+  apiKey: process.env.API_KEY,
+  baseUrl: process.env.BASE_URL || 'https://api.openai.com',
+  model: 'text-embedding-3-small',
+});
 ```
 
 ## Images (Vision)

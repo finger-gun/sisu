@@ -13,18 +13,29 @@ Connect Sisu to Anthropic models with first-class tool calling and streaming sup
 npm i @sisu-ai/adapter-anthropic
 ```
 
-- Env: `ANTHROPIC_API_KEY` (preferred) or `API_KEY` required
-- Optional base URL: `ANTHROPIC_BASE_URL` (or `BASE_URL`)
+- Env: `API_KEY`
+- Optional base URL: `BASE_URL`
 - Optional debug: `DEBUG_LLM=1` to log redacted request/response summaries on errors
 
 ## Usage
 ```ts
-import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
+import { anthropicAdapter, anthropicEmbeddings } from '@sisu-ai/adapter-anthropic';
 
 const model = anthropicAdapter({ model: 'claude-3-5-sonnet-20240620' });
 // with a self-hosted proxy
 const model = anthropicAdapter({ model: 'claude-3-opus-20240229', baseUrl: 'https://api.anthropic.com' });
+
+const embeddings = anthropicEmbeddings({
+  baseUrl: process.env.EMBEDDINGS_BASE_URL!,
+  model: process.env.EMBEDDINGS_MODEL!,
+  apiKey: process.env.EMBEDDINGS_API_KEY,
+});
 ```
+
+## Embeddings
+- Anthropic does not provide a native embeddings API.
+- `anthropicEmbeddings(...)` is a convenience helper for Anthropic-centered apps that use a compatible third-party embeddings endpoint.
+- You must pass `baseUrl` and `model` explicitly; there are no Anthropic-specific defaults.
 
 ## Tools
 - Sends `tools` in Anthropic format (`name`, `description`, `input_schema`).
@@ -40,8 +51,8 @@ const model = anthropicAdapter({ model: 'claude-3-opus-20240229', baseUrl: 'http
 ```ts
 anthropicAdapter({
   model: 'claude-3-5-sonnet-20240620',
-  apiKey?: string,            // default: ANTHROPIC_API_KEY or API_KEY
-  baseUrl?: string,           // default: https://api.anthropic.com (or ANTHROPIC_BASE_URL / BASE_URL)
+  apiKey?: string,            // default: API_KEY
+  baseUrl?: string,           // default: https://api.anthropic.com (or BASE_URL)
   anthropicVersion?: string,  // default: 2023-06-01
   timeout?: number,           // default: 60000 ms
   maxRetries?: number,        // default: 3 (with backoff; 4xx except 429 are not retried)

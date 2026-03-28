@@ -1,12 +1,18 @@
 import { test, expect, vi, afterEach } from "vitest";
 import { Readable } from "stream";
-import { anthropicAdapter, toAnthropicMessage } from "../src/index.js";
+import {
+  anthropicAdapter,
+  anthropicEmbeddings,
+  toAnthropicMessage,
+} from "../src/index.js";
 import type { Message, Tool } from "@sisu-ai/core";
 
 afterEach(() => {
   vi.restoreAllMocks();
   delete (process.env as any).ANTHROPIC_API_KEY;
   delete (process.env as any).ANTHROPIC_BASE_URL;
+  delete (process.env as any).API_KEY;
+  delete (process.env as any).BASE_URL;
 });
 
 test("anthropicAdapter streams tokens when stream option is set", async () => {
@@ -64,8 +70,74 @@ test("anthropicAdapter uses retry-after for 429 backoff", async () => {
 
 test("anthropicAdapter throws without API key", async () => {
   expect(() => anthropicAdapter({ model: "claude-3-haiku" })).toThrow(
-    /Missing ANTHROPIC_API_KEY/,
+    /Missing API_KEY or ANTHROPIC_API_KEY/,
   );
+});
+
+test("anthropicEmbeddings requires explicit baseUrl and model", async () => {
+  expect(() =>
+    anthropicEmbeddings({
+      baseUrl: "",
+      model: "voyage-3.5",
+    }),
+  ).toThrow(/baseUrl is required/i);
+
+  expect(() =>
+    anthropicEmbeddings({
+      baseUrl: "https://api.example.com",
+      model: "",
+    }),
+  ).toThrow(/model is required/i);
+});
+
+test("anthropicEmbeddings uses explicit compatible endpoint config", async () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () => JSON.stringify({ data: [{ embedding: [0.1, 0.2] }] }),
+  } as any);
+
+  const embeddings = anthropicEmbeddings({
+    apiKey: "voyage-key",
+    baseUrl: "https://api.voyageai.com",
+    model: "voyage-3.5",
+  });
+
+  const vectors = await embeddings.embed(["hello"]);
+  expect(vectors).toEqual([[0.1, 0.2]]);
+
+  const [url, init] = fetchMock.mock.calls[0] as any;
+  expect(String(url)).toBe("https://api.voyageai.com/v1/embeddings");
+  expect(init.headers.Authorization).toBe("Bearer voyage-key");
+  expect(JSON.parse(init.body)).toEqual({
+    model: "voyage-3.5",
+    input: ["hello"],
+  });
+});
+
+test("anthropicAdapter prefers generic API_KEY and BASE_URL over adapter-specific env", async () => {
+  process.env.API_KEY = "generic-key";
+  process.env.ANTHROPIC_API_KEY = "provider-key";
+  process.env.BASE_URL = "https://generic.example.com";
+  process.env.ANTHROPIC_BASE_URL = "https://provider.example.com";
+
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () =>
+      JSON.stringify({
+        content: [{ type: "text", text: "hi" }],
+      }),
+  } as any);
+
+  const llm = anthropicAdapter({ model: "claude-3-haiku" });
+  await llm.generate([{ role: "user", content: "hello" }]);
+
+  const [url, init] = fetchMock.mock.calls[0] as any;
+  expect(String(url)).toBe("https://generic.example.com/v1/messages");
+  expect(init.headers["x-api-key"]).toBe("generic-key");
 });
 
 test("anthropicAdapter posts messages and returns mapped response with usage", async () => {

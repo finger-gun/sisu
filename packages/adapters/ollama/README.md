@@ -15,14 +15,18 @@ npm i @sisu-ai/adapter-ollama
 
 - Start Ollama locally: `ollama serve`
 - Pull a tools-capable model: `ollama pull llama3.1:latest`
+- Base URL env: `BASE_URL`
 
 
 ## Usage
 ```ts
-import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
+import { ollamaAdapter, ollamaEmbeddings } from '@sisu-ai/adapter-ollama';
 
 const model = ollamaAdapter({ model: 'llama3.1' });
 // or with custom base URL: { baseUrl: 'http://localhost:11435' }
+
+const embeddings = ollamaEmbeddings({ model: 'embeddinggemma' });
+const vectors = await embeddings.embed(['first text', 'second text']);
 ```
 
 ## Images (Vision)
@@ -104,7 +108,7 @@ await app.handler()(ctx);
 ## Notes
 - Tool choice forcing is model-dependent; current loop asks for tools on first turn and plain completion on second.
 - Streaming can be added via Ollama's streaming API if desired.
- - Env: `OLLAMA_BASE_URL` or `BASE_URL` can override the base URL (or pass `baseUrl` in code). Examples may also support a CLI flag `--base-url` to override env.
+ - Env: `BASE_URL` overrides the base URL (or pass `baseUrl` in code). Examples may also support a CLI flag `--base-url` to override env.
 
 
 # Community & Support

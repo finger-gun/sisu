@@ -269,9 +269,9 @@ npx @sisu-ai/cli install skill
 
 ```bash
 # LLM Providers
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-OLLAMA_BASE_URL=http://localhost:11434    # default
+API_KEY=sk-...
+BASE_URL=http://localhost:11434           # optional, when overriding provider defaults
+MODEL=gpt-4o-mini                         # optional, example/provider dependent
 
 # Logging
 LOG_LEVEL=info        # debug | info | warn | error

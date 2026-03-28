@@ -40,7 +40,8 @@ You will receive `status` and `final` events.
 - `--port`
 
 ## Env Vars (alternatives)
-- `OPENAI_API_KEY` or `API_KEY`
-- `OPENAI_BASE_URL` or `BASE_URL`
+- `API_KEY`
+- `BASE_URL`
+- `MODEL`
 - `OPENAI_MODEL`
 - `PORT`

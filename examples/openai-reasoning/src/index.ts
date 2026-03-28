@@ -10,9 +10,9 @@ import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 
-const apiKey = process.env.OPENAI_API_KEY || process.env.API_KEY;
+const apiKey = process.env.API_KEY || process.env.OPENAI_API_KEY;
 const baseUrl =
-  process.env.OPENAI_BASE_URL || process.env.BASE_URL || undefined;
+  process.env.BASE_URL || process.env.OPENAI_BASE_URL || undefined;
 const model = process.env.MODEL || process.env.OPENAI_MODEL || "gpt-5.1";
 
 console.log("🚀 OpenAI Reasoning Model Example");
@@ -25,7 +25,7 @@ console.log();
 
 if (!apiKey) {
   console.error(
-    "❌ Error: OPENAI_API_KEY or API_KEY environment variable required",
+    "❌ Error: API_KEY or OPENAI_API_KEY environment variable required",
   );
   console.error("💡 Set it in your .env file or environment");
   process.exit(1);

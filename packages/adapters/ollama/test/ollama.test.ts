@@ -1,11 +1,75 @@
 import { test, expect, vi, afterEach } from "vitest";
 import { Readable } from "stream";
-import { ollamaAdapter } from "../src/index.js";
+import { ollamaAdapter, ollamaEmbeddings } from "../src/index.js";
 import type { Message, Tool } from "@sisu-ai/core";
 
 afterEach(() => {
   vi.restoreAllMocks();
   delete (process.env as any).OLLAMA_BASE_URL;
+});
+
+test("ollamaEmbeddings maps Ollama /api/embed responses", async () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () =>
+      JSON.stringify({
+        model: "embeddinggemma",
+        embeddings: [
+          [0.01, 0.02],
+          [0.03, 0.04],
+        ],
+      }),
+  } as any);
+
+  const embeddings = ollamaEmbeddings({ model: "embeddinggemma" });
+  const vectors = await embeddings.embed(["a", "b"]);
+  expect(vectors).toEqual([
+    [0.01, 0.02],
+    [0.03, 0.04],
+  ]);
+
+  const [url, init] = fetchMock.mock.calls[0] as any;
+  expect(String(url)).toBe("http://localhost:11434/api/embed");
+  expect(JSON.parse(init.body)).toEqual({
+    model: "embeddinggemma",
+    input: ["a", "b"],
+  });
+});
+
+test("ollamaEmbeddings honors configured base URL", async () => {
+  process.env.OLLAMA_BASE_URL = "http://localhost:22434";
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () => JSON.stringify({ embeddings: [[1, 2, 3]] }),
+  } as any);
+
+  const embeddings = ollamaEmbeddings({ model: "embeddinggemma" });
+  await embeddings.embed(["hello"]);
+  expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+    "http://localhost:22434/api/embed",
+  );
+});
+
+test("ollamaEmbeddings prefers generic BASE_URL over OLLAMA_BASE_URL", async () => {
+  process.env.BASE_URL = "http://localhost:33434";
+  process.env.OLLAMA_BASE_URL = "http://localhost:22434";
+
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () => JSON.stringify({ embeddings: [[1, 2, 3]] }),
+  } as any);
+
+  const embeddings = ollamaEmbeddings({ model: "embeddinggemma" });
+  await embeddings.embed(["hello"]);
+  expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+    "http://localhost:33434/api/embed",
+  );
 });
 
 test("ollamaAdapter streams tokens when stream option is set", async () => {

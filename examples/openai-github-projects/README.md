@@ -5,7 +5,8 @@ Demonstrates using Sisu with the OpenAI adapter and the GitHub Projects tools to
 ## Setup
 
 1. Copy `.env.example` to `.env` and fill:
-   - `OPENAI_API_KEY`
+   - `API_KEY`
+   - `MODEL` (optional)
    - `GITHUB_PROJECT_ID`
    - `GITHUB_ACCESS_TOKEN`
    - Optional: `GITHUB_GRAPHQL_URL` or `GITHUB_ENTERPRISE_HOSTNAME`

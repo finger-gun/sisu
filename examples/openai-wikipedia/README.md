@@ -12,8 +12,9 @@ Config Flags (CLI overrides env)
 - Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
-- `OPENAI_API_KEY` or `API_KEY`
-- `OPENAI_BASE_URL` or `BASE_URL`
+- `API_KEY`
+- `BASE_URL`
+- `MODEL`
 - `OPENAI_MODEL`
 - `WIKIPEDIA_LANG` or `WIKI_LANG`
 - `WIKIPEDIA_BASE_URL` or `WIKI_BASE_URL`
