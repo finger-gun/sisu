@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { categories, formatInfo, formatList, getTemplateIds, listCategory, resolveEntry, scaffoldTemplate } from './lib.js';
+import { runChatCli } from './chat/runtime.js';
 import type { CatalogCategory } from './catalog.js';
 
 const banner = String.raw` ░▒▓███████▓▒░▒▓█▓▒░░▒▓███████▓▒░▒▓█▓▒░░▒▓█▓▒░ 
@@ -28,6 +29,7 @@ Usage:
   sisu info <name>
   sisu create <template> <project-name>
   sisu install skill [installer-options]
+  sisu chat [--session <session-id>] [--prompt <text>]
 
 Categories:
   ${categories.join(', ')}
@@ -37,6 +39,8 @@ Examples:
   sisu info vector-vectra
   sisu create chat-agent my-app
   sisu install skill
+  sisu chat
+  sisu chat --prompt "run: git status"
 `);
 }
 
@@ -127,6 +131,11 @@ async function main(): Promise<void> {
       });
       child.on('error', reject);
     });
+    return;
+  }
+
+  if (command === 'chat') {
+    await runChatCli([arg1, arg2, ...rest].filter((value): value is string => typeof value === 'string'));
     return;
   }
 

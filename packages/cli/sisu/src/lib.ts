@@ -1,6 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { catalog, categories, type CatalogCategory, type CatalogEntry } from './catalog.js';
+export * from './chat/events.js';
+export * from './chat/profiles.js';
+export * from './chat/renderer.js';
+export * from './chat/runtime.js';
+export * from './chat/session-store.js';
+export * from './chat/state.js';
+export * from './chat/tool-policy.js';
 
 export function listCategory(category: CatalogCategory): CatalogEntry[] {
   return catalog.filter((entry) => entry.category === category);

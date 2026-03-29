@@ -1,0 +1,13 @@
+{
+  "name": "@sisu-ai/app-desktop-macos",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "echo \"Use xcodebuild to build apps/desktop-macos\"",
+    "clean": "echo \"Use xcodebuild clean for apps/desktop-macos\"",
+    "lint": "echo \"No Swift lint configured yet for apps/desktop-macos\"",
+    "lint:fix": "echo \"No Swift lint fix configured yet for apps/desktop-macos\"",
+    "typecheck": "echo \"Type checking is handled by Swift compiler in Xcode\"",
+    "test": "echo \"Use xcodebuild test for apps/desktop-macos\""
+  }
+}

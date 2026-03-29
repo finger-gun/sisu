@@ -57,6 +57,8 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
 
+  apps/desktop-macos: {}
+
   examples/anthropic-control-flow:
     dependencies:
       '@sisu-ai/adapter-anthropic':
@@ -1265,6 +1267,18 @@ importers:
 
   packages/cli/sisu:
     dependencies:
+      '@sisu-ai/adapter-anthropic':
+        specifier: workspace:*
+        version: link:../../adapters/anthropic
+      '@sisu-ai/adapter-ollama':
+        specifier: workspace:*
+        version: link:../../adapters/ollama
+      '@sisu-ai/adapter-openai':
+        specifier: workspace:*
+        version: link:../../adapters/openai
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../core
       '@sisu-ai/skill-install':
         specifier: workspace:*
         version: link:../../skills/skill-install
@@ -1394,11 +1408,48 @@ importers:
         specifier: ^2.4.0
         version: 2.4.0
 
+  packages/protocol:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+
   packages/rag/core:
     dependencies:
       '@sisu-ai/vector-core':
         specifier: ^1.1.0
         version: 1.1.0
+
+  packages/runtime-desktop:
+    dependencies:
+      '@sisu-ai/adapter-anthropic':
+        specifier: workspace:*
+        version: link:../adapters/anthropic
+      '@sisu-ai/adapter-ollama':
+        specifier: workspace:*
+        version: link:../adapters/ollama
+      '@sisu-ai/adapter-openai':
+        specifier: workspace:*
+        version: link:../adapters/openai
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../core
+      '@sisu-ai/mw-error-boundary':
+        specifier: workspace:*
+        version: link:../middleware/error-boundary
+      '@sisu-ai/mw-guardrails':
+        specifier: workspace:*
+        version: link:../middleware/guardrails
+      '@sisu-ai/mw-invariants':
+        specifier: workspace:*
+        version: link:../middleware/invariants
+      '@sisu-ai/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+    devDependencies:
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@24.12.0)(tsx@4.21.0)
 
   packages/server:
     dependencies:
@@ -7746,7 +7797,7 @@ snapshots:
       expect-type: 1.2.2
       magic-string: 0.30.21
       pathe: 2.0.3
-      picomatch: 4.0.3
+      picomatch: 4.0.4
       std-env: 3.10.0
       tinybench: 2.9.0
       tinyexec: 0.3.2

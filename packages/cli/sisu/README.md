@@ -1,6 +1,6 @@
 # `@sisu-ai/cli`
 
-CLI for discovering Sisu packages and scaffolding maintained starter projects.
+CLI for discovering Sisu packages, scaffolding maintained starter projects, and running an interactive automation chat.
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
@@ -15,12 +15,14 @@ npx @sisu-ai/cli list tools
 npx @sisu-ai/cli info vector-vectra
 npx @sisu-ai/cli create chat-agent my-app
 npx @sisu-ai/cli install skill
+npx @sisu-ai/cli chat
 ```
 
 After global install, you can also run:
 
 ```bash
 sisu list tools
+sisu chat
 ```
 
 ## Commands
@@ -29,6 +31,7 @@ sisu list tools
 - `sisu info <name>`
 - `sisu create <template> <project-name>`
 - `sisu install skill [installer-options]`
+- `sisu chat [--session <session-id>] [--prompt <text>]`
 
 Categories:
 
@@ -39,6 +42,76 @@ Categories:
 - `vector`
 - `skills`
 - `templates`
+
+## Chat command
+
+This version introduces a first-class interactive chat mode for daily CLI workflows.
+
+### Core flow
+
+- Start interactive mode: `sisu chat`
+- Run one-shot prompt: `sisu chat --prompt "run: git status"`
+- Resume a known session: `sisu chat --session <session-id>`
+
+### In-chat commands
+
+- `/help` - show command help
+- `/cancel` - cancel active run/tool execution
+- `/sessions` - list persisted sessions
+- `/search <query>` - search conversation history
+- `/resume <session-id>` - switch to a prior session
+- `/branch <message-id>` - create a new branch session from a prior message
+- `/exit` - close chat
+
+### Tool safety model
+
+Tool executions are policy-gated before execution:
+
+- **allow**: command runs immediately
+- **confirm**: explicit user approval is required
+- **deny**: command is blocked with a reason
+
+High-impact commands require confirmation by default. Denied and completed actions are persisted in session records with status and metadata.
+
+### Profiles and configuration
+
+Chat profile resolution uses deterministic precedence:
+
+1. Built-in defaults
+2. Global profile: `~/.sisu/chat-profile.json`
+3. Project profile: `<project>/.sisu/chat-profile.json` (overrides global)
+
+Example profile:
+
+```json
+{
+  "name": "default",
+  "provider": "mock",
+  "model": "sisu-mock-chat-v1",
+  "theme": "auto",
+  "storageDir": "/Users/you/.sisu/chat-sessions/my-project",
+  "toolPolicy": {
+    "mode": "balanced",
+    "requireConfirmationForHighImpact": true,
+    "allowCommandPrefixes": ["echo", "ls", "git status", "pnpm test"]
+  }
+}
+```
+
+Provider notes:
+
+- `mock`: local fallback with no external API calls.
+- `openai`: set `OPENAI_API_KEY` (or `API_KEY`) and choose a valid OpenAI model.
+- `anthropic`: set `ANTHROPIC_API_KEY` (or `API_KEY`) and choose a valid Claude model.
+- `ollama`: ensure `ollama serve` is running and use a locally available model.
+
+### Session persistence
+
+Chat sessions are persisted locally (messages, run state, tool lifecycle records, events). This enables:
+
+- deterministic restart/resume behavior
+- session search and retrieval
+- branch-from-message lineage workflows
 
 ## Templates
 

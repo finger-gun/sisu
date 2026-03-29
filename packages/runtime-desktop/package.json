@@ -1,0 +1,51 @@
+{
+  "name": "@sisu-ai/runtime-desktop",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "sisu-runtime-desktop": "dist/cli.js"
+  },
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sisu-ai/adapter-anthropic": "workspace:*",
+    "@sisu-ai/adapter-ollama": "workspace:*",
+    "@sisu-ai/adapter-openai": "workspace:*",
+    "@sisu-ai/core": "workspace:*",
+    "@sisu-ai/mw-error-boundary": "workspace:*",
+    "@sisu-ai/mw-guardrails": "workspace:*",
+    "@sisu-ai/mw-invariants": "workspace:*",
+    "@sisu-ai/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/runtime-desktop"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  },
+  "keywords": [
+    "sisu",
+    "runtime",
+    "desktop"
+  ]
+}

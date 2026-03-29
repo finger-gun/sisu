@@ -4,15 +4,15 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**/*.ts", "src/**/*.js", "package.json", "tsconfig.json"],
+      "inputs": ["src/**/*.ts", "src/**/*.js", "Sources/**/*.swift", "package.json", "tsconfig.json"],
       "outputs": ["dist/**"]
     },
     "lint": {
-      "inputs": ["src/**/*.ts", "src/**/*.js", "*.json", ".eslintrc*", "eslint.config.*"],
+      "inputs": ["src/**/*.ts", "src/**/*.js", "Sources/**/*.swift", "*.json", ".eslintrc*", "eslint.config.*"],
       "outputs": []
     },
     "lint:fix": {
-      "inputs": ["src/**/*.ts", "src/**/*.js", "*.json", ".eslintrc*", "eslint.config.*"],
+      "inputs": ["src/**/*.ts", "src/**/*.js", "Sources/**/*.swift", "*.json", ".eslintrc*", "eslint.config.*"],
       "outputs": ["src/**/*.ts", "src/**/*.js"],
       "cache": false
     },
@@ -23,7 +23,7 @@
     },
     "test": {
       "dependsOn": ["build"],
-      "inputs": ["src/**/*.ts", "src/**/*.js", "test/**/*", "tests/**/*", "**/*.test.*", "**/*.spec.*", "package.json", "vitest.config.*"],
+      "inputs": ["src/**/*.ts", "src/**/*.js", "Sources/**/*.swift", "test/**/*", "tests/**/*", "**/*.test.*", "**/*.spec.*", "package.json", "vitest.config.*"],
       "outputs": ["coverage/**"]
     },
     "test:watch": {
@@ -33,7 +33,7 @@
     },
     "test:coverage": {
       "dependsOn": ["build"],
-      "inputs": ["src/**/*.ts", "src/**/*.js", "test/**/*", "tests/**/*", "**/*.test.*", "**/*.spec.*", "package.json", "vitest.config.*"],
+      "inputs": ["src/**/*.ts", "src/**/*.js", "Sources/**/*.swift", "test/**/*", "tests/**/*", "**/*.test.*", "**/*.spec.*", "package.json", "vitest.config.*"],
       "outputs": ["coverage/**"]
     },
     "clean": {
@@ -45,7 +45,7 @@
       "dependsOn": ["^build"],
       "cache": false,
       "persistent": true,
-      "inputs": ["src/**/*.ts", "src/**/*.js"]
+      "inputs": ["src/**/*.ts", "src/**/*.js", "Sources/**/*.swift"]
     }
   },
   "globalDependencies": ["tsconfig.base.json", "vitest.config.ts"],

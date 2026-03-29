@@ -12,6 +12,10 @@
     "dist"
   ],
   "dependencies": {
+    "@sisu-ai/adapter-anthropic": "workspace:*",
+    "@sisu-ai/adapter-ollama": "workspace:*",
+    "@sisu-ai/adapter-openai": "workspace:*",
+    "@sisu-ai/core": "workspace:*",
     "@sisu-ai/skill-install": "workspace:*"
   },
   "publishConfig": {
