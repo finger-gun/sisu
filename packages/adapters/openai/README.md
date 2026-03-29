@@ -18,6 +18,12 @@ npm i @sisu-ai/adapter-openai
  - Base URL: `BASE_URL` (or pass `baseUrl` in code).
  - Examples may support CLI flags to override env at runtime, e.g. `--openai-api-key`, `--openai-base-url`, `--openai-model`.
 
+## Transport and compatibility
+
+- The adapter now uses the official `openai` Node SDK for chat completions transport.
+- Public Sisu adapter behavior stays the same: `generate(...)`, tool normalization, streaming event shape, and usage mapping are preserved.
+- Existing integrations should not require API changes. If you mocked raw `fetch` internals in tests, update mocks to use `Response`-compatible objects (or SDK-level call boundaries).
+
 ## Documentation
 Discover what you can do through examples or documentation. Check it out at https://github.com/finger-gun/sisu
 

@@ -17,6 +17,12 @@ npm i @sisu-ai/adapter-anthropic
 - Optional base URL: `BASE_URL`
 - Optional debug: `DEBUG_LLM=1` to log redacted request/response summaries on errors
 
+## Transport and compatibility
+
+- The adapter now uses the official `@anthropic-ai/sdk` Messages API transport.
+- Public Sisu behavior is intentionally preserved: message normalization, tool-call mapping, streaming `token`/`assistant_message` events, and usage mapping.
+- Existing app code should continue to work unchanged. If you relied on low-level fetch stubs in tests, prefer `Response`-compatible mocks or SDK-boundary mocks.
+
 ## Usage
 ```ts
 import { anthropicAdapter, anthropicEmbeddings } from '@sisu-ai/adapter-anthropic';

@@ -10,6 +10,7 @@ import type {
   EmbeddingsProvider,
 } from "@sisu-ai/core";
 import { createEmbeddingsClient, firstConfigValue } from "@sisu-ai/core";
+import OpenAI from "openai";
 
 export type { EmbedOptions, EmbeddingsProvider } from "@sisu-ai/core";
 
@@ -126,6 +127,10 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
     throw new Error(
       "[openAIAdapter] Missing API_KEY or OPENAI_API_KEY — set it in your environment or pass { apiKey }",
     );
+  const client = new OpenAI({
+    apiKey,
+    baseURL: `${baseUrl}/v1`,
+  });
   const DEBUG =
     String(process.env.DEBUG_LLM || "").toLowerCase() === "true" ||
     process.env.DEBUG_LLM === "1";
@@ -202,113 +207,50 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
     }
 
     if (genOpts?.stream === true) {
-      // Return an async generator that performs the fetch and yields tokens
       return (async function* () {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok || !res.body) {
-          const err = await res.text();
-          throw new Error(
-            `OpenAI API error: ${res.status} ${res.statusText} — ${String(err).slice(0, 500)}`,
+        try {
+          const stream = await client.chat.completions.create(
+            body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+            { signal: genOpts?.signal },
           );
-        }
-        const decoder = new TextDecoder();
-        let buf = "";
-        let full = "";
-        let reasoningDetails: unknown = undefined;
-        for await (const chunk of res.body as AsyncIterable<
-          Uint8Array | string
-        >) {
-          const piece =
-            typeof chunk === "string"
-              ? chunk
-              : decoder.decode(chunk as Uint8Array);
-          buf += piece;
-          const lines = buf.split("\n");
-          buf = lines.pop() ?? "";
-          for (const line of lines) {
-            const m = line.match(/^data:\s*(.*)/);
-            if (!m) continue;
-            const data = m[1].trim();
-            if (!data) continue;
-            if (data === "[DONE]") {
-              // Graceful end-of-stream sentinel from OpenAI; not JSON.
-              // Do not log parse errors for this case.
-              continue;
+          let full = "";
+          let reasoningDetails: unknown = undefined;
+          for await (const j of stream as AsyncIterable<OpenAIStreamChunk>) {
+            const token = j?.choices?.[0]?.delta?.content;
+            if (typeof token === "string") {
+              full += token;
+              yield { type: "token", token } as ModelEvent;
             }
-            try {
-              const j = JSON.parse(data) as OpenAIStreamChunk;
-              const token = j?.choices?.[0]?.delta?.content;
-              if (typeof token === "string") {
-                full += token;
-                yield { type: "token", token } as ModelEvent;
-              }
-              // Capture reasoning_details if present (typically in final chunk)
-              const msgShape = (
-                j?.choices?.[0] as { message?: OpenAIMessageShape | undefined }
-              )?.message as OpenAIMessageShape | undefined;
-              if (msgShape?.reasoning_details !== undefined) {
-                reasoningDetails = msgShape.reasoning_details;
-              }
-            } catch (e: unknown) {
-              // Some providers may emit non-JSON comment frames; ignore silently unless DEBUG is on
-              if (DEBUG)
-                console.error("[DEBUG_LLM] stream_parse_error", { error: e });
+            const msgShape = (
+              j?.choices?.[0] as { message?: OpenAIMessageShape | undefined }
+            )?.message as OpenAIMessageShape | undefined;
+            if (msgShape?.reasoning_details !== undefined) {
+              reasoningDetails = msgShape.reasoning_details;
             }
           }
+          const finalMessage: AssistantMessage = {
+            role: "assistant",
+            content: full,
+          };
+          if (reasoningDetails !== undefined) {
+            finalMessage.reasoning_details = reasoningDetails;
+          }
+          yield {
+            type: "assistant_message",
+            message: finalMessage,
+          } as ModelEvent;
+        } catch (error) {
+          throw mapOpenAIError(error);
         }
-        const finalMessage: AssistantMessage = {
-          role: "assistant",
-          content: full,
-        };
-        if (reasoningDetails !== undefined) {
-          finalMessage.reasoning_details = reasoningDetails;
-        }
-        yield {
-          type: "assistant_message",
-          message: finalMessage,
-        } as ModelEvent;
       })();
     }
 
     // Non-stream: return a Promise
     return (async () => {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(body),
-      });
-      const raw = await res.text();
-      if (!res.ok) {
-        let details = raw;
-        try {
-          const j = JSON.parse(raw);
-          const errVal = (j as { error?: unknown }).error;
-          details =
-            (errVal && typeof errVal === "object" && "message" in errVal
-              ? (errVal as { message?: string }).message
-              : undefined) ??
-            (typeof errVal === "string" ? errVal : undefined) ??
-            raw;
-        } catch (e) {
-          console.error("[DEBUG_LLM] request_error", { error: e });
-        }
-        throw new Error(
-          `OpenAI API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`,
-        );
-      }
-      const data = (raw ? JSON.parse(raw) : {}) as OpenAIResponse;
+      const data = (await client.chat.completions.create(
+        body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+        { signal: genOpts?.signal },
+      )) as unknown as OpenAIResponse;
       const choice = data?.choices?.[0];
       const toolCalls: NormalizedToolCall[] | undefined = (() => {
         const msgShape = (choice?.message ?? {}) as OpenAIMessageShape;
@@ -350,7 +292,9 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
 
       const usage = mapUsage(data?.usage);
       return { message: msg, ...(usage ? { usage } : {}) };
-    })();
+    })().catch((error) => {
+      throw mapOpenAIError(error);
+    });
   }) as LLM["generate"];
   return {
     name: "openai:" + opts.model,
@@ -423,8 +367,14 @@ function safeJson(s: unknown): unknown {
 function normalizeToolChoice(choice: GenerateOptions["toolChoice"]) {
   if (!choice) return undefined;
   if (choice === "auto" || choice === "none") return choice;
-  // assume specific function name
-  return { type: "function", function: { name: choice } } as const;
+  if (choice === "required") return "required";
+  if (typeof choice === "object" && typeof choice.name === "string") {
+    return { type: "function", function: { name: choice.name } } as const;
+  }
+  if (typeof choice === "string") {
+    return { type: "function", function: { name: choice } } as const;
+  }
+  return undefined;
 }
 
 function normalizeReasoning(reasoning: GenerateOptions["reasoning"]): unknown {
@@ -638,4 +588,27 @@ function mapUsage(u: unknown) {
     completionTokens: typeof completion === "number" ? completion : undefined,
     totalTokens: typeof total === "number" ? total : undefined,
   } as ModelResponse["usage"];
+}
+
+function mapOpenAIError(error: unknown): Error {
+  if (error instanceof Error && error.name === "AbortError") {
+    return error;
+  }
+
+  if (error && typeof error === "object") {
+    const status = (error as { status?: unknown }).status;
+    const name = (error as { name?: unknown }).name;
+    const message =
+      (error as { message?: unknown }).message ??
+      "Unknown error from OpenAI SDK";
+    if (typeof status === "number") {
+      return new Error(
+        `OpenAI API error: ${status} ${typeof name === "string" ? name : "Error"} — ${String(message).slice(0, 500)}`,
+      );
+    }
+  }
+
+  return error instanceof Error
+    ? error
+    : new Error(`OpenAI API error: ${String(error).slice(0, 500)}`);
 }

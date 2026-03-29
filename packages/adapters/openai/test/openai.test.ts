@@ -1,5 +1,4 @@
 import { test, expect, vi, afterEach } from "vitest";
-import { Readable } from "stream";
 import { openAIAdapter, openAIEmbeddings } from "../src/index.js";
 import type { Message, Tool } from "@sisu-ai/core";
 
@@ -10,6 +9,30 @@ afterEach(() => {
   delete (process.env as any).API_KEY;
   delete (process.env as any).BASE_URL;
 });
+
+function jsonResponse(payload: unknown, init: ResponseInit = {}): Response {
+  return new Response(JSON.stringify(payload), {
+    status: init.status ?? 200,
+    statusText: init.statusText,
+    headers: {
+      "content-type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+function sseResponse(chunks: string[]): Response {
+  return new Response(chunks.join(""), {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+  });
+}
+
+function requestFromCall(call: unknown[]): Request {
+  const [input, init] = call as [RequestInfo | URL, RequestInit | undefined];
+  if (input instanceof Request) return input;
+  return new Request(input, init);
+}
 
 test("openAIAdapter throws without API key", async () => {
   delete (process.env as any).OPENAI_API_KEY;
@@ -75,34 +98,33 @@ test("openAIAdapter prefers generic API_KEY and BASE_URL over adapter-specific e
   process.env.BASE_URL = "https://generic.example.com";
   process.env.OPENAI_BASE_URL = "https://provider.example.com";
 
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({
         choices: [{ message: { role: "assistant", content: "ok" } }],
-      }),
-  } as any);
+      }) as any,
+    );
 
   const llm = openAIAdapter({ model: "gpt-4o-mini" });
   await llm.generate([{ role: "user", content: "hello" } as any]);
 
-  const [url, init] = fetchMock.mock.calls[0] as any;
-  expect(String(url)).toBe("https://generic.example.com/v1/chat/completions");
-  expect(init.headers.Authorization).toBe("Bearer generic-key");
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  expect(request.url).toBe("https://generic.example.com/v1/chat/completions");
+  expect(request.headers.get("authorization")).toBe("Bearer generic-key");
 });
 
 test("openAIAdapter streams tokens when stream option is set", async () => {
   process.env.OPENAI_API_KEY = "stream";
-  const s = Readable.from([
-    'data: {"choices":[{"delta":{"content":"He"}}]}\n\n',
-    'data: {"choices":[{"delta":{"content":"llo"}}]}\n\n',
-    "data: [DONE]\n\n",
-  ]);
   const fetchMock = vi
     .spyOn(globalThis, "fetch" as any)
-    .mockResolvedValue({ ok: true, body: s } as any);
+    .mockResolvedValue(
+      sseResponse([
+        'data: {"choices":[{"delta":{"content":"He"}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":"llo"}}]}\n\n',
+        "data: [DONE]\n\n",
+      ]),
+    );
   const llm = openAIAdapter({ model: "gpt-4o" });
   const out: string[] = [];
   const iter = (await llm.generate([], { stream: true })) as AsyncIterable<any>;
@@ -110,23 +132,21 @@ test("openAIAdapter streams tokens when stream option is set", async () => {
     if (ev.type === "token") out.push(ev.token);
   }
   expect(out.join("")).toBe("Hello");
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   expect(body.stream).toBe(true);
 });
 
 test("openAIAdapter posts messages and returns mapped response with usage", async () => {
   process.env.OPENAI_API_KEY = "test-key";
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({
         choices: [{ message: { role: "assistant", content: "ok" } }],
         usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
-      }),
-  } as any);
+      }) as any,
+    );
 
   const llm = openAIAdapter({
     model: "gpt-4o-mini",
@@ -142,11 +162,11 @@ test("openAIAdapter posts messages and returns mapped response with usage", asyn
 
   // Verify request built correctly
   expect(fetchMock).toHaveBeenCalledOnce();
-  const [url, init] = fetchMock.mock.calls[0] as any;
-  expect(String(url)).toBe("https://api.example.com/v1/chat/completions");
-  expect(init.method).toBe("POST");
-  expect(init.headers.Authorization).toContain("Bearer test-key");
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  expect(request.url).toBe("https://api.example.com/v1/chat/completions");
+  expect(request.method).toBe("POST");
+  expect(request.headers.get("authorization")).toContain("Bearer test-key");
+  const body = JSON.parse(await request.text());
   expect(body.model).toBe("gpt-4o-mini");
   expect(Array.isArray(body.messages)).toBe(true);
 });
@@ -155,8 +175,8 @@ test("openAIAdapter maps tool_calls and tool_choice in request/response", async 
   process.env.OPENAI_API_KEY = "x";
   const fetchMock = vi
     .spyOn(globalThis, "fetch" as any)
-    .mockImplementation(async (url, init) => {
-      const req = JSON.parse((init as any).body);
+    .mockImplementation(async (input, init) => {
+      const req = JSON.parse(await requestFromCall([input, init]).text());
       // Tool choice should be mapped to function object when a specific tool name is provided
       expect(req.tool_choice).toEqual({
         type: "function",
@@ -166,29 +186,23 @@ test("openAIAdapter maps tool_calls and tool_choice in request/response", async 
       const assistant = req.messages.find((m: any) => m.role === "assistant");
       expect(assistant.tool_calls?.[0]?.function?.name).toBe("echo");
       expect(assistant.content).toBeNull();
-      return {
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        text: async () =>
-          JSON.stringify({
-            choices: [
-              {
-                message: {
-                  role: "assistant",
-                  content: "done",
-                  tool_calls: [
-                    {
-                      id: "1",
-                      type: "function",
-                      function: { name: "echo", arguments: '{"foo":1}' },
-                    },
-                  ],
+      return jsonResponse({
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: "done",
+              tool_calls: [
+                {
+                  id: "1",
+                  type: "function",
+                  function: { name: "echo", arguments: '{"foo":1}' },
                 },
-              },
-            ],
-          }),
-      } as any;
+              ],
+            },
+          },
+        ],
+      });
     });
 
   const tool: Tool = {
@@ -220,13 +234,13 @@ test("openAIAdapter maps tool_calls and tool_choice in request/response", async 
 
 test("openAIAdapter builds image content parts from convenience shapes", async () => {
   process.env.OPENAI_API_KEY = "y";
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    text: async () =>
-      JSON.stringify({
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({
         choices: [{ message: { role: "assistant", content: "" } }],
-      }),
-  } as any);
+      }) as any,
+    );
   const llm = openAIAdapter({ model: "gpt-4o" });
   const messages: Message[] = [
     {
@@ -236,8 +250,8 @@ test("openAIAdapter builds image content parts from convenience shapes", async (
     } as any,
   ];
   await llm.generate(messages);
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   const user = body.messages[0];
   expect(Array.isArray(user.content)).toBe(true);
   expect(user.content.some((p: any) => p.type === "image_url")).toBe(true);
@@ -245,15 +259,13 @@ test("openAIAdapter builds image content parts from convenience shapes", async (
 
 test("openAIAdapter builds content parts from contentParts and image aliases", async () => {
   process.env.OPENAI_API_KEY = "img-alias";
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({
         choices: [{ message: { role: "assistant", content: "ok" } }],
-      }),
-  } as any);
+      }) as any,
+    );
 
   const llm = openAIAdapter({ model: "gpt-4o-mini" });
   const messages: Message[] = [
@@ -274,8 +286,8 @@ test("openAIAdapter builds content parts from contentParts and image aliases", a
   ];
 
   await llm.generate(messages);
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   const first = body.messages[0];
   expect(Array.isArray(first.content)).toBe(true);
   expect(first.content).toHaveLength(3);
@@ -290,35 +302,31 @@ test("openAIAdapter builds content parts from contentParts and image aliases", a
 
 test("openAIAdapter throws on HTTP error with message", async () => {
   process.env.OPENAI_API_KEY = "z";
-  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: false,
-    status: 400,
-    statusText: "Bad",
-    text: async () => JSON.stringify({ error: { message: "bad req" } }),
-  } as any);
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+    jsonResponse(
+      { error: { message: "bad req" } },
+      { status: 400, statusText: "Bad" },
+    ) as any,
+  );
   const llm = openAIAdapter({ model: "gpt-4o" });
   await expect(llm.generate([], {})).rejects.toThrow(/OpenAI API error: 400/);
 });
 
 test("openAIAdapter maps function_call response to tool_calls", async () => {
   process.env.OPENAI_API_KEY = "fn-call";
-  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: "",
-              function_call: { name: "echo", arguments: '{"a":1}' },
-            },
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+    jsonResponse({
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: "",
+            function_call: { name: "echo", arguments: '{"a":1}' },
           },
-        ],
-      }),
-  } as any);
+        },
+      ],
+    }) as any,
+  );
 
   const llm = openAIAdapter({ model: "gpt-4o-mini" });
   const out = await llm.generate([{ role: "user", content: "test" }]);
@@ -331,15 +339,13 @@ test("openAIAdapter maps function_call response to tool_calls", async () => {
 
 test("openAIAdapter includes tool_choice none when tools are provided", async () => {
   process.env.OPENAI_API_KEY = "tool-choice";
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({
         choices: [{ message: { role: "assistant", content: "ok" } }],
-      }),
-  } as any);
+      }) as any,
+    );
 
   const tool: Tool = {
     name: "echo",
@@ -353,36 +359,32 @@ test("openAIAdapter includes tool_choice none when tools are provided", async ()
     toolChoice: "none",
   });
 
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   expect(body.tool_choice).toBe("none");
 });
 
 test("openAIAdapter maps invalid tool_call arguments as raw string", async () => {
   process.env.OPENAI_API_KEY = "bad-args";
-  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: "",
-              tool_calls: [
-                {
-                  id: "t1",
-                  type: "function",
-                  function: { name: "echo", arguments: "{bad" },
-                },
-              ],
-            },
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+    jsonResponse({
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: "",
+            tool_calls: [
+              {
+                id: "t1",
+                type: "function",
+                function: { name: "echo", arguments: "{bad" },
+              },
+            ],
           },
-        ],
-      }),
-  } as any);
+        },
+      ],
+    }) as any,
+  );
 
   const llm = openAIAdapter({ model: "gpt-4o-mini" });
   const out = await llm.generate([{ role: "user", content: "hi" }]);
@@ -392,15 +394,13 @@ test("openAIAdapter maps invalid tool_call arguments as raw string", async () =>
 
 test("openAIAdapter converts zod schemas to JSON schema", async () => {
   process.env.OPENAI_API_KEY = "zod-schema";
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({
         choices: [{ message: { role: "assistant", content: "ok" } }],
-      }),
-  } as any);
+      }) as any,
+    );
 
   const { z } = await import("zod");
   const tool: Tool = {
@@ -417,8 +417,8 @@ test("openAIAdapter converts zod schemas to JSON schema", async () => {
   const llm = openAIAdapter({ model: "gpt-4o-mini" });
   await llm.generate([{ role: "user", content: "hi" }], { tools: [tool] });
 
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   const params = body.tools[0].function.parameters;
   expect(params.type).toBe("object");
 });
@@ -427,19 +427,12 @@ test("openAIAdapter sends reasoning parameter as object when boolean true", asyn
   process.env.OPENAI_API_KEY = "test-reasoning";
   const fetchMock = vi
     .spyOn(globalThis, "fetch" as any)
-    .mockImplementation(async (url, init) => {
-      const req = JSON.parse((init as any).body);
+    .mockImplementation(async (input, init) => {
+      const req = JSON.parse(await requestFromCall([input, init]).text());
       expect(req.reasoning).toEqual({ enabled: true });
-      return {
-        ok: true,
-        status: 200,
-        text: async () =>
-          JSON.stringify({
-            choices: [
-              { message: { role: "assistant", content: "The answer is 3" } },
-            ],
-          }),
-      } as any;
+      return jsonResponse({
+        choices: [{ message: { role: "assistant", content: "The answer is 3" } }],
+      });
     });
 
   const llm = openAIAdapter({ model: "gpt-5.1" });
@@ -451,17 +444,12 @@ test("openAIAdapter sends reasoning parameter as-is when object provided", async
   process.env.OPENAI_API_KEY = "test-reasoning-obj";
   const fetchMock = vi
     .spyOn(globalThis, "fetch" as any)
-    .mockImplementation(async (url, init) => {
-      const req = JSON.parse((init as any).body);
+    .mockImplementation(async (input, init) => {
+      const req = JSON.parse(await requestFromCall([input, init]).text());
       expect(req.reasoning).toEqual({ enabled: true });
-      return {
-        ok: true,
-        status: 200,
-        text: async () =>
-          JSON.stringify({
-            choices: [{ message: { role: "assistant", content: "response" } }],
-          }),
-      } as any;
+      return jsonResponse({
+        choices: [{ message: { role: "assistant", content: "response" } }],
+      });
     });
 
   const llm = openAIAdapter({ model: "gpt-5.1" });
@@ -479,22 +467,19 @@ test("openAIAdapter captures reasoning_details from response", async () => {
     steps: ["analyze", "count", "verify"],
   };
 
-  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    text: async () =>
-      JSON.stringify({
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: "There are 3 rs",
-              reasoning_details: mockReasoningDetails,
-            },
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+    jsonResponse({
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: "There are 3 rs",
+            reasoning_details: mockReasoningDetails,
           },
-        ],
-      }),
-  } as any);
+        },
+      ],
+    }) as any,
+  );
 
   const llm = openAIAdapter({ model: "gpt-5.1" });
   const out = await llm.generate([{ role: "user", content: "test" }], {
@@ -513,8 +498,8 @@ test("openAIAdapter preserves reasoning_details in multi-turn conversation", asy
 
   const fetchMock = vi
     .spyOn(globalThis, "fetch" as any)
-    .mockImplementation(async (url, init) => {
-      const req = JSON.parse((init as any).body);
+    .mockImplementation(async (input, init) => {
+      const req = JSON.parse(await requestFromCall([input, init]).text());
       const assistantMsg = req.messages.find(
         (m: any) => m.role === "assistant",
       );
@@ -523,16 +508,9 @@ test("openAIAdapter preserves reasoning_details in multi-turn conversation", asy
       expect(assistantMsg).toBeDefined();
       expect(assistantMsg.reasoning_details).toEqual(mockReasoningDetails);
 
-      return {
-        ok: true,
-        status: 200,
-        text: async () =>
-          JSON.stringify({
-            choices: [
-              { message: { role: "assistant", content: "Follow-up response" } },
-            ],
-          }),
-      } as any;
+      return jsonResponse({
+        choices: [{ message: { role: "assistant", content: "Follow-up response" } }],
+      });
     });
 
   const llm = openAIAdapter({ model: "gpt-5.1" });
@@ -554,19 +532,12 @@ test("openAIAdapter works without reasoning parameter (backward compatible)", as
   process.env.OPENAI_API_KEY = "test-no-reasoning";
   const fetchMock = vi
     .spyOn(globalThis, "fetch" as any)
-    .mockImplementation(async (url, init) => {
-      const req = JSON.parse((init as any).body);
+    .mockImplementation(async (input, init) => {
+      const req = JSON.parse(await requestFromCall([input, init]).text());
       expect(req.reasoning).toBeUndefined();
-      return {
-        ok: true,
-        status: 200,
-        text: async () =>
-          JSON.stringify({
-            choices: [
-              { message: { role: "assistant", content: "Normal response" } },
-            ],
-          }),
-      } as any;
+      return jsonResponse({
+        choices: [{ message: { role: "assistant", content: "Normal response" } }],
+      });
     });
 
   const llm = openAIAdapter({ model: "gpt-4o" });
@@ -584,20 +555,16 @@ test("openAIAdapter captures reasoning_details in streaming mode", async () => {
     steps: ["understand", "analyze", "respond"],
   };
 
-  const { Readable } = await import("stream");
-  const s = Readable.from([
-    'data: {"choices":[{"delta":{"content":"I"}}]}\n\n',
-    'data: {"choices":[{"delta":{"content":" think"}}]}\n\n',
-    'data: {"choices":[{"message":{"reasoning_details":' +
-      JSON.stringify(mockReasoningDetails) +
-      "}}]}\n\n",
-    "data: [DONE]\n\n",
-  ]);
-
-  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    body: s,
-  } as any);
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+    sseResponse([
+      'data: {"choices":[{"delta":{"content":"I"}}]}\n\n',
+      'data: {"choices":[{"delta":{"content":" think"}}]}\n\n',
+      'data: {"choices":[{"message":{"reasoning_details":' +
+        JSON.stringify(mockReasoningDetails) +
+        "}}]}\n\n",
+      "data: [DONE]\n\n",
+    ]) as any,
+  );
 
   const llm = openAIAdapter({ model: "gpt-5.1" });
   const events: any[] = [];

@@ -17,6 +17,16 @@ npm i @sisu-ai/adapter-ollama
 - Pull a tools-capable model: `ollama pull llama3.1:latest`
 - Base URL env: `BASE_URL`
 
+## Transport and compatibility
+
+- The adapter now uses the official `ollama` JavaScript client for chat transport.
+- Public Sisu behavior remains stable: normalized messages/tool-calls, streaming events, and image URL-to-base64 preprocessing.
+- `GenerateOptions.toolChoice` semantics are normalized at the adapter layer:
+  - `auto` / `required` keeps all declared tools available to the model
+  - `none` omits tools for that call
+  - named tool choice narrows the sent tool list to that tool
+- Cancellation is propagated for request execution and image preprocessing fetches.
+
 
 ## Usage
 ```ts
@@ -107,7 +117,7 @@ await app.handler()(ctx);
 
 ## Notes
 - Tool choice forcing is model-dependent; current loop asks for tools on first turn and plain completion on second.
-- Streaming can be added via Ollama's streaming API if desired.
+- Streaming is supported and mapped to Sisu `token` + final `assistant_message` events.
  - Env: `BASE_URL` overrides the base URL (or pass `baseUrl` in code). Examples may also support a CLI flag `--base-url` to override env.
 
 

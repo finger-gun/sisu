@@ -9,8 +9,15 @@ import type {
   EmbeddingsProvider,
 } from "@sisu-ai/core";
 import { createEmbeddingsClient, firstConfigValue } from "@sisu-ai/core";
+import {
+  Ollama,
+  type ChatRequest,
+  type ChatResponse,
+  type Message as OllamaMessage,
+  type ToolCall as OllamaSdkToolCall,
+} from "ollama";
 
-type OllamaToolCall = {
+type OllamaIncomingToolCall = {
   id?: string;
   type?: string;
   function?: { name?: string; arguments?: unknown };
@@ -51,13 +58,9 @@ function resolveBaseUrl(
   );
 }
 
-type OllamaChatMessage = {
-  role: "system" | "user" | "assistant" | "tool";
-  content?: string | null;
-  images?: string[];
-  name?: string;
+type OllamaChatMessage = OllamaMessage & {
   tool_call_id?: string;
-  tool_calls?: OllamaToolCall[];
+  name?: string;
 };
 
 export function ollamaEmbeddings(
@@ -86,16 +89,22 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
   const envBase = firstConfigValue(["BASE_URL", "OLLAMA_BASE_URL"]);
   const baseUrl = resolveBaseUrl(opts.baseUrl, envBase, "http://localhost:11434");
   const modelName = `ollama:${opts.model}`;
+  const client = new Ollama({
+    host: baseUrl,
+    headers: opts.headers,
+  });
 
   const generate = ((
     messages: Message[],
     genOpts?: GenerateOptions,
   ): Promise<ModelResponse> | AsyncIterable<ModelEvent> => {
     // Map messages to Ollama format; include assistant tool_calls and tool messages
-    async function mapMessagesWithImages(): Promise<OllamaChatMessage[]> {
+    async function mapMessagesWithImages(
+      signal?: AbortSignal,
+    ): Promise<OllamaChatMessage[]> {
       const out: OllamaChatMessage[] = [];
       for (const m of messages) {
-        const base: OllamaChatMessage = { role: m.role };
+        const base: OllamaChatMessage = { role: m.role, content: "" };
         const anyM = m as Message & {
           tool_calls?: ToolCall[];
           contentParts?: unknown;
@@ -106,22 +115,24 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
         };
         if (m.role === "assistant" && Array.isArray(anyM.tool_calls)) {
           base.tool_calls = anyM.tool_calls.map((tc) => ({
-            id: tc.id,
-            type: "function",
-            function: { name: tc.name, arguments: tc.arguments ?? {} },
+            function: {
+              name: tc.name ?? "",
+              arguments: normalizeToolCallArguments(tc.arguments),
+            },
           }));
           const ti = buildTextAndImages(anyM);
-          base.content =
-            ti.content ?? (m.content !== undefined ? m.content : null);
-          if (ti.images?.length) base.images = await toBase64Images(ti.images);
+          base.content = ti.content ?? String(m.content ?? "");
+          if (ti.images?.length)
+            base.images = await toBase64Images(ti.images, signal);
         } else if (m.role === "tool") {
           base.content = String(m.content ?? "");
           if (m.tool_call_id) base.tool_call_id = m.tool_call_id;
           if (m.name && !m.tool_call_id) base.name = m.name;
         } else {
           const ti = buildTextAndImages(anyM);
-          base.content = ti.content ?? m.content ?? "";
-          if (ti.images?.length) base.images = await toBase64Images(ti.images);
+          base.content = ti.content ?? String(m.content ?? "");
+          if (ti.images?.length)
+            base.images = await toBase64Images(ti.images, signal);
           if (m.name) base.name = m.name;
         }
         out.push(base);
@@ -131,101 +142,74 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
 
     if (genOpts?.stream === true) {
       return (async function* () {
-        const toolsParam = (genOpts?.tools ?? []).map(toOllamaTool);
-        const mapped = await mapMessagesWithImages();
-        const baseBody: Record<string, unknown> = {
-          model: opts.model,
-          messages: mapped,
-        };
-        if (toolsParam.length) baseBody.tools = toolsParam;
-        const res = await fetch(`${baseUrl}/api/chat`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...(opts.headers ?? {}),
-          },
-          body: JSON.stringify({ ...baseBody, stream: true }),
-        });
-        if (!res.ok || !res.body) {
-          const err = await res.text();
-          throw new Error(
-            `Ollama API error: ${res.status} ${res.statusText} — ${String(err).slice(0, 500)}`,
+        try {
+          throwIfAborted(genOpts?.signal);
+          const toolsParam = buildOllamaTools(
+            genOpts?.tools ?? [],
+            genOpts?.toolChoice,
           );
-        }
-        const decoder = new TextDecoder();
-        let buf = "";
-        let full = "";
-        for await (const chunk of res.body as unknown as AsyncIterable<
-          Uint8Array | string
-        >) {
-          const piece =
-            typeof chunk === "string" ? chunk : decoder.decode(chunk);
-          buf += piece;
-          const lines = buf.split("\n");
-          buf = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const j = JSON.parse(line);
-              if (j.done) {
-                yield {
-                  type: "assistant_message",
-                  message: { role: "assistant", content: full },
-                } as ModelEvent;
-                return;
-              }
-              const token = j.message?.content;
-              if (typeof token === "string" && token) {
-                full += token;
-                yield { type: "token", token } as ModelEvent;
-              }
-            } catch (e: unknown) {
-              console.error("[DEBUG_LLM] stream_parse_error", { error: e });
+          const mapped = await mapMessagesWithImages(genOpts?.signal);
+          const request: ChatRequest & { stream: true } = {
+            model: opts.model,
+            messages: mapped,
+            stream: true,
+          };
+          if (toolsParam.length) request.tools = [...toolsParam];
+          const stream = await withAbortSignal(
+            () =>
+              client.chat(request) as Promise<
+                AsyncIterable<{
+                  done?: boolean;
+                  message?: { content?: string };
+                }>
+              >,
+            genOpts?.signal,
+          );
+          let full = "";
+          for await (const j of stream) {
+            throwIfAborted(genOpts?.signal);
+            if (j.done) {
+              yield {
+                type: "assistant_message",
+                message: { role: "assistant", content: full },
+              } as ModelEvent;
+              return;
+            }
+            const token = j.message?.content;
+            if (typeof token === "string" && token) {
+              full += token;
+              yield { type: "token", token } as ModelEvent;
             }
           }
+        } catch (error) {
+          throw mapOllamaError(error);
         }
       })();
     }
 
     // Non-stream path
     return (async () => {
-      const toolsParam = (genOpts?.tools ?? []).map(toOllamaTool);
-      const mapped = await mapMessagesWithImages();
-      const baseBody: Record<string, unknown> = {
+      const toolsParam = buildOllamaTools(
+        genOpts?.tools ?? [],
+        genOpts?.toolChoice,
+      );
+      const mapped = await mapMessagesWithImages(genOpts?.signal);
+      const request: ChatRequest & { stream: false } = {
         model: opts.model,
         messages: mapped,
+        stream: false,
       };
-      if (toolsParam.length) baseBody.tools = toolsParam;
-      const res = await fetch(`${baseUrl}/api/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          ...(opts.headers ?? {}),
-        },
-        body: JSON.stringify({ ...baseBody, stream: false }),
-      });
-      const raw = await res.text();
-      if (!res.ok) {
-        let details = raw;
-        try {
-          const j = JSON.parse(raw);
-          details = j.error ?? j.message ?? raw;
-        } catch (e: unknown) {
-          console.error("[DEBUG_LLM] request_error", { error: e });
-        }
-        throw new Error(
-          `Ollama API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`,
-        );
-      }
-      const data: Record<string, unknown> = raw ? JSON.parse(raw) : {};
+      if (toolsParam.length) request.tools = [...toolsParam];
+      const data = await withAbortSignal(
+        () => client.chat(request) as Promise<ChatResponse>,
+        genOpts?.signal,
+      );
       const choice =
-        (data as { message?: { content?: unknown; tool_calls?: unknown } })
-          .message ?? {};
+        (data as { message?: { content?: unknown; tool_calls?: unknown } }).message ??
+        {};
       const content = (choice as { content?: unknown }).content;
       const tcs = Array.isArray((choice as { tool_calls?: unknown }).tool_calls)
-        ? (choice as { tool_calls: OllamaToolCall[] }).tool_calls
+        ? (choice as { tool_calls: OllamaIncomingToolCall[] }).tool_calls
             .map((tc) => ({
               id: tc.id ?? "",
               name: tc.function?.name ?? "",
@@ -239,7 +223,9 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
         ...(tcs ? { tool_calls: tcs } : {}),
       };
       return { message: out };
-    })();
+    })().catch((error) => {
+      throw mapOllamaError(error);
+    });
   }) as LLM["generate"];
 
   return {
@@ -247,6 +233,15 @@ export function ollamaAdapter(opts: OllamaAdapterOptions): LLM {
     capabilities: { functionCall: true, streaming: true },
     generate,
   };
+}
+
+function mapOllamaError(error: unknown): Error {
+  if (error instanceof Error && error.name === "AbortError") {
+    return error;
+  }
+  return error instanceof Error
+    ? new Error(`Ollama API error: ${error.message.slice(0, 500)}`)
+    : new Error(`Ollama API error: ${String(error).slice(0, 500)}`);
 }
 
 function toOllamaTool(tool: Tool) {
@@ -258,6 +253,35 @@ function toOllamaTool(tool: Tool) {
       parameters: toJsonSchema(tool.schema),
     },
   } as const;
+}
+
+function normalizeToolCallArguments(
+  args: unknown,
+): OllamaSdkToolCall["function"]["arguments"] {
+  if (args && typeof args === "object" && !Array.isArray(args)) {
+    return args as OllamaSdkToolCall["function"]["arguments"];
+  }
+  return {};
+}
+
+function buildOllamaTools(
+  tools: Tool[],
+  toolChoice: GenerateOptions["toolChoice"],
+): ReadonlyArray<ReturnType<typeof toOllamaTool>> {
+  const mapped = tools.map(toOllamaTool);
+  if (!mapped.length) return mapped;
+  if (!toolChoice || toolChoice === "auto" || toolChoice === "required") {
+    return mapped;
+  }
+  if (toolChoice === "none") return [];
+  const selected =
+    typeof toolChoice === "string"
+      ? toolChoice
+      : typeof toolChoice === "object" && typeof toolChoice.name === "string"
+        ? toolChoice.name
+        : undefined;
+  if (!selected) return mapped;
+  return mapped.filter((tool) => tool.function.name === selected);
 }
 
 function toJsonSchema(schema: unknown): Record<string, unknown> {
@@ -373,12 +397,6 @@ function buildTextAndImages(m: unknown): {
   return { content, images: images.length ? images : undefined };
 }
 
-async function toBase64Images(images: string[]): Promise<string[]> {
-  const out: string[] = [];
-  for (const src of images) out.push(await toBase64(src));
-  return out;
-}
-
 function isHttpUrl(s: string): boolean {
   return /^https?:\/\//i.test(s);
 }
@@ -399,14 +417,60 @@ function isProbablyBase64(s: string): boolean {
   return /^[A-Za-z0-9+/]+={0,2}$/.test(s);
 }
 
-async function toBase64(src: string): Promise<string> {
+async function toBase64Images(
+  images: string[],
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const out: string[] = [];
+  for (const src of images) out.push(await toBase64(src, signal));
+  return out;
+}
+
+async function toBase64(src: string, signal?: AbortSignal): Promise<string> {
+  throwIfAborted(signal);
   if (isDataUrl(src)) return fromDataUrl(src);
   if (isHttpUrl(src)) {
-    const res = await fetch(src);
+    const res = await fetch(src, { signal });
     if (!res.ok)
       throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
     const buf = Buffer.from(await res.arrayBuffer());
     return buf.toString("base64");
   }
   return isProbablyBase64(src) ? src : src;
+}
+
+function createAbortError(): Error {
+  const DomExceptionCtor = globalThis.DOMException;
+  if (typeof DomExceptionCtor === "function") {
+    return new DomExceptionCtor("The operation was aborted.", "AbortError");
+  }
+  const error = new Error("The operation was aborted.");
+  error.name = "AbortError";
+  return error;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw createAbortError();
+}
+
+async function withAbortSignal<T>(
+  promiseFactory: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  throwIfAborted(signal);
+  if (!signal) return promiseFactory();
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(createAbortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    promiseFactory()
+      .then((value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      })
+      .catch((error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      });
+  });
 }

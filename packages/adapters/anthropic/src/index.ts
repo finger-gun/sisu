@@ -9,6 +9,7 @@ import type {
   EmbeddingsProvider,
 } from "@sisu-ai/core";
 import { createEmbeddingsClient, firstConfigValue } from "@sisu-ai/core";
+import Anthropic from "@anthropic-ai/sdk";
 
 export interface AnthropicEmbeddingsOptions {
   baseUrl: string;
@@ -50,7 +51,6 @@ export function anthropicEmbeddings(
   });
 }
 
-type FetchResponse = Awaited<ReturnType<typeof fetch>>;
 type ToolCallLike = { id?: string; name?: string; arguments?: unknown };
 type ZodSchemaLike = {
   _def?: {
@@ -236,242 +236,112 @@ function makeRequestWithRetry(
   stream: boolean,
   signal?: AbortSignal,
 ): Promise<ModelResponse> | AsyncIterable<ModelEvent> {
-  let lastError: Error;
-  const parseResetHeader = (value: string): number | undefined => {
-    const t = Date.parse(value);
-    if (!Number.isNaN(t)) return Math.max(0, t - Date.now());
-    const n = Number(value);
-    if (!Number.isNaN(n)) {
-      if (n > 1e12) return Math.max(0, n - Date.now());
-      return Math.max(0, n * 1000);
-    }
-    return undefined;
-  };
+  const client = new Anthropic({
+    apiKey,
+    baseURL: baseUrl,
+    timeout,
+    maxRetries,
+    defaultHeaders: { "anthropic-version": anthropicVersion },
+  });
 
-  const getRetryDelayMs = (res: FetchResponse | undefined, attempt: number) => {
-    if (res) {
-      const retryAfter = res.headers.get("retry-after");
-      if (retryAfter) {
-        const d = parseResetHeader(retryAfter);
-        if (d !== undefined) return d;
-      }
-
-      const resets = [
-        res.headers.get("anthropic-ratelimit-requests-reset"),
-        res.headers.get("anthropic-ratelimit-tokens-reset"),
-        res.headers.get("anthropic-ratelimit-input-tokens-reset"),
-        res.headers.get("anthropic-ratelimit-output-tokens-reset"),
-        res.headers.get("anthropic-priority-input-tokens-reset"),
-        res.headers.get("anthropic-priority-output-tokens-reset"),
-      ]
-        .filter((v): v is string => Boolean(v))
-        .map((v) => parseResetHeader(v))
-        .filter((v): v is number => typeof v === "number");
-
-      if (resets.length > 0) {
-        return Math.max(...resets);
-      }
-    }
-
-    return Math.pow(2, attempt) * 1000;
-  };
   if (stream) {
-    const iter = async function* () {
-      let lastRes: FetchResponse | undefined;
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeout);
-          const cleanupAbort = bindAbortSignal(signal, controller);
-          try {
-            const res = await fetch(`${baseUrl}/v1/messages`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-api-key": apiKey,
-                "anthropic-version": anthropicVersion,
-              },
-              body: JSON.stringify(body),
-              signal: controller.signal,
-            });
-            lastRes = res;
-            if (!res.ok || !res.body) {
-              const err = await res.text();
-              const error = new Error(
-                `Anthropic API error: ${res.status} ${res.statusText} — ${String(err).slice(0, 500)}`,
-              );
-              if (res.status >= 400 && res.status < 500 && res.status !== 429)
-                throw error;
-              lastError = error;
-              if (attempt < maxRetries) {
-                await sleep(getRetryDelayMs(res, attempt));
-                continue;
-              }
-              throw error;
-            }
+    return (async function* () {
+      try {
+        const streamResponse = (await client.messages.create(
+          body as unknown as Anthropic.MessageCreateParamsStreaming,
+          { signal },
+        )) as AsyncIterable<{
+          type?: string;
+          delta?: { text?: unknown };
+        }>;
 
-            const decoder = new TextDecoder();
-            let buf = "";
-            let full = "";
-            for await (const chunk of res.body as unknown as AsyncIterable<
-              Uint8Array | string
-            >) {
-              const piece =
-                typeof chunk === "string" ? chunk : decoder.decode(chunk);
-              buf += piece;
-              const lines = buf.split("\n");
-              buf = lines.pop() ?? "";
-              for (const line of lines) {
-                const m = line.match(/^data:\s*(.*)/);
-                if (!m) continue;
-                const data = m[1].trim();
-                if (!data) continue;
-                try {
-                  const j = JSON.parse(data);
-                  if (j.type === "content_block_delta") {
-                    const t = j.delta?.text;
-                    if (typeof t === "string") {
-                      full += t;
-                      yield { type: "token", token: t } as ModelEvent;
-                    }
-                  } else if (j.type === "message_stop") {
-                    yield {
-                      type: "assistant_message",
-                      message: { role: "assistant", content: full },
-                    } as ModelEvent;
-                    return;
-                  }
-                } catch (e: unknown) {
-                  console.error("[DEBUG_LLM] stream_parse_error", { error: e });
-                }
-              }
+        let full = "";
+        let emittedFinal = false;
+        for await (const event of streamResponse) {
+          if (event?.type === "content_block_delta") {
+            const t = event.delta?.text;
+            if (typeof t === "string") {
+              full += t;
+              yield { type: "token", token: t } as ModelEvent;
             }
-            return;
-          } finally {
-            // ensure timeout is cleared when request completes/aborts
-            clearTimeout(timeoutId);
-            cleanupAbort();
-          }
-        } catch (error) {
-          lastError = error as Error;
-          if (error instanceof Error && error.name === "AbortError") {
-            throw error;
-          }
-          if (attempt < maxRetries) {
-            await sleep(getRetryDelayMs(lastRes, attempt));
             continue;
           }
-          throw error;
+          if (event?.type === "message_stop") {
+            emittedFinal = true;
+            yield {
+              type: "assistant_message",
+              message: { role: "assistant", content: full },
+            } as ModelEvent;
+            return;
+          }
         }
-      }
-      throw lastError!;
-    };
-    return iter();
-  }
-
-  // Non-streaming branch returns a Promise
-  return (async () => {
-    let lastRes: FetchResponse | undefined;
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-        const cleanupAbort = bindAbortSignal(signal, controller);
-        try {
-          const res = await fetch(`${baseUrl}/v1/messages`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": anthropicVersion,
-            },
-            body: JSON.stringify(body),
-            signal: controller.signal,
-          });
-          lastRes = res;
-
-          const raw = await res.text();
-
-          if (!res.ok) {
-            let details = raw;
-            try {
-              const j = JSON.parse(raw);
-              details = j.error?.message ?? j.error ?? raw;
-            } catch (e) {
-              console.error("[DEBUG_LLM] request_error", { error: e });
-            }
-
-            const error = new Error(
-              `Anthropic API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`,
-            );
-
-            // Don't retry on client errors (4xx) except rate limits
-            if (res.status >= 400 && res.status < 500 && res.status !== 429) {
-              throw error;
-            }
-
-            lastError = error;
-            if (attempt < maxRetries) {
-              await sleep(getRetryDelayMs(res, attempt));
-              continue;
-            }
-            throw error;
-          }
-
-          let data: unknown;
-          try {
-            data = raw ? JSON.parse(raw) : {};
-          } catch (parseError) {
-            throw new Error(
-              `Failed to parse Anthropic API response: ${parseError}`,
-            );
-          }
-
-          // Validate response structure
-          if (!data || typeof data !== "object") {
-            throw new Error("Invalid Anthropic API response: not an object");
-          }
-          const content = (data as { content?: unknown }).content;
-          if (!content || !Array.isArray(content)) {
-            throw new Error(
-              "Invalid Anthropic API response: missing or invalid content array",
-            );
-          }
-
-          const { text, tool_calls } = fromAnthropicContent(content);
-          const msg: ModelResponse["message"] = {
-            role: "assistant",
-            content: text,
-            ...(tool_calls && tool_calls.length ? { tool_calls } : {}),
-          };
-          const usage = mapUsage((data as { usage?: unknown }).usage);
-          return { message: msg, ...(usage ? { usage } : {}) };
-        } finally {
-          clearTimeout(timeoutId);
-          cleanupAbort();
+        if (!emittedFinal) {
+          yield {
+            type: "assistant_message",
+            message: { role: "assistant", content: full },
+          } as ModelEvent;
         }
       } catch (error) {
-        lastError = error as Error;
-
-        // Don't retry on non-retryable errors
-        if (
-          error instanceof Error &&
-          (error.name === "AbortError" ||
-            error.message.includes("Failed to parse") ||
-            error.message.includes("Invalid Anthropic API response"))
-        ) {
-          throw error;
-        }
-
-        if (attempt < maxRetries) {
-          await sleep(getRetryDelayMs(lastRes, attempt));
-          continue;
-        }
-        throw error;
+        throw mapAnthropicError(error);
       }
+    })();
+  }
+
+  return (async () => {
+    try {
+      const data = (await client.messages.create(
+        body as unknown as Anthropic.MessageCreateParamsNonStreaming,
+        { signal },
+      )) as unknown as {
+        content?: unknown;
+        usage?: unknown;
+      };
+
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid Anthropic API response: not an object");
+      }
+      const content = data.content;
+      if (!content || !Array.isArray(content)) {
+        throw new Error(
+          "Invalid Anthropic API response: missing or invalid content array",
+        );
+      }
+
+      const { text, tool_calls } = fromAnthropicContent(content);
+      const msg: ModelResponse["message"] = {
+        role: "assistant",
+        content: text,
+        ...(tool_calls && tool_calls.length ? { tool_calls } : {}),
+      };
+      const usage = mapUsage(data.usage);
+      return { message: msg, ...(usage ? { usage } : {}) };
+    } catch (error) {
+      throw mapAnthropicError(error);
     }
-    throw lastError!;
   })();
+}
+
+function mapAnthropicError(error: unknown): Error {
+  if (error instanceof Error && error.name === "AbortError") {
+    return error;
+  }
+
+  if (error && typeof error === "object") {
+    const status = (error as { status?: unknown }).status;
+    const name = (error as { name?: unknown }).name;
+    const message =
+      (error as { message?: unknown }).message ??
+      "Unknown error from Anthropic SDK";
+    if (typeof status === "number") {
+      return new Error(
+        `Anthropic API error: ${status} ${typeof name === "string" ? name : "Error"} — ${String(message).slice(0, 500)}`,
+      );
+    }
+  }
+
+  return error instanceof Error
+    ? error
+    : new Error(`Anthropic API error: ${String(error).slice(0, 500)}`);
 }
 
 function toAnthropicTool(tool: Tool) {
@@ -558,12 +428,14 @@ function normalizeToolChoice(
 
   if (choice === "auto") return { type: "auto" };
   if (choice === "none") return { type: "none" };
-
-  // Specific tool choice
-  return {
-    type: "tool",
-    name: typeof choice === "string" ? choice : undefined,
-  };
+  if (choice === "required") return { type: "any" as "auto" | "none" | "tool" };
+  if (typeof choice === "object" && typeof choice.name === "string") {
+    return { type: "tool", name: choice.name };
+  }
+  if (typeof choice === "string") {
+    return { type: "tool", name: choice };
+  }
+  return undefined;
 }
 
 export function toAnthropicMessage(m: Message): AnthropicMessage {
@@ -972,20 +844,6 @@ function isProbablyBase64(s: string): boolean {
   return /^[A-Za-z0-9+/]+={0,2}$/.test(s);
 }
 
-function bindAbortSignal(
-  signal: AbortSignal | undefined,
-  controller: AbortController,
-): () => void {
-  if (!signal) return () => {};
-  if (signal.aborted) {
-    controller.abort();
-    return () => {};
-  }
-  const onAbort = () => controller.abort();
-  signal.addEventListener("abort", onAbort);
-  return () => signal.removeEventListener("abort", onAbort);
-}
-
 function fromAnthropicContent(blocks: unknown[]): {
   text: string;
   tool_calls?: ToolCall[];
@@ -1046,8 +904,4 @@ function mapUsage(u: unknown): ModelResponse["usage"] | undefined {
     completionTokens: typeof completion === "number" ? completion : undefined,
     totalTokens: typeof total === "number" ? total : undefined,
   };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

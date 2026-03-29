@@ -8,7 +8,7 @@ import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 // Example image (public domain)
 const imageUrl =
   process.argv.find((a) => a.startsWith("http")) ||
-  "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg";
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Wall_climbing_place_v%C3%A4stra_kullaberg.jpg/1920px-Wall_climbing_place_v%C3%A4stra_kullaberg.jpg";
 
 // Use content parts to include text + image
 const userMessage = {

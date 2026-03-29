@@ -40,5 +40,8 @@
     "agentic",
     "adapter",
     "openai"
-  ]
+  ],
+  "dependencies": {
+    "openai": "^6.33.0"
+  }
 }
