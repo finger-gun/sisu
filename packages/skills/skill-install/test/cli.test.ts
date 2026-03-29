@@ -6,6 +6,8 @@ const cp = vi.fn(async () => undefined);
 const readFile = vi.fn(async () => '');
 const writeFile = vi.fn(async () => undefined);
 const access = vi.fn(async () => undefined);
+const questionMock = vi.fn();
+const closeMock = vi.fn();
 
 const createInstallPlan = vi.fn();
 const installTargets = [
@@ -36,6 +38,19 @@ vi.mock('node:fs/promises', () => ({
   access,
 }));
 
+vi.mock('node:readline/promises', () => ({
+  default: {
+    createInterface: vi.fn(() => ({
+      question: questionMock,
+      close: closeMock,
+    })),
+  },
+  createInterface: vi.fn(() => ({
+    question: questionMock,
+    close: closeMock,
+  })),
+}));
+
 vi.mock('../src/lib.js', () => ({
   createInstallPlan,
   installTargets,
@@ -53,6 +68,8 @@ afterEach(() => {
   access.mockClear();
   createInstallPlan.mockReset();
   updateManagedSection.mockClear();
+  questionMock.mockReset();
+  closeMock.mockReset();
 });
 
 function mockProcess(argv: string[]) {
@@ -106,6 +123,59 @@ describe('skill-install cli', () => {
     });
     const proc = mockProcess(['--target', 'codex', '--scope', 'workspace', '--yes']);
     await expect(import('../src/cli.ts')).rejects.toThrow('boom');
+    proc.logSpy.mockRestore();
+    proc.errSpy.mockRestore();
+    proc.restore();
+  });
+
+  test('interactive target/scope/custom-dir flow and cancel branch', async () => {
+    createInstallPlan.mockReturnValue({
+      target: installTargets[1],
+      scope: 'custom',
+      skillDir: '/custom/.sisu/skills/sisu-framework',
+      summary: 'summary custom',
+    });
+    questionMock
+      .mockResolvedValueOnce('2') // choose custom target
+      .mockResolvedValueOnce('/custom/skills') // custom dir
+      .mockResolvedValueOnce('n'); // confirm no
+
+    const proc = mockProcess([]);
+    await import('../src/cli.ts');
+
+    expect(createInstallPlan).toHaveBeenCalledWith(expect.objectContaining({
+      target: 'custom-skill-dir',
+      scope: 'custom',
+      customDir: '/custom/skills',
+    }));
+    expect(cp).not.toHaveBeenCalled();
+    expect(proc.logSpy.mock.calls.some((call) => String(call[0]).includes('Cancelled.'))).toBe(true);
+    proc.logSpy.mockRestore();
+    proc.errSpy.mockRestore();
+    proc.restore();
+  });
+
+  test('invalid interactive selection raises validation error', async () => {
+    questionMock.mockResolvedValueOnce('999');
+    const proc = mockProcess([]);
+    await expect(import('../src/cli.ts')).rejects.toThrow('Invalid selection');
+    proc.logSpy.mockRestore();
+    proc.errSpy.mockRestore();
+    proc.restore();
+  });
+
+  test('empty prompt text raises value-required validation error', async () => {
+    createInstallPlan.mockReturnValue({
+      target: installTargets[1],
+      scope: 'custom',
+      skillDir: '/custom/.sisu/skills/sisu-framework',
+      summary: 'summary custom',
+    });
+    questionMock
+      .mockResolvedValueOnce('2') // target
+      .mockResolvedValueOnce('   '); // empty custom dir text
+    const proc = mockProcess([]);
+    await expect(import('../src/cli.ts')).rejects.toThrow('Value is required');
     proc.logSpy.mockRestore();
     proc.errSpy.mockRestore();
     proc.restore();

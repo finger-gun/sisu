@@ -4,7 +4,7 @@ import type { Agent, Logger, Ctx } from "@sisu-ai/core";
 import { createConsoleLogger, createRedactingLogger } from "@sisu-ai/core";
 import { EventEmitter } from "events";
 import type { AddressInfo } from "net";
-export { matchRoute } from "./router.js";
+export { matchRoute } from "./router";
 
 export interface ListenOptions<Ctx> {
   tls?: https.ServerOptions;
