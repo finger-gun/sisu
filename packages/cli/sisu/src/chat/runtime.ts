@@ -879,12 +879,13 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     return;
   }
 
-  const ui: ReadlineInterface = createPromisesInterface({
+  const createUi = (): ReadlineInterface => createPromisesInterface({
     input,
     output,
     terminal: true,
     historySize: 500,
   });
+  let ui: ReadlineInterface = createUi();
 
   output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /search <query>, /resume <sessionId>, /branch <messageId>, /exit\n');
   output.write('Tip: /help for commands. Prompt shows active provider/model and session.\n');
@@ -900,18 +901,24 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     }
 
     if (pickerEnabled) {
-      const response = await prompts({
-        type: 'select',
-        name: 'value',
-        message: title,
-        choices: values.map((value) => ({
-          title: value === current ? `${value} (current)` : value,
-          value,
-        })),
-        initial: Math.max(values.findIndex((value) => value === current), 0),
-      }, {
-        onCancel: () => true,
-      });
+      ui.close();
+      let response: { value?: string } = {};
+      try {
+        response = await prompts({
+          type: 'select',
+          name: 'value',
+          message: title,
+          choices: values.map((value) => ({
+            title: value === current ? `${value} (current)` : value,
+            value,
+          })),
+          initial: Math.max(values.findIndex((value) => value === current), 0),
+        }, {
+          onCancel: () => true,
+        });
+      } finally {
+        ui = createUi();
+      }
       if (typeof response.value === 'string' && response.value.trim().length > 0) {
         return response.value;
       }
@@ -923,7 +930,16 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
       const marker = value === current ? ' (current)' : '';
       output.write(`  ${index + 1}. ${value}${marker}\n`);
     });
-    const answer = (await ui.question('Select number/value (Enter to cancel): ')).trim();
+    let answer: string;
+    try {
+      answer = (await ui.question('Select number/value (Enter to cancel): ')).trim();
+    } catch (error) {
+      if (!isReadlineClosedError(error)) {
+        throw error;
+      }
+      ui = createUi();
+      answer = (await ui.question('Select number/value (Enter to cancel): ')).trim();
+    }
     if (!answer) {
       return undefined;
     }
@@ -1158,7 +1174,12 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
         inputLine = await ui.question('> ');
       } catch (error) {
         if (isReadlineClosedError(error)) {
-          break;
+          const inputState = input as Readable & { readableEnded?: boolean; destroyed?: boolean; isTTY?: boolean };
+          if (inputState.readableEnded || inputState.destroyed || inputState.isTTY === false) {
+            break;
+          }
+          ui = createUi();
+          continue;
         }
         throw error;
       }
