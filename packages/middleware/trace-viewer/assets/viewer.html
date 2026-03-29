@@ -71,6 +71,15 @@
               <span class="chip" id="modelChip">model: unknown</span>
               <span class="chip" id="statusChip">status: —</span>
             </div>
+            <div class="trace-path-inline" id="fullTracePathWrap" style="display:none">
+              <span id="fullTracePath">—</span>
+              <button class="chip-action" id="copyFullTracePath" type="button" aria-label="Copy full trace path" title="Copy full trace path">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 7a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                  <path d="M6 15H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <!-- Error display (shown when status is 'failed') -->
