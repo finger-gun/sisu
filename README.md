@@ -185,7 +185,7 @@ const model = openAIAdapter({
 | Provider    | Package                                                              | Tools | Streaming | Vision |
 | ----------- | -------------------------------------------------------------------- | :---: | :-------: | :----: |
 | OpenAI      | [`@sisu-ai/adapter-openai`](packages/adapters/openai/README.md)      |   ✓   |     ✓     |    ✓   |
-| Anthropic   | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/README.md) |   ✓   |     ✓     |    –   |
+| Anthropic   | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/README.md) |   ✓   |     ✓     |    ✓   |
 | Ollama      | [`@sisu-ai/adapter-ollama`](packages/adapters/ollama/README.md)       |   ✓   |     ✓     |    ✓   |
 
 ### Middleware
@@ -379,7 +379,7 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 <details>
 <summary>All examples</summary>
 
-**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [weather](examples/anthropic-weather/README.md)
+**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [vision](examples/anthropic-vision/README.md) · [weather](examples/anthropic-weather/README.md)
 
 **Ollama** — [hello](examples/ollama-hello/README.md) · [stream](examples/ollama-stream/README.md) · [vision](examples/ollama-vision/README.md) · [weather](examples/ollama-weather/README.md) · [web-search](examples/ollama-web-search/README.md)
 

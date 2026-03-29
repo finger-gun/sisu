@@ -337,6 +337,194 @@ test("anthropicAdapter maps tool_choice to tool name", async () => {
   expect(body.tool_choice).toEqual({ type: "tool", name: "echo" });
 });
 
+test("anthropicAdapter maps text+image content parts into Anthropic image blocks", async () => {
+  process.env.ANTHROPIC_API_KEY = "vision";
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () =>
+      JSON.stringify({ content: [{ type: "text", text: "described" }] }),
+  } as any);
+
+  const llm = anthropicAdapter({ model: "claude-3-haiku" });
+  const dataUrl = "data:image/png;base64,Zm9vYmFy";
+  const messages: Message[] = [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "Describe this image" },
+        { type: "image_url", image_url: { url: dataUrl } },
+      ],
+    } as any,
+  ];
+
+  await llm.generate(messages, { toolChoice: "none" });
+
+  const [, init] = fetchMock.mock.calls[0] as any;
+  const body = JSON.parse(init.body);
+  expect(body.messages[0].content[0]).toEqual({
+    type: "text",
+    text: "Describe this image",
+  });
+  expect(body.messages[0].content[1]).toEqual({
+    type: "image",
+    source: {
+      type: "base64",
+      media_type: "image/png",
+      data: "Zm9vYmFy",
+    },
+  });
+});
+
+test("anthropicAdapter normalizes convenience image fields with URL fetch", async () => {
+  process.env.ANTHROPIC_API_KEY = "vision-url";
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "image/png" },
+      arrayBuffer: async () => Uint8Array.from([97, 98, 99]).buffer,
+    } as any)
+    .mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () =>
+        JSON.stringify({ content: [{ type: "text", text: "ok" }] }),
+    } as any);
+
+  const llm = anthropicAdapter({ model: "claude-3-haiku" });
+  const messages: Message[] = [
+    {
+      role: "user",
+      content: "What is in this image?",
+      image_url: "https://example.com/image.png",
+    } as any,
+  ];
+
+  await llm.generate(messages, { toolChoice: "none" });
+
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  const [, init] = fetchMock.mock.calls[1] as any;
+  const body = JSON.parse(init.body);
+  expect(body.messages[0].content[0]).toEqual({
+    type: "text",
+    text: "What is in this image?",
+  });
+  expect(body.messages[0].content[1]).toEqual({
+    type: "image",
+    source: {
+      type: "base64",
+      media_type: "image/png",
+      data: "YWJj",
+    },
+  });
+});
+
+test("anthropicAdapter rejects invalid image input payloads", async () => {
+  process.env.ANTHROPIC_API_KEY = "vision-invalid";
+  const llm = anthropicAdapter({ model: "claude-3-haiku" });
+  const messages: Message[] = [
+    {
+      role: "user",
+      content: [{ type: "image_url", image_url: { nope: "x" } }],
+    } as any,
+  ];
+
+  await expect(llm.generate(messages, { toolChoice: "none" })).rejects.toThrow(
+    /Invalid image input/,
+  );
+});
+
+test("anthropicAdapter surfaces remote image fetch failures", async () => {
+  process.env.ANTHROPIC_API_KEY = "vision-fetch-fail";
+  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: false,
+    status: 404,
+    statusText: "Not Found",
+    headers: { get: () => null },
+    text: async () => "not found",
+  } as any);
+
+  const llm = anthropicAdapter({ model: "claude-3-haiku" });
+  const messages: Message[] = [
+    {
+      role: "user",
+      content: [{ type: "image_url", image_url: "https://example.com/missing.png" }],
+    } as any,
+  ];
+
+  await expect(llm.generate(messages, { toolChoice: "none" })).rejects.toThrow(
+    /Failed to fetch image URL/,
+  );
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+test("anthropicAdapter keeps tool mappings intact in conversations containing images", async () => {
+  process.env.ANTHROPIC_API_KEY = "vision-tools";
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "image/jpeg" },
+      arrayBuffer: async () => Uint8Array.from([1, 2, 3]).buffer,
+    } as any)
+    .mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () =>
+        JSON.stringify({ content: [{ type: "text", text: "ok" }] }),
+    } as any);
+
+  const llm = anthropicAdapter({ model: "claude-3-haiku" });
+  const messages: Message[] = [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "Look at this" },
+        { type: "image_url", image_url: "https://example.com/photo.jpg" },
+      ],
+    } as any,
+    {
+      role: "assistant",
+      content: "",
+      tool_calls: [{ id: "tc1", name: "echo", arguments: { ok: true } }],
+    } as any,
+    { role: "tool", content: "done", tool_call_id: "tc1" } as any,
+  ];
+
+  await llm.generate(messages, {
+    tools: [
+      {
+        name: "echo",
+        description: "echo",
+        schema: {} as any,
+        handler: async () => null,
+      },
+    ],
+    toolChoice: "echo",
+  });
+
+  const [, init] = fetchMock.mock.calls[1] as any;
+  const body = JSON.parse(init.body);
+  const assistant = body.messages.find((m: any) => m.role === "assistant");
+  const toolUse = assistant.content.find((c: any) => c.type === "tool_use");
+  expect(toolUse.id).toBe("tc1");
+  expect(toolUse.name).toBe("echo");
+  const toolResultMsg = body.messages.find((m: any) =>
+    m.content.some((c: any) => c.type === "tool_result"),
+  );
+  const toolResult = toolResultMsg.content.find((c: any) => c.type === "tool_result");
+  expect(toolResult.tool_use_id).toBe("tc1");
+  expect(toolResult.content).toBe("done");
+});
+
 test("anthropicAdapter rejects tool messages without id or name", async () => {
   process.env.ANTHROPIC_API_KEY = "missing-tool-id";
   const bad = { role: "tool", content: "result" } as any;

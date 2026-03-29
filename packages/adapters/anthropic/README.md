@@ -1,6 +1,6 @@
 # @sisu-ai/adapter-anthropic
 
-Connect Sisu to Anthropic models with first-class tool calling and streaming support.
+Connect Sisu to Anthropic models with first-class tool calling, streaming, and vision input support.
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
@@ -43,6 +43,15 @@ const embeddings = anthropicEmbeddings({
 - Maps assistant tool calls to `{ id, name, arguments }` for the middleware loop.
 - Maps tool results into Anthropic `tool_result` blocks and back.
 
+## Vision
+- Supports mixed text + image user messages.
+- Accepts content parts (`content` / `contentParts`) with `{ type: 'text', text }` and `{ type: 'image_url', image_url }`.
+- Accepts convenience fields: `image`, `image_url`, `images`, `image_urls`.
+- Image inputs may be:
+  - `data:image/...;base64,...` URLs
+  - raw base64 payloads
+  - remote `http(s)` URLs (fetched and converted to base64 before API call)
+
 ## Streaming
 - Supports server‑sent events from the Messages API.
 - Emits `{ type: 'token', token }` events for content deltas and a final `{ type: 'assistant_message', message }`.
@@ -61,7 +70,7 @@ anthropicAdapter({
 
 ## Message mapping
 - System messages → `system` string (joined if multiple system messages appear)
-- User messages → `{ role: 'user', content: [{ type: 'text', text }] }`
+- User messages → text blocks and (optionally) image blocks with Anthropic base64 image sources
 - Assistant messages with tool calls → `tool_use` blocks with `{ id, name, input }`
 - Tool messages → user `tool_result` blocks with `{ tool_use_id | name, content }`
 
@@ -144,7 +153,7 @@ Discover what you can do through examples or documentation. Check it out at http
 <details>
 <summary>All examples</summary>
 
-**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [weather](examples/anthropic-weather/README.md)
+**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [vision](examples/anthropic-vision/README.md) · [weather](examples/anthropic-weather/README.md)
 
 **Ollama** — [hello](examples/ollama-hello/README.md) · [stream](examples/ollama-stream/README.md) · [vision](examples/ollama-vision/README.md) · [weather](examples/ollama-weather/README.md) · [web-search](examples/ollama-web-search/README.md)
 

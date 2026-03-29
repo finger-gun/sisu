@@ -63,6 +63,16 @@ type ZodSchemaLike = {
   };
 };
 
+type AnthropicImageSource = {
+  type: "base64";
+  media_type: string;
+  data: string;
+};
+
+type AnthropicInputContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; source: AnthropicImageSource };
+
 export interface AnthropicAdapterOptions {
   model: string;
   apiKey?: string;
@@ -72,15 +82,11 @@ export interface AnthropicAdapterOptions {
   maxRetries?: number;
 }
 
-interface AnthropicContentBlock {
-  type: "text" | "tool_use" | "tool_result";
-  text?: string;
-  id?: string;
-  name?: string;
-  input?: unknown;
-  tool_use_id?: string;
-  content?: string;
-}
+type AnthropicContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; source: AnthropicImageSource }
+  | { type: "tool_use"; id: string; name: string; input?: unknown }
+  | { type: "tool_result"; tool_use_id: string; content: string };
 
 interface AnthropicMessage {
   role: "user" | "assistant";
@@ -129,39 +135,77 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
     const systemMsgs = messages
       .filter((m) => m.role === "system")
       .map((m) => String(m.content ?? ""));
-    const mapped: AnthropicMessage[] = messages
-      .filter((m) => m.role !== "system")
-      .map((m) => toAnthropicMessage(m));
+    if (genOpts?.stream === true) {
+      return (async function* () {
+        const mapped = await Promise.all(
+          messages
+            .filter((m) => m.role !== "system")
+            .map((m) => toAnthropicMessageAsync(m, genOpts?.signal)),
+        );
+        const toolsParam = (genOpts?.tools ?? []).map(toAnthropicTool);
+        const tool_choice = normalizeToolChoice(
+          genOpts?.toolChoice,
+          toolsParam.length > 0,
+        );
 
-    // Some tests or streaming scenarios may call generate with an empty messages array.
-    // Only treat empty mapped messages as an error for non-streaming requests.
-    if (mapped.length === 0 && !genOpts?.stream) {
-      throw new Error(
-        "[anthropicAdapter] No valid user/assistant messages found",
-      );
+        const body: Record<string, unknown> = {
+          model: opts.model,
+          max_tokens: Math.min(genOpts?.maxTokens ?? 4096, 8192),
+          messages: mapped,
+          temperature: Math.max(0, Math.min(1, genOpts?.temperature ?? 0.7)),
+          ...(systemMsgs.length ? { system: systemMsgs.join("\n") } : {}),
+          ...(toolsParam.length ? { tools: toolsParam } : {}),
+          ...(toolsParam.length && tool_choice !== undefined
+            ? { tool_choice }
+            : {}),
+          stream: true,
+        };
+
+        const iter = makeRequestWithRetry(
+          baseUrl,
+          apiKey,
+          anthropicVersion,
+          body,
+          timeout,
+          maxRetries,
+          true,
+          genOpts?.signal,
+        ) as AsyncIterable<ModelEvent>;
+        for await (const ev of iter) {
+          yield ev;
+        }
+      })();
     }
 
-    const toolsParam = (genOpts?.tools ?? []).map(toAnthropicTool);
-    const tool_choice = normalizeToolChoice(
-      genOpts?.toolChoice,
-      toolsParam.length > 0,
-    );
+    return (async () => {
+      const mapped = await Promise.all(
+        messages
+          .filter((m) => m.role !== "system")
+          .map((m) => toAnthropicMessageAsync(m, genOpts?.signal)),
+      );
 
-    const body: Record<string, unknown> = {
-      model: opts.model,
-      max_tokens: Math.min(genOpts?.maxTokens ?? 4096, 8192), // Ensure reasonable limits
-      messages: mapped,
-      temperature: Math.max(0, Math.min(1, genOpts?.temperature ?? 0.7)), // Clamp to valid range
-      ...(systemMsgs.length ? { system: systemMsgs.join("\n") } : {}),
-      ...(toolsParam.length ? { tools: toolsParam } : {}),
-      // Anthropic rejects tool_choice when tools are not provided
-      ...(toolsParam.length && tool_choice !== undefined
-        ? { tool_choice }
-        : {}),
-      ...(genOpts?.stream ? { stream: true } : {}),
-    };
+      if (mapped.length === 0) {
+        throw new Error("[anthropicAdapter] No valid user/assistant messages found");
+      }
 
-    if (genOpts?.stream === true) {
+      const toolsParam = (genOpts?.tools ?? []).map(toAnthropicTool);
+      const tool_choice = normalizeToolChoice(
+        genOpts?.toolChoice,
+        toolsParam.length > 0,
+      );
+
+      const body: Record<string, unknown> = {
+        model: opts.model,
+        max_tokens: Math.min(genOpts?.maxTokens ?? 4096, 8192),
+        messages: mapped,
+        temperature: Math.max(0, Math.min(1, genOpts?.temperature ?? 0.7)),
+        ...(systemMsgs.length ? { system: systemMsgs.join("\n") } : {}),
+        ...(toolsParam.length ? { tools: toolsParam } : {}),
+        ...(toolsParam.length && tool_choice !== undefined
+          ? { tool_choice }
+          : {}),
+      };
+
       return makeRequestWithRetry(
         baseUrl,
         apiKey,
@@ -169,18 +213,10 @@ export function anthropicAdapter(opts: AnthropicAdapterOptions): LLM {
         body,
         timeout,
         maxRetries,
-        true,
-      );
-    }
-    return makeRequestWithRetry(
-      baseUrl,
-      apiKey,
-      anthropicVersion,
-      body,
-      timeout,
-      maxRetries,
-      false,
-    );
+        false,
+        genOpts?.signal,
+      ) as Promise<ModelResponse>;
+    })();
   }) as LLM["generate"];
 
   return {
@@ -198,6 +234,7 @@ function makeRequestWithRetry(
   timeout: number,
   maxRetries: number,
   stream: boolean,
+  signal?: AbortSignal,
 ): Promise<ModelResponse> | AsyncIterable<ModelEvent> {
   let lastError: Error;
   const parseResetHeader = (value: string): number | undefined => {
@@ -245,6 +282,7 @@ function makeRequestWithRetry(
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), timeout);
+          const cleanupAbort = bindAbortSignal(signal, controller);
           try {
             const res = await fetch(`${baseUrl}/v1/messages`, {
               method: "POST",
@@ -312,6 +350,7 @@ function makeRequestWithRetry(
           } finally {
             // ensure timeout is cleared when request completes/aborts
             clearTimeout(timeoutId);
+            cleanupAbort();
           }
         } catch (error) {
           lastError = error as Error;
@@ -337,6 +376,7 @@ function makeRequestWithRetry(
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
+        const cleanupAbort = bindAbortSignal(signal, controller);
         try {
           const res = await fetch(`${baseUrl}/v1/messages`, {
             method: "POST",
@@ -408,6 +448,7 @@ function makeRequestWithRetry(
           return { message: msg, ...(usage ? { usage } : {}) };
         } finally {
           clearTimeout(timeoutId);
+          cleanupAbort();
         }
       } catch (error) {
         lastError = error as Error;
@@ -583,8 +624,366 @@ export function toAnthropicMessage(m: Message): AnthropicMessage {
   // user or others
   return {
     role: "user",
-    content: [{ type: "text", text: String(anyM.content ?? "") }],
+    content: toAnthropicInputContent(anyM),
   };
+}
+
+async function toAnthropicMessageAsync(
+  m: Message,
+  signal?: AbortSignal,
+): Promise<AnthropicMessage> {
+  const anyM = m as Message & {
+    content?: unknown;
+    contentParts?: unknown;
+    images?: unknown;
+    image_urls?: unknown;
+    image_url?: unknown;
+    image?: unknown;
+  };
+
+  if (m.role === "user") {
+    return {
+      role: "user",
+      content: await toAnthropicInputContentAsync(anyM, signal),
+    };
+  }
+
+  return toAnthropicMessage(m);
+}
+
+function toAnthropicInputContent(m: {
+  content?: unknown;
+  contentParts?: unknown;
+  images?: unknown;
+  image_urls?: unknown;
+  image_url?: unknown;
+  image?: unknown;
+}): AnthropicContentBlock[] {
+  const rawParts = collectRawParts(m);
+  const out: AnthropicContentBlock[] = [];
+
+  for (const p of rawParts) {
+    const normalized = normalizeAnthropicPartSync(p);
+    if (!normalized) continue;
+    out.push(normalized);
+  }
+
+  if (out.length === 0) {
+    return [{ type: "text", text: String(m.content ?? "") }];
+  }
+
+  return out;
+}
+
+async function toAnthropicInputContentAsync(
+  m: {
+    content?: unknown;
+    contentParts?: unknown;
+    images?: unknown;
+    image_urls?: unknown;
+    image_url?: unknown;
+    image?: unknown;
+  },
+  signal?: AbortSignal,
+): Promise<AnthropicContentBlock[]> {
+  const rawParts = collectRawParts(m);
+  const out: AnthropicContentBlock[] = [];
+
+  for (const p of rawParts) {
+    const normalized = await normalizeAnthropicPartAsync(p, signal);
+    if (!normalized) continue;
+    out.push(normalized);
+  }
+
+  if (out.length === 0) {
+    return [{ type: "text", text: String(m.content ?? "") }];
+  }
+
+  return out;
+}
+
+function collectRawParts(m: {
+  content?: unknown;
+  contentParts?: unknown;
+  images?: unknown;
+  image_urls?: unknown;
+  image_url?: unknown;
+  image?: unknown;
+}): unknown[] {
+  if (Array.isArray(m.content)) return m.content;
+  if (Array.isArray(m.contentParts)) return m.contentParts;
+
+  const parts: unknown[] = [];
+  if (typeof m.content === "string" && m.content.length > 0) {
+    parts.push({ type: "text", text: m.content });
+  }
+
+  const images: unknown[] = [];
+  if (Array.isArray(m.images)) images.push(...m.images);
+  if (Array.isArray(m.image_urls)) images.push(...m.image_urls);
+  if (m.image_url !== undefined) images.push(m.image_url);
+  if (m.image !== undefined) images.push(m.image);
+
+  for (const image of images) {
+    parts.push({ type: "image_url", image_url: image });
+  }
+
+  return parts;
+}
+
+function normalizeAnthropicPartSync(
+  part: unknown,
+): AnthropicInputContentPart | undefined {
+  return normalizeAnthropicPartCore(part, false);
+}
+
+async function normalizeAnthropicPartAsync(
+  part: unknown,
+  signal?: AbortSignal,
+): Promise<AnthropicInputContentPart | undefined> {
+  const normalized = normalizeAnthropicPartCore(part, true);
+  if (!normalized || normalized.type !== "image") return normalized;
+
+  if (!normalized.source.data.startsWith("__HTTP_URL__:")) {
+    return normalized;
+  }
+
+  const url = normalized.source.data.slice("__HTTP_URL__:".length);
+  const resolved = await toAnthropicImageSourceAsync(url, signal);
+  return { type: "image", source: resolved };
+}
+
+function normalizeAnthropicPartCore(
+  part: unknown,
+  allowHttpPlaceholder: boolean,
+): AnthropicInputContentPart | undefined {
+  if (typeof part === "string") return { type: "text", text: part };
+  if (!part || typeof part !== "object") return undefined;
+
+  const obj = part as Record<string, unknown>;
+  const t = obj.type;
+
+  if (t === "text") {
+    if (typeof obj.text !== "string") {
+      throw new Error(
+        "[anthropicAdapter] Invalid text content part: expected string text",
+      );
+    }
+    return { type: "text", text: obj.text };
+  }
+
+  if (t === "image") {
+    if (typeof obj.url === "string") {
+      return normalizeImageValueToPart(obj.url, allowHttpPlaceholder);
+    }
+    if (typeof obj.image_url === "string") {
+      return normalizeImageValueToPart(obj.image_url, allowHttpPlaceholder);
+    }
+    if (
+      obj.image_url &&
+      typeof obj.image_url === "object" &&
+      typeof (obj.image_url as { url?: unknown }).url === "string"
+    ) {
+      return normalizeImageValueToPart(obj.image_url, allowHttpPlaceholder);
+    }
+
+    const source = obj.source;
+    if (!source || typeof source !== "object") {
+      throw new Error(
+        "[anthropicAdapter] Invalid image content part: expected source object",
+      );
+    }
+    const s = source as Record<string, unknown>;
+    if (s.type !== "base64") {
+      throw new Error(
+        "[anthropicAdapter] Unsupported image source type: expected base64",
+      );
+    }
+    if (typeof s.media_type !== "string" || !s.media_type.startsWith("image/")) {
+      throw new Error(
+        "[anthropicAdapter] Invalid image source media_type: expected image/*",
+      );
+    }
+    if (typeof s.data !== "string" || !s.data.trim()) {
+      throw new Error(
+        "[anthropicAdapter] Invalid image source data: expected non-empty base64 string",
+      );
+    }
+    return {
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: s.media_type,
+        data: s.data,
+      },
+    };
+  }
+
+  if (t === "image_url") {
+    return normalizeImageValueToPart(obj.image_url, allowHttpPlaceholder);
+  }
+  if (typeof obj.image_url === "string" || typeof obj.image === "string") {
+    return normalizeImageValueToPart(
+      obj.image_url ?? obj.image,
+      allowHttpPlaceholder,
+    );
+  }
+  if (typeof obj.url === "string") {
+    return normalizeImageValueToPart(obj.url, allowHttpPlaceholder);
+  }
+
+  return undefined;
+}
+
+function normalizeImageValueToPart(
+  value: unknown,
+  allowHttpPlaceholder: boolean,
+): AnthropicInputContentPart {
+  const raw = imageValueToString(value);
+  const source = toAnthropicImageSource(raw, allowHttpPlaceholder);
+  return { type: "image", source };
+}
+
+function imageValueToString(value: unknown): string {
+  if (typeof value === "string") {
+    if (!value.trim()) {
+      throw new Error("[anthropicAdapter] Invalid image input: empty string");
+    }
+    return value;
+  }
+
+  if (
+    value &&
+    typeof value === "object" &&
+    typeof (value as { url?: unknown }).url === "string"
+  ) {
+    const url = (value as { url: string }).url;
+    if (!url.trim()) {
+      throw new Error("[anthropicAdapter] Invalid image input: empty url");
+    }
+    return url;
+  }
+
+  throw new Error(
+    "[anthropicAdapter] Invalid image input: expected string or { url: string }",
+  );
+}
+
+function toAnthropicImageSource(
+  input: string,
+  allowHttpPlaceholder = false,
+): AnthropicImageSource {
+  const trimmed = input.trim();
+
+  if (isDataUrl(trimmed)) {
+    const parsed = parseDataUrl(trimmed);
+    return {
+      type: "base64",
+      media_type: parsed.mediaType,
+      data: parsed.data,
+    };
+  }
+
+  if (isHttpUrl(trimmed)) {
+    if (!allowHttpPlaceholder) {
+      throw new Error(
+        "[anthropicAdapter] Remote image URLs are not supported in sync message mapping. Pass data URLs or base64 image data.",
+      );
+    }
+    return {
+      type: "base64",
+      media_type: "image/jpeg",
+      data: `__HTTP_URL__:${trimmed}`,
+    };
+  }
+
+  if (!isProbablyBase64(trimmed)) {
+    throw new Error(
+      "[anthropicAdapter] Invalid image input: expected data URL, http(s) URL, or base64 image data",
+    );
+  }
+
+  return {
+    type: "base64",
+    media_type: "image/jpeg",
+    data: trimmed,
+  };
+}
+
+async function toAnthropicImageSourceAsync(
+  input: string,
+  signal?: AbortSignal,
+): Promise<AnthropicImageSource> {
+  const trimmed = input.trim();
+  if (!isHttpUrl(trimmed)) {
+    return toAnthropicImageSource(trimmed);
+  }
+
+  const res = await fetch(trimmed, { signal });
+  if (!res.ok) {
+    throw new Error(
+      `[anthropicAdapter] Failed to fetch image URL: ${res.status} ${res.statusText}`,
+    );
+  }
+
+  const ct = res.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+  const mediaType = ct && ct.startsWith("image/") ? ct : "image/jpeg";
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  const data = Buffer.from(bytes).toString("base64");
+  if (!data) {
+    throw new Error("[anthropicAdapter] Failed to normalize image URL: empty data");
+  }
+
+  return { type: "base64", media_type: mediaType, data };
+}
+
+function isHttpUrl(s: string): boolean {
+  return /^https?:\/\//i.test(s);
+}
+
+function isDataUrl(s: string): boolean {
+  return /^data:/i.test(s);
+}
+
+function parseDataUrl(s: string): { mediaType: string; data: string } {
+  const m = s.match(/^data:(.+?);base64,(.+)$/i);
+  if (!m) {
+    throw new Error(
+      "[anthropicAdapter] Invalid data URL image input: expected data:<mime>;base64,<data>",
+    );
+  }
+
+  const mediaType = m[1].toLowerCase();
+  const data = m[2].trim();
+  if (!mediaType.startsWith("image/")) {
+    throw new Error(
+      `[anthropicAdapter] Invalid image media type in data URL: ${mediaType}`,
+    );
+  }
+  if (!data) {
+    throw new Error("[anthropicAdapter] Invalid data URL image input: empty data");
+  }
+  return { mediaType, data };
+}
+
+function isProbablyBase64(s: string): boolean {
+  if (!s || /[:/]/.test(s) || /\s/.test(s)) return false;
+  if (s.length % 4 !== 0) return false;
+  return /^[A-Za-z0-9+/]+={0,2}$/.test(s);
+}
+
+function bindAbortSignal(
+  signal: AbortSignal | undefined,
+  controller: AbortController,
+): () => void {
+  if (!signal) return () => {};
+  if (signal.aborted) {
+    controller.abort();
+    return () => {};
+  }
+  const onAbort = () => controller.abort();
+  signal.addEventListener("abort", onAbort);
+  return () => signal.removeEventListener("abort", onAbort);
 }
 
 function fromAnthropicContent(blocks: unknown[]): {

@@ -56,6 +56,7 @@
     "ex:anthropic:hello": "TRACE_HTML=1 pnpm --filter=anthropic-hello dev",
     "ex:anthropic:control": "TRACE_HTML=1 pnpm --filter=anthropic-control-flow dev",
     "ex:anthropic:weather": "TRACE_HTML=1 pnpm --filter=anthropic-weather dev",
+    "ex:anthropic:vision": "TRACE_HTML=1 pnpm --filter=anthropic-vision dev",
     "ex:openai:hello": "TRACE_HTML=1 pnpm --filter=openai-hello dev",
     "ex:openai:weather": "TRACE_HTML=1 pnpm --filter=openai-weather dev",
     "ex:openai:react": "TRACE_HTML=1 pnpm --filter=openai-react dev",

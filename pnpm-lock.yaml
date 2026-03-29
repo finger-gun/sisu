@@ -168,6 +168,24 @@ importers:
         specifier: ^16.4.5
         version: 16.6.1
 
+  examples/anthropic-vision:
+    dependencies:
+      '@sisu-ai/adapter-anthropic':
+        specifier: workspace:*
+        version: link:../../packages/adapters/anthropic
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@sisu-ai/mw-trace-viewer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
+      '@sisu-ai/mw-usage-tracker':
+        specifier: workspace:*
+        version: link:../../packages/middleware/usage-tracker
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+
   examples/anthropic-weather:
     dependencies:
       '@sisu-ai/adapter-anthropic':

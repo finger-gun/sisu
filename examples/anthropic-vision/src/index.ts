@@ -1,14 +1,13 @@
 import "dotenv/config";
 import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
+import { anthropicAdapter } from "@sisu-ai/adapter-anthropic";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
-import { ollamaAdapter } from "@sisu-ai/adapter-ollama";
-
 
 const imageUrl =
+  process.argv.find((a) => a.startsWith("http")) ||
   "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Wall_climbing_place_v%C3%A4stra_kullaberg.jpg/1920px-Wall_climbing_place_v%C3%A4stra_kullaberg.jpg";
 
-// Use content parts to include text + image (adapter maps to images[] and auto-fetches URL → base64)
 const userMessage = {
   role: "user",
   content: [
@@ -18,7 +17,9 @@ const userMessage = {
 } as unknown as Ctx["messages"][number];
 
 const ctx = createCtx({
-  model: ollamaAdapter({ model: process.env.MODEL || "llava:latest" }),
+  model: anthropicAdapter({
+    model: process.env.MODEL || "claude-sonnet-4-20250514",
+  }),
   systemPrompt: "You are a concise, helpful assistant.",
   logLevel: process.env.LOG_LEVEL as
     | "debug"
@@ -35,7 +36,6 @@ const ctx = createCtx({
   },
 });
 
-// Add the user message with image after context creation
 ctx.messages.push(userMessage);
 
 const generateOnce = async (c: Ctx) => {
@@ -59,10 +59,11 @@ const app = new Agent()
     }
   })
   .use(traceViewer())
-  // Local models, so set costs to zero
   .use(
     usageTracker(
-      { "*": { inputPer1K: 0, outputPer1K: 0, imagePer1K: 0 } },
+      {
+        "*": { inputPer1M: 3, outputPer1M: 15, imagePer1K: 4.8 },
+      },
       { logPerCall: true },
     ),
   )
