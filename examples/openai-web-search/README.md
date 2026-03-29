@@ -14,8 +14,9 @@ Config Flags (CLI overrides env)
 - Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
-- `OPENAI_API_KEY` or `API_KEY`
-- `OPENAI_BASE_URL` or `BASE_URL`
+- `API_KEY`
+- `BASE_URL`
+- `MODEL`
 - `OPENAI_MODEL`
 - Responses tool: `OPENAI_RESPONSES_BASE_URL`, `OPENAI_RESPONSES_MODEL`
 - Tracing: `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=...`

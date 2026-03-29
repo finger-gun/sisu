@@ -1,5 +1,23 @@
 # @sisu-ai/adapter-openai
 
+## 10.0.2
+
+### Patch Changes
+
+- Fix a startup crash in global/`npx` CLI installs caused by adapter imports expecting a newer `@sisu-ai/core` embedding export.
+
+  Adapters now resolve `createEmbeddingsClient` compatibly at runtime and fall back to an internal embeddings client implementation when needed, preventing ESM import-time failures with older published core artifacts.
+
+  CLI gets a patch bump so published dependency versions pull in the fixed adapter releases.
+
+## 10.0.1
+
+### Patch Changes
+
+- 9f6ab75: Improve adapter reliability by migrating provider transport internals to official SDK clients while preserving existing Sisu adapter APIs.
+
+  This update includes better request/response normalization consistency, stronger streaming and tool-calling conformance coverage, improved cancellation handling, and updated adapter migration notes.
+
 ## 10.0.0
 
 ### Minor Changes

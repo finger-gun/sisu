@@ -11,5 +11,6 @@ Config Flags (CLI overrides env)
 - Tracing: `--trace` and `--trace-style=light|dark`
 
 Env Vars (alternatives)
-- `OLLAMA_BASE_URL` or `BASE_URL`
+- `BASE_URL`
+- `MODEL`
 - Tracing: `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=...`

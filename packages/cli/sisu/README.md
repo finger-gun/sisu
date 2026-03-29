@@ -1,6 +1,6 @@
 # `@sisu-ai/cli`
 
-CLI for discovering Sisu packages and scaffolding maintained starter projects.
+CLI for discovering Sisu packages, scaffolding maintained starter projects, and running an interactive automation chat.
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
@@ -15,12 +15,14 @@ npx @sisu-ai/cli list tools
 npx @sisu-ai/cli info vector-vectra
 npx @sisu-ai/cli create chat-agent my-app
 npx @sisu-ai/cli install skill
+npx @sisu-ai/cli chat
 ```
 
 After global install, you can also run:
 
 ```bash
 sisu list tools
+sisu chat
 ```
 
 ## Commands
@@ -29,6 +31,9 @@ sisu list tools
 - `sisu info <name>`
 - `sisu create <template> <project-name>`
 - `sisu install skill [installer-options]`
+- `sisu chat [--session <session-id>] [--prompt <text>]`
+- `sisu --version`
+- `sisu --json list <category>`
 
 Categories:
 
@@ -39,6 +44,99 @@ Categories:
 - `vector`
 - `skills`
 - `templates`
+
+## Chat command
+
+This version introduces a first-class interactive chat mode for daily CLI workflows.
+
+### Core flow
+
+- Start interactive mode: `sisu chat` (Ink UI by default in TTY)
+- Run one-shot prompt: `sisu chat --prompt "run: git status"`
+- Pipe prompt from stdin: `echo "hello" | sisu chat`
+- Resume a known session: `sisu chat --session <session-id>`
+- Startup now uses cached provider/model immediately and runs provider health checks in the background.
+
+### In-chat commands
+
+- `/help` - show command help
+- `/new` - start a brand new chat session
+- `/provider [ollama|openai|anthropic|mock]` - set provider (interactive picker if omitted)
+- `/model [name]` - set model (interactive picker if omitted)
+- `/cancel` - cancel active run/tool execution
+- `/sessions` - list persisted sessions and choose resume/delete action
+- `/delete-session <session-id>` - delete a saved session directly
+- `/search <query>` - search conversation history
+- `/resume <session-id>` - switch to a prior session
+- `/branch <message-id>` - create a new branch session from a prior message
+- `/exit` - close chat
+- `/options` - open interactive options menu
+- `/settings` - open interactive settings menu
+
+### Tool safety model
+
+Tool executions are policy-gated before execution:
+
+- **allow**: command runs immediately
+- **confirm**: explicit user approval is required
+- **deny**: command is blocked with a reason
+
+High-impact commands require confirmation by default. Denied and completed actions are persisted in session records with status and metadata.
+
+### Ink shortcuts and menus
+
+- `Ctrl+O` opens the options menu (new session, switch session, branch, help, exit).
+- `Shift+S` opens settings (provider/model/session switching).
+- `Shift+Enter` inserts a newline in the input box for multiline messages.
+- `Ctrl+J` is supported as a fallback in terminals that don't expose Shift+Enter distinctly.
+- Menus support `↑/↓` to navigate, `Enter` to select, and `Esc` to close.
+- Assistant output is markdown-aware in terminal rendering (headers/lists/code blocks are formatted for readability).
+
+### Profiles and configuration
+
+Chat profile resolution uses deterministic precedence:
+
+1. Built-in defaults
+2. Global profile: `~/.sisu/chat-profile.json`
+3. Project profile: `<project>/.sisu/chat-profile.json` (overrides global)
+
+Example profile:
+
+```json
+{
+  "name": "default",
+  "provider": "ollama",
+  "model": "qwen3.5:9b",
+  "theme": "auto",
+  "storageDir": "/Users/you/.sisu/chat-sessions/my-project",
+  "toolPolicy": {
+    "mode": "balanced",
+    "requireConfirmationForHighImpact": true,
+    "allowCommandPrefixes": ["echo", "ls", "git status", "pnpm test"]
+  }
+}
+```
+
+Provider notes:
+
+- `mock`: local fallback with no external API calls.
+- `openai`: set `OPENAI_API_KEY` (or `API_KEY`) and choose a valid OpenAI model.
+- `anthropic`: set `ANTHROPIC_API_KEY` (or `API_KEY`) and choose a valid Claude model.
+- `ollama`: ensure `ollama serve` is running and use a locally available model.
+
+Default provider behavior:
+
+- If no provider is configured, chat auto-detects local Ollama models (`ollama list`) and defaults to `ollama`.
+- Preferred Ollama defaults are selected in this order when available: `qwen3.5:9b`, `llama3.1`, `llama4`, `qwen3.5:0.8b`.
+- If no local Ollama models are found, chat falls back to `mock`.
+
+### Session persistence
+
+Chat sessions are persisted locally (messages, run state, tool lifecycle records, events). This enables:
+
+- deterministic restart/resume behavior
+- session search and retrieval
+- branch-from-message lineage workflows
 
 ## Templates
 

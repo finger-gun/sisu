@@ -185,7 +185,7 @@ const model = openAIAdapter({
 | Provider    | Package                                                              | Tools | Streaming | Vision |
 | ----------- | -------------------------------------------------------------------- | :---: | :-------: | :----: |
 | OpenAI      | [`@sisu-ai/adapter-openai`](packages/adapters/openai/README.md)      |   ✓   |     ✓     |    ✓   |
-| Anthropic   | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/README.md) |   ✓   |     ✓     |    –   |
+| Anthropic   | [`@sisu-ai/adapter-anthropic`](packages/adapters/anthropic/README.md) |   ✓   |     ✓     |    ✓   |
 | Ollama      | [`@sisu-ai/adapter-ollama`](packages/adapters/ollama/README.md)       |   ✓   |     ✓     |    ✓   |
 
 ### Middleware
@@ -244,6 +244,9 @@ pnpm run ex:openai:orchestration-adaptive
 # Ollama (local, no API key needed)
 ollama serve && ollama pull llama3.1
 pnpm run ex:ollama:hello
+
+# Desktop macOS app (starts local runtime + SwiftUI app)
+pnpm run ex:desktop:macos
 ```
 
 25+ examples covering streaming, vision, RAG, control flow, orchestration, guardrails, and more in [`/examples`](examples/).
@@ -269,9 +272,9 @@ npx @sisu-ai/cli install skill
 
 ```bash
 # LLM Providers
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-OLLAMA_BASE_URL=http://localhost:11434    # default
+API_KEY=sk-...
+BASE_URL=http://localhost:11434           # optional, when overriding provider defaults
+MODEL=gpt-4o-mini                         # optional, example/provider dependent
 
 # Logging
 LOG_LEVEL=info        # debug | info | warn | error
@@ -379,7 +382,7 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 <details>
 <summary>All examples</summary>
 
-**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [weather](examples/anthropic-weather/README.md)
+**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [vision](examples/anthropic-vision/README.md) · [weather](examples/anthropic-weather/README.md)
 
 **Ollama** — [hello](examples/ollama-hello/README.md) · [stream](examples/ollama-stream/README.md) · [vision](examples/ollama-vision/README.md) · [weather](examples/ollama-weather/README.md) · [web-search](examples/ollama-web-search/README.md)
 

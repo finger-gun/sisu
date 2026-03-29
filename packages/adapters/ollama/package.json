@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/adapter-ollama",
-  "version": "10.0.0",
+  "version": "10.0.2",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -30,6 +30,9 @@
   "peerDependencies": {
     "@sisu-ai/core": "^2.4.0"
   },
+  "devDependencies": {
+    "@sisu-ai/core": "workspace:*"
+  },
   "keywords": [
     "sisu",
     "ai",
@@ -37,5 +40,8 @@
     "agentic",
     "adapter",
     "ollama"
-  ]
+  ],
+  "dependencies": {
+    "ollama": "^0.6.3"
+  }
 }

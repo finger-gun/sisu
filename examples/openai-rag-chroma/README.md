@@ -57,7 +57,6 @@ export BASE_URL=https://api.openai.com
 # optional overrides
 export CHROMA_URL=http://localhost:8000
 export VECTOR_NAMESPACE=sisu
-# compatibility aliases also work: OPENAI_API_KEY / OPENAI_BASE_URL
 ```
 
 3) From repo root:

@@ -1,6 +1,5 @@
 import { test, expect, vi, afterEach } from "vitest";
-import { Readable } from "stream";
-import { ollamaAdapter } from "../src/index.js";
+import { ollamaAdapter, ollamaEmbeddings } from "../src/index.js";
 import type { Message, Tool } from "@sisu-ai/core";
 
 afterEach(() => {
@@ -8,15 +7,95 @@ afterEach(() => {
   delete (process.env as any).OLLAMA_BASE_URL;
 });
 
-test("ollamaAdapter streams tokens when stream option is set", async () => {
-  const s = Readable.from([
-    JSON.stringify({ message: { role: "assistant", content: "He" } }) + "\n",
-    JSON.stringify({ message: { role: "assistant", content: "llo" } }) + "\n",
-    JSON.stringify({ done: true }) + "\n",
-  ]);
+function jsonResponse(payload: unknown, init: ResponseInit = {}): Response {
+  return new Response(JSON.stringify(payload), {
+    status: init.status ?? 200,
+    statusText: init.statusText,
+    headers: {
+      "content-type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+function ndjsonResponse(lines: unknown[]): Response {
+  const body = lines.map((line) => JSON.stringify(line)).join("\n") + "\n";
+  return new Response(body, {
+    status: 200,
+    headers: { "content-type": "application/x-ndjson" },
+  });
+}
+
+function requestFromCall(call: unknown[]): Request {
+  const [input, init] = call as [RequestInfo | URL, RequestInit | undefined];
+  if (input instanceof Request) return input;
+  return new Request(input, init);
+}
+
+test("ollamaEmbeddings maps Ollama /api/embed responses", async () => {
   const fetchMock = vi
     .spyOn(globalThis, "fetch" as any)
-    .mockResolvedValue({ ok: true, body: s } as any);
+    .mockResolvedValue(
+      jsonResponse({
+        model: "embeddinggemma",
+        embeddings: [
+          [0.01, 0.02],
+          [0.03, 0.04],
+        ],
+      }) as any,
+    );
+
+  const embeddings = ollamaEmbeddings({ model: "embeddinggemma" });
+  const vectors = await embeddings.embed(["a", "b"]);
+  expect(vectors).toEqual([
+    [0.01, 0.02],
+    [0.03, 0.04],
+  ]);
+
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  expect(request.url).toBe("http://localhost:11434/api/embed");
+  expect(JSON.parse(await request.text())).toEqual({
+    model: "embeddinggemma",
+    input: ["a", "b"],
+  });
+});
+
+test("ollamaEmbeddings honors configured base URL", async () => {
+  process.env.OLLAMA_BASE_URL = "http://localhost:22434";
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(jsonResponse({ embeddings: [[1, 2, 3]] }) as any);
+
+  const embeddings = ollamaEmbeddings({ model: "embeddinggemma" });
+  await embeddings.embed(["hello"]);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  expect(request.url).toBe("http://localhost:22434/api/embed");
+});
+
+test("ollamaEmbeddings prefers generic BASE_URL over OLLAMA_BASE_URL", async () => {
+  process.env.BASE_URL = "http://localhost:33434";
+  process.env.OLLAMA_BASE_URL = "http://localhost:22434";
+
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(jsonResponse({ embeddings: [[1, 2, 3]] }) as any);
+
+  const embeddings = ollamaEmbeddings({ model: "embeddinggemma" });
+  await embeddings.embed(["hello"]);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  expect(request.url).toBe("http://localhost:33434/api/embed");
+});
+
+test("ollamaAdapter streams tokens when stream option is set", async () => {
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      ndjsonResponse([
+        { message: { role: "assistant", content: "He" } },
+        { message: { role: "assistant", content: "llo" } },
+        { done: true },
+      ]) as any,
+    );
   const llm = ollamaAdapter({ model: "llama3" });
   const out: string[] = [];
   const iter = (await llm.generate([], { stream: true })) as AsyncIterable<any>;
@@ -24,22 +103,20 @@ test("ollamaAdapter streams tokens when stream option is set", async () => {
     if (ev.type === "token") out.push(ev.token);
   }
   expect(out.join("")).toBe("Hello");
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   expect(body.stream).toBe(true);
 });
 
 test("ollamaAdapter posts to /api/chat with mapped messages", async () => {
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({
         message: { role: "assistant", content: "ok" },
         done: true,
-      }),
-  } as any);
+      }) as any,
+    );
 
   const llm = ollamaAdapter({
     model: "llama3",
@@ -58,9 +135,9 @@ test("ollamaAdapter posts to /api/chat with mapped messages", async () => {
   expect(out.message.role).toBe("assistant");
   expect(out.message.content).toBe("ok");
 
-  const [url, init] = fetchMock.mock.calls[0] as any;
-  expect(String(url)).toBe("http://localhost:11434/api/chat");
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  expect(request.url).toBe("http://localhost:11434/api/chat");
+  const body = JSON.parse(await request.text());
   expect(body.model).toBe("llama3");
   // Assistant tool_calls mapping
   const assistant = body.messages.find((m: any) => m.role === "assistant");
@@ -71,23 +148,21 @@ test("ollamaAdapter posts to /api/chat with mapped messages", async () => {
 });
 
 test("ollamaAdapter maps tool_calls from response to core shape", async () => {
-  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    text: async () =>
-      JSON.stringify({
-        message: {
-          role: "assistant",
-          content: "",
-          tool_calls: [
-            {
-              id: "t1",
-              type: "function",
-              function: { name: "sum", arguments: '{"x":1}' },
-            },
-          ],
-        },
-      }),
-  } as any);
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+    jsonResponse({
+      message: {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          {
+            id: "t1",
+            type: "function",
+            function: { name: "sum", arguments: '{"x":1}' },
+          },
+        ],
+      },
+    }) as any,
+  );
   const llm = ollamaAdapter({ model: "llama3" });
   const out = await llm.generate([]);
   const tcs = (out.message as any).tool_calls;
@@ -96,11 +171,11 @@ test("ollamaAdapter maps tool_calls from response to core shape", async () => {
 });
 
 test("ollamaAdapter sends tools schema when provided", async () => {
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    text: async () =>
-      JSON.stringify({ message: { role: "assistant", content: "" } }),
-  } as any);
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({ message: { role: "assistant", content: "" } }) as any,
+    );
   const tool: Tool = {
     name: "echo",
     description: "e",
@@ -109,20 +184,18 @@ test("ollamaAdapter sends tools schema when provided", async () => {
   };
   const llm = ollamaAdapter({ model: "llama3" });
   await llm.generate([], { tools: [tool] });
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   expect(Array.isArray(body.tools)).toBe(true);
   expect(body.tools[0].function.name).toBe("echo");
 });
 
 test("ollamaAdapter maps content parts to images list", async () => {
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({ message: { role: "assistant", content: "" } }),
-  } as any);
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({ message: { role: "assistant", content: "" } }) as any,
+    );
   const llm = ollamaAdapter({ model: "llama3" });
   const messages: Message[] = [
     {
@@ -135,8 +208,8 @@ test("ollamaAdapter maps content parts to images list", async () => {
     } as any,
   ];
   await llm.generate(messages);
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   const user = body.messages[0];
   expect(typeof user.content).toBe("string");
   expect(user.content).toBe("hi");
@@ -145,43 +218,39 @@ test("ollamaAdapter maps content parts to images list", async () => {
 });
 
 test("ollamaAdapter includes tool name when tool_call_id missing", async () => {
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({
         message: { role: "assistant", content: "ok" },
         done: true,
-      }),
-  } as any);
+      }) as any,
+    );
   const llm = ollamaAdapter({ model: "llama3" });
   const messages: Message[] = [
     { role: "tool", content: "result", name: "echo" } as any,
   ];
   await llm.generate(messages);
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   const toolMsg = body.messages.find((m: any) => m.role === "tool");
   expect(toolMsg.name).toBe("echo");
 });
 
 test("ollamaAdapter preserves base64 images when already provided", async () => {
-  const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () =>
-      JSON.stringify({ message: { role: "assistant", content: "ok" } }),
-  } as any);
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValue(
+      jsonResponse({ message: { role: "assistant", content: "ok" } }) as any,
+    );
 
   const llm = ollamaAdapter({ model: "llama3" });
   const messages: Message[] = [
     { role: "user", content: "see", images: ["AQID"] } as any,
   ];
   await llm.generate(messages);
-  const [, init] = fetchMock.mock.calls[0] as any;
-  const body = JSON.parse(init.body);
+  const request = requestFromCall(fetchMock.mock.calls[0] as any);
+  const body = JSON.parse(await request.text());
   const user = body.messages[0];
   expect(user.images).toEqual(["AQID"]);
 });
@@ -194,16 +263,10 @@ test("ollamaAdapter converts http image URLs to base64 images[]", async () => {
     .mockImplementation(async (url: any, init: any) => {
       const u = String(url);
       if (u.includes("/api/chat")) {
-        return {
-          ok: true,
-          status: 200,
-          statusText: "OK",
-          text: async () =>
-            JSON.stringify({ message: { role: "assistant", content: "" } }),
-        } as any;
+        return jsonResponse({ message: { role: "assistant", content: "" } }) as any;
       }
       // image fetch
-      return { ok: true, arrayBuffer: async () => imgBytes.buffer } as any;
+      return new Response(imgBytes.buffer, { status: 200 }) as any;
     });
   const llm = ollamaAdapter({ model: "llama3" });
   const messages: Message[] = [
@@ -216,8 +279,11 @@ test("ollamaAdapter converts http image URLs to base64 images[]", async () => {
   await llm.generate(messages);
   // Last call should be to /api/chat; inspect its body
   const calls = fetchMock.mock.calls as any[];
-  const [, init] = calls.find((c) => String(c[0]).includes("/api/chat")) as any;
-  const body = JSON.parse(init.body);
+  const chatCall = calls.find((c) => {
+    const req = requestFromCall(c as any);
+    return req.url.includes("/api/chat");
+  }) as any;
+  const body = JSON.parse(await requestFromCall(chatCall).text());
   const user = body.messages[0];
   expect(typeof user.content).toBe("string");
   expect(Array.isArray(user.images)).toBe(true);

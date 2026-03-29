@@ -10,9 +10,11 @@ pnpm-debug.log*
 dist/
 build/
 out/
+.build/
 **/**/dist/
 **/**/build/
 **/**/out/
+**/.build/
 packages/**/dist/
 examples/**/dist/
 .doc-bundles/
@@ -46,12 +48,19 @@ coverage/
 **/.vectra/
 tmp/
 temp/
+.sisu/
+**/.sisu/
 
 # IDE / OS
 .DS_Store
 .idea/
 .vscode/*
 !.vscode/extensions.json
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+.swiftpm/
+**/.swiftpm/
 Thumbs.db
 
 # Traces / artifacts

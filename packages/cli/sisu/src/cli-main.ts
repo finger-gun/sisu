@@ -1,0 +1,306 @@
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { createInterface as createPromptInterface } from 'node:readline/promises';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { stdin, stdout } from 'node:process';
+import { Command } from 'commander';
+import prompts from 'prompts';
+import { categories, formatInfo, formatList, getTemplateIds, listCategory, resolveEntry, scaffoldTemplate } from './lib.js';
+import { runChatCli } from './chat/runtime.js';
+import type { CatalogCategory } from './catalog.js';
+
+const require = createRequire(import.meta.url);
+const { version, bugs } = require('../package.json') as { version: string; bugs?: { url?: string } };
+
+export class CliError extends Error {
+  readonly code: string;
+
+  readonly hint?: string;
+
+  readonly exitCode: number;
+
+  constructor(code: string, message: string, options?: { hint?: string; exitCode?: number }) {
+    super(message);
+    this.name = 'CliError';
+    this.code = code;
+    this.hint = options?.hint;
+    this.exitCode = options?.exitCode ?? 1;
+  }
+}
+
+const banner = String.raw` ░▒▓███████▓▒░▒▓█▓▒░░▒▓███████▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░ 
+ ░▒▓██████▓▒░░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░ 
+       ░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+       ░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓█▓▒░▒▓███████▓▒░ ░▒▓██████▓▒░  
+                                                
+                                                
+sisu - AI Framework -  github.com/finger-gun/sisu`;
+
+export function printHelp(): void {
+  console.log(`${banner}
+
+Sisu CLI
+
+Usage:
+  sisu list <category>
+  sisu info <name>
+  sisu create <template> <project-name>
+  sisu install skill [installer-options]
+  sisu chat [--session <session-id>] [--prompt <text>]
+
+Global options:
+  -h, --help        Show help
+  -V, --version     Show version
+  --json            Structured JSON output (supported by list/info)
+  --debug           Show stack traces for failures
+
+Categories:
+  ${categories.join(', ')}
+
+Examples:
+  sisu list tools
+  sisu info vector-vectra
+  sisu create chat-agent my-app
+  sisu install skill
+  sisu chat
+  sisu chat --prompt "run: git status"
+`);
+}
+
+function buildBugReportUrl(error: Error, code: string): string | undefined {
+  const base = bugs?.url;
+  if (!base) {
+    return undefined;
+  }
+  const body = [
+    `CLI version: ${version}`,
+    `Error code: ${code}`,
+    '',
+    'Message:',
+    error.message,
+    '',
+    'Stack:',
+    error.stack || '<none>',
+  ].join('\n');
+  return `${base}/new?title=${encodeURIComponent(`[${code}] ${error.message}`)}&body=${encodeURIComponent(body)}`;
+}
+
+async function promptIfMissing(value: string | undefined, question: string, options?: string[]): Promise<string> {
+  if (value) {
+    return value;
+  }
+
+  if (!stdin.isTTY || !stdout.isTTY) {
+    throw new CliError('E1004', `${question} is required in non-interactive mode.`, {
+      hint: 'Run with the required argument, or use an interactive terminal.',
+      exitCode: 2,
+    });
+  }
+
+  if (options && options.length > 0) {
+    const response = await prompts({
+      type: 'select',
+      name: 'value',
+      message: question,
+      choices: options.map((choice) => ({ title: choice, value: choice })),
+    });
+    if (!response.value) {
+      throw new CliError('E1005', 'No selection provided.', {
+        hint: `Choose one of: ${options.join(', ')}`,
+        exitCode: 2,
+      });
+    }
+    return response.value;
+  }
+
+  const ui = createPromptInterface({ input: stdin, output: stdout });
+  try {
+    const answer = (await ui.question(`${question}: `)).trim();
+    if (!answer) {
+      throw new CliError('E1006', `${question} cannot be empty.`, { exitCode: 2 });
+    }
+    return answer;
+  } finally {
+    ui.close();
+  }
+}
+
+function getTemplateRoot(): string {
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
+  return path.join(currentDir, 'templates');
+}
+
+function getSkillInstallerCliPath(): string {
+  const require = createRequire(import.meta.url);
+  try {
+    const installerPackageJson = require.resolve('@sisu-ai/skill-install/package.json');
+    return path.join(path.dirname(installerPackageJson), 'dist', 'cli.js');
+  } catch {
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
+    const fallback = path.resolve(currentDir, '../../../skills/skill-install/dist/cli.js');
+    if (existsSync(fallback)) {
+      return fallback;
+    }
+    throw new CliError(
+      'E1201',
+      'Could not resolve @sisu-ai/skill-install.',
+      { hint: 'Build or install the skill installer package first.' },
+    );
+  }
+}
+
+interface GlobalCliOptions {
+  json: boolean;
+  debug: boolean;
+}
+
+export function parseGlobalOptions(argv: string[]): { args: string[]; options: GlobalCliOptions } {
+  const command = new Command()
+    .exitOverride()
+    .allowUnknownOption(true)
+    .allowExcessArguments(true)
+    .option('--json', 'Structured JSON output')
+    .option('--debug', 'Show stack traces for failures')
+    .option('--verbose', 'Alias for --debug');
+
+  let opts: { json?: boolean; debug?: boolean; verbose?: boolean } = {};
+  try {
+    command.parse(['node', 'sisu', ...argv], { from: 'node' });
+    opts = command.opts<{ json?: boolean; debug?: boolean; verbose?: boolean }>();
+  } catch {
+    opts = {};
+  }
+
+  const args = argv.filter((token) => token !== '--json' && token !== '--debug' && token !== '--verbose');
+  const options: GlobalCliOptions = {
+    json: Boolean(opts.json) || argv.includes('--json'),
+    debug: Boolean(process.env.DEBUG) || Boolean(opts.debug) || Boolean(opts.verbose) || argv.includes('--debug') || argv.includes('--verbose'),
+  };
+
+  return { args, options };
+}
+
+export async function runCli(argsInput: string[]): Promise<void> {
+  const { args, options } = parseGlobalOptions(argsInput);
+  const [command, arg1, arg2, ...rest] = args;
+
+  if (!command || command === '--help' || command === '-h') {
+    printHelp();
+    return;
+  }
+
+  if (command === '--version' || command === '-V') {
+    console.log(version);
+    return;
+  }
+
+  if (command === 'list') {
+    const category = await promptIfMissing(arg1, 'Category', categories);
+    if (!categories.includes(category as CatalogCategory)) {
+      throw new CliError('E1001', `Unknown category: ${category}`, {
+        hint: `Use one of: ${categories.join(', ')}`,
+        exitCode: 2,
+      });
+    }
+    const result = listCategory(category as CatalogCategory);
+    console.log(options.json ? JSON.stringify(result, null, 2) : formatList(result));
+    return;
+  }
+
+  if (command === 'info') {
+    const name = await promptIfMissing(arg1, 'Package/template name');
+    const entry = resolveEntry(name);
+    if (!entry) {
+      throw new CliError('E1002', `Unknown Sisu package or template: ${name}`, {
+        hint: 'Run `sisu list templates` or `sisu list tools` to discover valid names.',
+        exitCode: 2,
+      });
+    }
+    console.log(options.json ? JSON.stringify(entry, null, 2) : formatInfo(entry));
+    return;
+  }
+
+  if (command === 'create') {
+    const templateId = await promptIfMissing(arg1, 'Template', getTemplateIds());
+    const projectName = await promptIfMissing(arg2, 'Project name');
+    if (!getTemplateIds().includes(templateId)) {
+      throw new CliError('E1003', `Unknown template: ${templateId}`, {
+        hint: `Choose one of: ${getTemplateIds().join(', ')}`,
+        exitCode: 2,
+      });
+    }
+    const destination = await scaffoldTemplate({
+      templateId,
+      projectName,
+      templateRoot: getTemplateRoot(),
+    });
+    console.log(`Created ${templateId} project at ${destination}`);
+    console.log('Next steps:');
+    console.log(`- cd ${projectName}`);
+    console.log('- npm install');
+    console.log('- npm run dev');
+    return;
+  }
+
+  if (command === 'install') {
+    if (arg1 !== 'skill') {
+      throw new CliError('E1101', 'Usage: sisu install skill [installer-options]', { exitCode: 2 });
+    }
+    const installerCliPath = getSkillInstallerCliPath();
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(process.execPath, [installerCliPath, arg2, ...rest].filter(Boolean), {
+        stdio: 'inherit',
+      });
+      child.on('exit', (code) => {
+        if (code && code !== 0) {
+          reject(new CliError('E1202', `@sisu-ai/skill-install exited with code ${code}`));
+          return;
+        }
+        resolve();
+      });
+      child.on('error', reject);
+    });
+    return;
+  }
+
+  if (command === 'chat') {
+    await runChatCli([arg1, arg2, ...rest].filter((value): value is string => typeof value === 'string'));
+    return;
+  }
+
+  throw new CliError('E1000', `Unknown command: ${command}`, {
+    hint: 'Run `sisu --help` to see available commands.',
+    exitCode: 2,
+  });
+}
+
+export async function runCliEntrypoint(argsInput = process.argv.slice(2)): Promise<number> {
+  try {
+    await runCli(argsInput);
+    return 0;
+  } catch (error) {
+    const normalized = error instanceof CliError
+      ? error
+      : new CliError('E9000', error instanceof Error ? error.message : String(error));
+
+    const wrapped = error instanceof Error ? error : new Error(String(error));
+    console.error(`sisu v${version} — Error (${normalized.code}): ${normalized.message}`);
+    if (normalized.hint) {
+      console.error(`Hint: ${normalized.hint}`);
+    }
+    const reportUrl = buildBugReportUrl(wrapped, normalized.code);
+    if (reportUrl) {
+      console.error(`Report: ${reportUrl}`);
+    }
+    if (process.env.DEBUG || argsInput.includes('--debug') || argsInput.includes('--verbose')) {
+      console.error(wrapped.stack || String(wrapped));
+    }
+    return normalized.exitCode;
+  }
+}

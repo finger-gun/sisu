@@ -1,6 +1,6 @@
 # @sisu-ai/adapter-anthropic
 
-Connect Sisu to Anthropic models with first-class tool calling and streaming support.
+Connect Sisu to Anthropic models with first-class tool calling, streaming, and vision input support.
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
@@ -13,24 +13,50 @@ Connect Sisu to Anthropic models with first-class tool calling and streaming sup
 npm i @sisu-ai/adapter-anthropic
 ```
 
-- Env: `ANTHROPIC_API_KEY` (preferred) or `API_KEY` required
-- Optional base URL: `ANTHROPIC_BASE_URL` (or `BASE_URL`)
+- Env: `API_KEY`
+- Optional base URL: `BASE_URL`
 - Optional debug: `DEBUG_LLM=1` to log redacted request/response summaries on errors
+
+## Transport and compatibility
+
+- The adapter now uses the official `@anthropic-ai/sdk` Messages API transport.
+- Public Sisu behavior is intentionally preserved: message normalization, tool-call mapping, streaming `token`/`assistant_message` events, and usage mapping.
+- Existing app code should continue to work unchanged. If you relied on low-level fetch stubs in tests, prefer `Response`-compatible mocks or SDK-boundary mocks.
 
 ## Usage
 ```ts
-import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
+import { anthropicAdapter, anthropicEmbeddings } from '@sisu-ai/adapter-anthropic';
 
 const model = anthropicAdapter({ model: 'claude-3-5-sonnet-20240620' });
 // with a self-hosted proxy
 const model = anthropicAdapter({ model: 'claude-3-opus-20240229', baseUrl: 'https://api.anthropic.com' });
+
+const embeddings = anthropicEmbeddings({
+  baseUrl: process.env.EMBEDDINGS_BASE_URL!,
+  model: process.env.EMBEDDINGS_MODEL!,
+  apiKey: process.env.EMBEDDINGS_API_KEY,
+});
 ```
+
+## Embeddings
+- Anthropic does not provide a native embeddings API.
+- `anthropicEmbeddings(...)` is a convenience helper for Anthropic-centered apps that use a compatible third-party embeddings endpoint.
+- You must pass `baseUrl` and `model` explicitly; there are no Anthropic-specific defaults.
 
 ## Tools
 - Sends `tools` in Anthropic format (`name`, `description`, `input_schema`).
 - Sends `tool_choice` only when `tools` exist (Anthropic rejects `tool_choice` without tools).
 - Maps assistant tool calls to `{ id, name, arguments }` for the middleware loop.
 - Maps tool results into Anthropic `tool_result` blocks and back.
+
+## Vision
+- Supports mixed text + image user messages.
+- Accepts content parts (`content` / `contentParts`) with `{ type: 'text', text }` and `{ type: 'image_url', image_url }`.
+- Accepts convenience fields: `image`, `image_url`, `images`, `image_urls`.
+- Image inputs may be:
+  - `data:image/...;base64,...` URLs
+  - raw base64 payloads
+  - remote `http(s)` URLs (fetched and converted to base64 before API call)
 
 ## Streaming
 - Supports server‑sent events from the Messages API.
@@ -40,8 +66,8 @@ const model = anthropicAdapter({ model: 'claude-3-opus-20240229', baseUrl: 'http
 ```ts
 anthropicAdapter({
   model: 'claude-3-5-sonnet-20240620',
-  apiKey?: string,            // default: ANTHROPIC_API_KEY or API_KEY
-  baseUrl?: string,           // default: https://api.anthropic.com (or ANTHROPIC_BASE_URL / BASE_URL)
+  apiKey?: string,            // default: API_KEY
+  baseUrl?: string,           // default: https://api.anthropic.com (or BASE_URL)
   anthropicVersion?: string,  // default: 2023-06-01
   timeout?: number,           // default: 60000 ms
   maxRetries?: number,        // default: 3 (with backoff; 4xx except 429 are not retried)
@@ -50,7 +76,7 @@ anthropicAdapter({
 
 ## Message mapping
 - System messages → `system` string (joined if multiple system messages appear)
-- User messages → `{ role: 'user', content: [{ type: 'text', text }] }`
+- User messages → text blocks and (optionally) image blocks with Anthropic base64 image sources
 - Assistant messages with tool calls → `tool_use` blocks with `{ id, name, input }`
 - Tool messages → user `tool_result` blocks with `{ tool_use_id | name, content }`
 
@@ -133,7 +159,7 @@ Discover what you can do through examples or documentation. Check it out at http
 <details>
 <summary>All examples</summary>
 
-**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [weather](examples/anthropic-weather/README.md)
+**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [vision](examples/anthropic-vision/README.md) · [weather](examples/anthropic-weather/README.md)
 
 **Ollama** — [hello](examples/ollama-hello/README.md) · [stream](examples/ollama-stream/README.md) · [vision](examples/ollama-vision/README.md) · [weather](examples/ollama-weather/README.md) · [web-search](examples/ollama-web-search/README.md)
 

@@ -23,9 +23,9 @@ Demonstrates reasoning model support (o1, o3, ChatGPT 5.1) with preserved reason
 
 ## Environment Variables
 
-- `OPENAI_API_KEY` or `API_KEY` (required)
-- `OPENAI_BASE_URL` or `BASE_URL` (optional, defaults to OpenAI)
-- `OPENAI_MODEL` (default: `gpt-4o`)
+- `API_KEY` (required)
+- `BASE_URL` (optional, defaults to OpenAI)
+- `MODEL` (default: `gpt-4o`)
 - Tracing: `TRACE_JSON=1`, `TRACE_HTML=1`, `TRACE_STYLE=...`
 
 ## Model Configuration Examples
@@ -33,22 +33,22 @@ Demonstrates reasoning model support (o1, o3, ChatGPT 5.1) with preserved reason
 ### Regular OpenAI (Recommended for testing)
 ```bash
 export API_KEY=sk-your-key-here
-export OPENAI_MODEL=gpt-4o  # Has reasoning capabilities
-# OPENAI_BASE_URL is not needed (uses default)
+export MODEL=gpt-4o  # Has reasoning capabilities
+# BASE_URL is not needed (uses default)
 ```
 
 ### OpenAI o1/o3 Series (Advanced reasoning)
 ```bash
 export API_KEY=sk-your-key-here
-export OPENAI_MODEL=o1-preview  # or o1-mini, o3-mini
-# OPENAI_BASE_URL is not needed (uses default)
+export MODEL=o1-preview  # or o1-mini, o3-mini
+# BASE_URL is not needed (uses default)
 ```
 
 ### OpenRouter (ChatGPT 5.1)
 ```bash
-export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export BASE_URL=https://openrouter.ai/api/v1
 export API_KEY=sk-or-v1-xxx
-export OPENAI_MODEL=openai/gpt-5.1
+export MODEL=openai/gpt-5.1
 ```
 
 ## What This Example Shows
@@ -69,9 +69,9 @@ export OPENAI_MODEL=openai/gpt-5.1
 
 ### Error: Missing API Key
 ```
-❌ Error: OPENAI_API_KEY or API_KEY environment variable required
+❌ Error: API_KEY environment variable required
 ```
-**Solution**: Set `OPENAI_API_KEY` in your `.env` file or export it before running.
+**Solution**: Set `API_KEY` in your `.env` file or export it before running.
 
 ### Error: 405/400 Model Not Supported
 ```
@@ -79,7 +79,7 @@ export OPENAI_MODEL=openai/gpt-5.1
 ```
 **Solution**: Verify you're using a reasoning-capable model:
 - o1-preview, o1-mini, o3-preview (OpenAI)
-- gpt-5.1 (via OpenRouter with correct `OPENAI_BASE_URL`)
+- gpt-5.1 (via OpenRouter with correct `BASE_URL`)
 
 ### No Reasoning Details Captured
 ```

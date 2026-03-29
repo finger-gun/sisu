@@ -1,0 +1,30 @@
+{
+  "name": "ollama-rag-vectra",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --import tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist .vectra",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
+  },
+  "dependencies": {
+    "@sisu-ai/core": "workspace:*",
+    "@sisu-ai/adapter-ollama": "workspace:*",
+    "@sisu-ai/mw-conversation-buffer": "workspace:*",
+    "@sisu-ai/mw-trace-viewer": "workspace:*",
+    "@sisu-ai/mw-register-tools": "workspace:*",
+    "@sisu-ai/mw-tool-calling": "workspace:*",
+    "@sisu-ai/rag-core": "workspace:*",
+    "@sisu-ai/tool-rag": "workspace:*",
+    "@sisu-ai/vector-vectra": "workspace:*",
+    "dotenv": "^16.4.5"
+  }
+}

@@ -14,9 +14,9 @@ npm i @sisu-ai/tool-web-search-openai
 ```
 
 Environment
-- `OPENAI_API_KEY` or `API_KEY`: API key (required)
+- `API_KEY`: API key (required)
 - `OPENAI_RESPONSES_BASE_URL`: Base URL for the Responses API. Defaults to `https://api.openai.com`.
-- `OPENAI_BASE_URL` or `BASE_URL`: Fallback base URL if `OPENAI_RESPONSES_BASE_URL` is not set.
+- `BASE_URL`: Fallback base URL if `OPENAI_RESPONSES_BASE_URL` is not set.
 - `OPENAI_RESPONSES_MODEL`: Model to use (default `gpt-4.1-mini`). If missing, the tool will try to infer from the adapter (`openai:<model>`), then fall back to default.
 - `DEBUG_LLM=1`: Logs a redacted request preview and response summary.
 

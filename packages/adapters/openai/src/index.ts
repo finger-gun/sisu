@@ -7,17 +7,15 @@ import type {
   ModelEvent,
   AssistantMessage,
   ToolCall as NormalizedToolCall,
+  EmbedOptions,
+  EmbeddingsProvider,
 } from "@sisu-ai/core";
-import { firstConfigValue } from "@sisu-ai/core";
+import * as core from "@sisu-ai/core";
+import OpenAI from "openai";
 
-export interface EmbedOptions {
-  model?: string;
-  signal?: globalThis.AbortSignal;
-}
+export type { EmbedOptions, EmbeddingsProvider } from "@sisu-ai/core";
 
-export interface EmbeddingsProvider {
-  embed(input: string[], opts?: EmbedOptions): Promise<number[][]>;
-}
+const { firstConfigValue } = core;
 
 // Small typed helpers for parsing OpenAI shapes without using `any`
 type OpenAITool = {
@@ -89,98 +87,180 @@ export interface OpenAIEmbeddingsOptions {
   model?: string;
 }
 
-type OpenAIEmbeddingsResponse = {
+interface CreateEmbeddingsClientOptions {
+  baseUrl: string;
+  model: string;
+  apiKey?: string;
+  path?: string;
+  headers?: Record<string, string>;
+  authHeader?: string;
+  authScheme?: string;
+  clientName?: string;
+  buildBody?: (args: { input: string[]; model: string }) => Record<string, unknown>;
+  parseResponse?: (raw: string) => number[][];
+}
+
+type OpenAICompatibleEmbeddingsResponse = {
   data?: Array<{ embedding?: number[] }>;
 };
+
+type CreateEmbeddingsClientFn = (
+  options: CreateEmbeddingsClientOptions,
+) => EmbeddingsProvider;
+
+function getCreateEmbeddingsClient(): CreateEmbeddingsClientFn {
+  const candidate = (core as Record<string, unknown>).createEmbeddingsClient;
+  if (typeof candidate === "function") {
+    return candidate as CreateEmbeddingsClientFn;
+  }
+  return createEmbeddingsClientFallback;
+}
+
+const createEmbeddingsClient = getCreateEmbeddingsClient();
+
+function resolveBaseUrl(
+  explicitBaseUrl: string | undefined,
+  envBaseUrl: string | undefined,
+  fallback: string,
+): string {
+  const candidate = explicitBaseUrl || envBaseUrl;
+  return (candidate && candidate !== "/" ? candidate : fallback).replace(
+    /\/$/,
+    "",
+  );
+}
 
 export function openAIEmbeddings(
   opts: OpenAIEmbeddingsOptions = {},
 ): EmbeddingsProvider {
   const apiKey =
-    opts.apiKey ?? firstConfigValue(["OPENAI_API_KEY", "API_KEY"]) ?? "";
-  const envBase = firstConfigValue(["OPENAI_BASE_URL", "BASE_URL"]);
-  const baseUrl = (opts.baseUrl ?? envBase ?? "https://api.openai.com").replace(
-    /\/$/,
-    "",
-  );
+    opts.apiKey ?? firstConfigValue(["API_KEY", "OPENAI_API_KEY"]) ?? "";
+  const envBase = firstConfigValue(["BASE_URL", "OPENAI_BASE_URL"]);
+  const baseUrl = resolveBaseUrl(opts.baseUrl, envBase, "https://api.openai.com");
   const defaultModel = opts.model || "text-embedding-3-small";
   if (!apiKey) {
     throw new Error(
-      "[openAIEmbeddings] Missing OPENAI_API_KEY or API_KEY — set it in your environment or pass { apiKey }",
+      "[openAIEmbeddings] Missing API_KEY or OPENAI_API_KEY — set it in your environment or pass { apiKey }",
     );
   }
 
+  return createEmbeddingsClient({
+    apiKey,
+    baseUrl,
+    model: defaultModel,
+    clientName: "openAIEmbeddings",
+  });
+}
+
+function createEmbeddingsClientFallback(
+  options: CreateEmbeddingsClientOptions,
+): EmbeddingsProvider {
+  const clientName = options.clientName ?? "createEmbeddingsClient";
+  if (!options.baseUrl) {
+    throw new Error(`[${clientName}] baseUrl is required`);
+  }
+  const baseUrl = options.baseUrl.replace(/\/$/, "");
+  const path = options.path ?? "/v1/embeddings";
+  const authHeader = options.authHeader ?? "Authorization";
+  const authScheme = options.authScheme ?? "Bearer ";
+
   return {
-    async embed(input: string[], embedOptions?: EmbedOptions): Promise<number[][]> {
+    async embed(input: string[], opts?: EmbedOptions): Promise<number[][]> {
       if (!Array.isArray(input) || input.length === 0) {
-        throw new Error("[openAIEmbeddings] input must contain at least one string");
+        throw new Error(`[${clientName}] input must contain at least one string`);
       }
-      if (embedOptions?.signal?.aborted) {
-        throw new Error("[openAIEmbeddings] embedding request aborted");
+      if (opts?.signal?.aborted) {
+        throw new Error(`[${clientName}] embedding request aborted`);
       }
 
-      const response = await fetch(`${baseUrl}/v1/embeddings`, {
+      const model = opts?.model ?? options.model;
+      if (!model) {
+        throw new Error(`[${clientName}] model is required`);
+      }
+
+      const response = await fetch(`${baseUrl}${path}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          ...(options.apiKey
+            ? { [authHeader]: `${authScheme}${options.apiKey}` }
+            : {}),
+          ...(options.headers ?? {}),
         },
-        body: JSON.stringify({
-          model: embedOptions?.model || defaultModel,
-          input,
-        }),
-        signal: embedOptions?.signal,
+        body: JSON.stringify(
+          options.buildBody?.({ input, model }) ?? {
+            model,
+            input,
+          },
+        ),
+        signal: opts?.signal,
       });
 
       const raw = await response.text();
       if (!response.ok) {
-        let details = raw;
-        try {
-          const parsed = JSON.parse(raw) as { error?: { message?: string } };
-          details = parsed.error?.message || raw;
-        } catch {
-          details = raw;
-        }
         throw new Error(
-          `[openAIEmbeddings] OpenAI API error: ${response.status} ${response.statusText} - ${details}`,
+          `[${clientName}] API error: ${response.status} ${response.statusText} - ${extractEmbeddingsErrorDetails(raw)}`,
         );
       }
 
-      let parsed: OpenAIEmbeddingsResponse;
+      let embeddings: number[][];
       try {
-        parsed = JSON.parse(raw) as OpenAIEmbeddingsResponse;
+        embeddings =
+          options.parseResponse?.(raw) ??
+          parseOpenAICompatibleEmbeddingsResponse(raw);
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "unknown parse error";
+        const message = error instanceof Error ? error.message : "unknown parse error";
         throw new Error(
-          `[openAIEmbeddings] Failed to parse embeddings response: ${message}`,
+          `[${clientName}] Failed to parse embeddings response: ${message}`,
         );
       }
 
-      const embeddings = (parsed.data || []).map((entry) => entry.embedding || []);
       if (embeddings.length !== input.length) {
         throw new Error(
-          `[openAIEmbeddings] Expected ${input.length} embeddings, received ${embeddings.length}`,
+          `[${clientName}] Expected ${input.length} embeddings, received ${embeddings.length}`,
         );
       }
+
       return embeddings;
     },
   };
 }
 
+function parseOpenAICompatibleEmbeddingsResponse(raw: string): number[][] {
+  const parsed = JSON.parse(raw) as OpenAICompatibleEmbeddingsResponse;
+  return (parsed.data ?? []).map((entry) => entry.embedding ?? []);
+}
+
+function extractEmbeddingsErrorDetails(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw) as {
+      error?: { message?: string } | string;
+      message?: string;
+    };
+    if (typeof parsed.error === "string") return parsed.error;
+    if (parsed.error?.message) return parsed.error.message;
+    if (parsed.message) return parsed.message;
+  } catch {
+    return raw;
+  }
+
+  return raw;
+}
+
 export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
   const apiKey =
-    opts.apiKey ?? firstConfigValue(["OPENAI_API_KEY", "API_KEY"]) ?? "";
-  const envBase = firstConfigValue(["OPENAI_BASE_URL", "BASE_URL"]);
-  const baseUrl = (opts.baseUrl ?? envBase ?? "https://api.openai.com").replace(
-    /\/$/,
-    "",
-  );
+    opts.apiKey ?? firstConfigValue(["API_KEY", "OPENAI_API_KEY"]) ?? "";
+  const envBase = firstConfigValue(["BASE_URL", "OPENAI_BASE_URL"]);
+  const baseUrl = resolveBaseUrl(opts.baseUrl, envBase, "https://api.openai.com");
   if (!apiKey)
     throw new Error(
-      "[openAIAdapter] Missing OPENAI_API_KEY or API_KEY — set it in your environment or pass { apiKey }",
+      "[openAIAdapter] Missing API_KEY or OPENAI_API_KEY — set it in your environment or pass { apiKey }",
     );
+  const client = new OpenAI({
+    apiKey,
+    baseURL: `${baseUrl}/v1`,
+  });
   const DEBUG =
     String(process.env.DEBUG_LLM || "").toLowerCase() === "true" ||
     process.env.DEBUG_LLM === "1";
@@ -257,113 +337,50 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
     }
 
     if (genOpts?.stream === true) {
-      // Return an async generator that performs the fetch and yields tokens
       return (async function* () {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok || !res.body) {
-          const err = await res.text();
-          throw new Error(
-            `OpenAI API error: ${res.status} ${res.statusText} — ${String(err).slice(0, 500)}`,
+        try {
+          const stream = await client.chat.completions.create(
+            body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+            { signal: genOpts?.signal },
           );
-        }
-        const decoder = new TextDecoder();
-        let buf = "";
-        let full = "";
-        let reasoningDetails: unknown = undefined;
-        for await (const chunk of res.body as AsyncIterable<
-          Uint8Array | string
-        >) {
-          const piece =
-            typeof chunk === "string"
-              ? chunk
-              : decoder.decode(chunk as Uint8Array);
-          buf += piece;
-          const lines = buf.split("\n");
-          buf = lines.pop() ?? "";
-          for (const line of lines) {
-            const m = line.match(/^data:\s*(.*)/);
-            if (!m) continue;
-            const data = m[1].trim();
-            if (!data) continue;
-            if (data === "[DONE]") {
-              // Graceful end-of-stream sentinel from OpenAI; not JSON.
-              // Do not log parse errors for this case.
-              continue;
+          let full = "";
+          let reasoningDetails: unknown = undefined;
+          for await (const j of stream as AsyncIterable<OpenAIStreamChunk>) {
+            const token = j?.choices?.[0]?.delta?.content;
+            if (typeof token === "string") {
+              full += token;
+              yield { type: "token", token } as ModelEvent;
             }
-            try {
-              const j = JSON.parse(data) as OpenAIStreamChunk;
-              const token = j?.choices?.[0]?.delta?.content;
-              if (typeof token === "string") {
-                full += token;
-                yield { type: "token", token } as ModelEvent;
-              }
-              // Capture reasoning_details if present (typically in final chunk)
-              const msgShape = (
-                j?.choices?.[0] as { message?: OpenAIMessageShape | undefined }
-              )?.message as OpenAIMessageShape | undefined;
-              if (msgShape?.reasoning_details !== undefined) {
-                reasoningDetails = msgShape.reasoning_details;
-              }
-            } catch (e: unknown) {
-              // Some providers may emit non-JSON comment frames; ignore silently unless DEBUG is on
-              if (DEBUG)
-                console.error("[DEBUG_LLM] stream_parse_error", { error: e });
+            const msgShape = (
+              j?.choices?.[0] as { message?: OpenAIMessageShape | undefined }
+            )?.message as OpenAIMessageShape | undefined;
+            if (msgShape?.reasoning_details !== undefined) {
+              reasoningDetails = msgShape.reasoning_details;
             }
           }
+          const finalMessage: AssistantMessage = {
+            role: "assistant",
+            content: full,
+          };
+          if (reasoningDetails !== undefined) {
+            finalMessage.reasoning_details = reasoningDetails;
+          }
+          yield {
+            type: "assistant_message",
+            message: finalMessage,
+          } as ModelEvent;
+        } catch (error) {
+          throw mapOpenAIError(error);
         }
-        const finalMessage: AssistantMessage = {
-          role: "assistant",
-          content: full,
-        };
-        if (reasoningDetails !== undefined) {
-          finalMessage.reasoning_details = reasoningDetails;
-        }
-        yield {
-          type: "assistant_message",
-          message: finalMessage,
-        } as ModelEvent;
       })();
     }
 
     // Non-stream: return a Promise
     return (async () => {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(body),
-      });
-      const raw = await res.text();
-      if (!res.ok) {
-        let details = raw;
-        try {
-          const j = JSON.parse(raw);
-          const errVal = (j as { error?: unknown }).error;
-          details =
-            (errVal && typeof errVal === "object" && "message" in errVal
-              ? (errVal as { message?: string }).message
-              : undefined) ??
-            (typeof errVal === "string" ? errVal : undefined) ??
-            raw;
-        } catch (e) {
-          console.error("[DEBUG_LLM] request_error", { error: e });
-        }
-        throw new Error(
-          `OpenAI API error: ${res.status} ${res.statusText} — ${String(details).slice(0, 500)}`,
-        );
-      }
-      const data = (raw ? JSON.parse(raw) : {}) as OpenAIResponse;
+      const data = (await client.chat.completions.create(
+        body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+        { signal: genOpts?.signal },
+      )) as unknown as OpenAIResponse;
       const choice = data?.choices?.[0];
       const toolCalls: NormalizedToolCall[] | undefined = (() => {
         const msgShape = (choice?.message ?? {}) as OpenAIMessageShape;
@@ -405,7 +422,9 @@ export function openAIAdapter(opts: OpenAIAdapterOptions): LLM {
 
       const usage = mapUsage(data?.usage);
       return { message: msg, ...(usage ? { usage } : {}) };
-    })();
+    })().catch((error) => {
+      throw mapOpenAIError(error);
+    });
   }) as LLM["generate"];
   return {
     name: "openai:" + opts.model,
@@ -478,8 +497,14 @@ function safeJson(s: unknown): unknown {
 function normalizeToolChoice(choice: GenerateOptions["toolChoice"]) {
   if (!choice) return undefined;
   if (choice === "auto" || choice === "none") return choice;
-  // assume specific function name
-  return { type: "function", function: { name: choice } } as const;
+  if (choice === "required") return "required";
+  if (typeof choice === "object" && typeof choice.name === "string") {
+    return { type: "function", function: { name: choice.name } } as const;
+  }
+  if (typeof choice === "string") {
+    return { type: "function", function: { name: choice } } as const;
+  }
+  return undefined;
 }
 
 function normalizeReasoning(reasoning: GenerateOptions["reasoning"]): unknown {
@@ -693,4 +718,27 @@ function mapUsage(u: unknown) {
     completionTokens: typeof completion === "number" ? completion : undefined,
     totalTokens: typeof total === "number" ? total : undefined,
   } as ModelResponse["usage"];
+}
+
+function mapOpenAIError(error: unknown): Error {
+  if (error instanceof Error && error.name === "AbortError") {
+    return error;
+  }
+
+  if (error && typeof error === "object") {
+    const status = (error as { status?: unknown }).status;
+    const name = (error as { name?: unknown }).name;
+    const message =
+      (error as { message?: unknown }).message ??
+      "Unknown error from OpenAI SDK";
+    if (typeof status === "number") {
+      return new Error(
+        `OpenAI API error: ${status} ${typeof name === "string" ? name : "Error"} — ${String(message).slice(0, 500)}`,
+      );
+    }
+  }
+
+  return error instanceof Error
+    ? error
+    : new Error(`OpenAI API error: ${String(error).slice(0, 500)}`);
 }

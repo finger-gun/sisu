@@ -1,5 +1,33 @@
 # @sisu-ai/adapter-anthropic
 
+## 8.1.2
+
+### Patch Changes
+
+- Fix a startup crash in global/`npx` CLI installs caused by adapter imports expecting a newer `@sisu-ai/core` embedding export.
+
+  Adapters now resolve `createEmbeddingsClient` compatibly at runtime and fall back to an internal embeddings client implementation when needed, preventing ESM import-time failures with older published core artifacts.
+
+  CLI gets a patch bump so published dependency versions pull in the fixed adapter releases.
+
+## 8.1.1
+
+### Patch Changes
+
+- 9f6ab75: Improve adapter reliability by migrating provider transport internals to official SDK clients while preserving existing Sisu adapter APIs.
+
+  This update includes better request/response normalization consistency, stronger streaming and tool-calling conformance coverage, improved cancellation handling, and updated adapter migration notes.
+
+## 8.1.0
+
+### Minor Changes
+
+- c5171a1: Add vision input support to the Anthropic adapter.
+
+  You can now send mixed text + image user messages using content parts and convenience image fields (`content`/`contentParts`, `image_url`, `image`, `images`, `image_urls`). The adapter normalizes image inputs (data URLs, base64, and remote URLs) into Anthropic-compatible image blocks while preserving existing tool-calling and text-only behavior.
+
+  This is an additive feature with no required migration changes.
+
 ## 8.0.0
 
 ### Patch Changes
