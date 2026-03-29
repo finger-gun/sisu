@@ -170,21 +170,6 @@ export const getWeather = {
 - **`@sisu-ai/vector-*`** - Vector storage and retrieval
 - **`@sisu-ai/server`** - HTTP server implementation
 
-**Key Middleware:**
-- `mw-trace-viewer` - HTML trace generation
-- `mw-tool-calling` - Function calling support
-- `mw-error-boundary` - Error handling
-- `mw-conversation-buffer` - Message management
-- `mw-guardrails` - Safety constraints
-- `mw-rag` - Retrieval augmented generation
-- `mw-control-flow` - Branching and routing
-
-**Available Tools:**
-- Web: `web-search-*`, `web-fetch`, `extract-urls`
-- Storage: `aws-s3`, `azure-blob`, `vec-chroma`
-- Dev: `terminal`, `github-projects`
-- Text: `summarize-text`, `wikipedia`
-
 ### 12) Release Management & PR Guidelines
 
 **Changeset Workflow:**
@@ -214,10 +199,10 @@ pnpm release            # Publish packages
 **Required for Examples:**
 ```bash
 # OpenAI
-OPENAI_API_KEY=sk-...
+API_KEY=sk-...
 
 # Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
+API_KEY=sk-ant-...
 
 # Optional
 LOG_LEVEL=info          # debug, info, warn, error
