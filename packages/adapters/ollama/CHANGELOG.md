@@ -1,5 +1,13 @@
 # @sisu-ai/adapter-ollama
 
+## 10.0.1
+
+### Patch Changes
+
+- 9f6ab75: Improve adapter reliability by migrating provider transport internals to official SDK clients while preserving existing Sisu adapter APIs.
+
+  This update includes better request/response normalization consistency, stronger streaming and tool-calling conformance coverage, improved cancellation handling, and updated adapter migration notes.
+
 ## 10.0.0
 
 ### Patch Changes
