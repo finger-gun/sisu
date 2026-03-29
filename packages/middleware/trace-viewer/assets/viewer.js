@@ -699,17 +699,20 @@
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'trace.json'; a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
   });
-  $('#copyFullTracePath').addEventListener('click', function () {
-    if (!currentRun || !currentRun.fullTracePath) return;
-    copy(String(currentRun.fullTracePath));
-    var btn = $('#copyFullTracePath');
-    if (!btn) return;
-    btn.classList.remove('copied'); void btn.offsetWidth;
-    btn.classList.add('copied');
-    setTimeout(function () {
-      btn.classList.remove('copied');
-    }, 1200);
-  });
+  var copyFullTracePathBtn = $('#copyFullTracePath');
+  if (copyFullTracePathBtn) {
+    copyFullTracePathBtn.addEventListener('click', function () {
+      if (!currentRun || !currentRun.fullTracePath) return;
+      copy(String(currentRun.fullTracePath));
+      var btn = $('#copyFullTracePath');
+      if (!btn) return;
+      btn.classList.remove('copied'); void btn.offsetWidth;
+      btn.classList.add('copied');
+      setTimeout(function () {
+        btn.classList.remove('copied');
+      }, 1200);
+    });
+  }
 
   // --- Boot: load .js and/or .json listed in runs.js ---
   function dedupeSortRuns() {
