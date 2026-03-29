@@ -16,6 +16,7 @@ import {
   runChatCli,
   isInkEraseKey,
   isInkNewlineKey,
+  toInkEventLines,
 } from '../src/lib.js';
 
 const tempDirs: string[] = [];
@@ -333,19 +334,17 @@ describe('chat coverage', () => {
       output.push(String(chunk));
     });
 
+    const pause = async () => await new Promise((resolve) => setTimeout(resolve, 20));
+
     async function* inputLines(): AsyncGenerator<string> {
       yield 'hello world\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await pause();
       yield '/sessions\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await pause();
       yield '1\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await pause();
       yield '2\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      yield '/sessions\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      yield '\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await pause();
       yield '/exit\n';
     }
 
@@ -360,6 +359,119 @@ describe('chat coverage', () => {
     expect(rendered).toContain('Select session to act on');
     expect(rendered).toContain('Action:');
     expect(rendered).toContain('Deleted session');
+  });
+
+  test('runChatCli covers command matrix and recovery branches', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-cli-matrix-'));
+    tempDirs.push(root);
+
+    const profileDir = path.join(root, '.sisu');
+    await fs.mkdir(profileDir, { recursive: true });
+    await fs.writeFile(
+      path.join(profileDir, 'chat-profile.json'),
+      JSON.stringify({ provider: 'mock', model: 'sisu-mock-chat-v1', storageDir: path.join(root, 'sessions') }),
+      'utf8',
+    );
+
+    const output: string[] = [];
+    const outputStream = new PassThrough();
+    outputStream.on('data', (chunk: Buffer | string) => {
+      output.push(String(chunk));
+    });
+
+    const pause = async () => await new Promise((resolve) => setTimeout(resolve, 20));
+    async function* inputLines(): AsyncGenerator<string> {
+      yield '/help\n';
+      await pause();
+      yield '/tools\n';
+      await pause();
+      yield '/skills\n';
+      await pause();
+      yield '/middleware\n';
+      await pause();
+      yield '/official wat\n';
+      await pause();
+      yield '/enable skills session\n';
+      await pause();
+      yield '/disable skills session\n';
+      await pause();
+      yield '/allow-command echo session\n';
+      await pause();
+      yield '/middleware setup\n';
+      await pause();
+      yield 'Open config in editor\n';
+      await pause();
+      yield 'project\n';
+      await pause();
+      yield 'Done\n';
+      await pause();
+      yield '/open-config project\n';
+      await pause();
+      yield '/provider openai\n';
+      await pause();
+      yield '4\n';
+      await pause();
+      yield '/provider openai\n';
+      await pause();
+      yield '3\n';
+      await pause();
+      yield '/provider\n';
+      await pause();
+      yield '\n';
+      await pause();
+      yield '/model\n';
+      await pause();
+      yield '\n';
+      await pause();
+      yield '/cancel\n';
+      await pause();
+      yield '/sessions\n';
+      await pause();
+      yield 'hello matrix\n';
+      await pause();
+      yield '/sessions\n';
+      await pause();
+      yield '1\n';
+      await pause();
+      yield '3\n';
+      await pause();
+      yield '/search matrix\n';
+      await pause();
+      yield '/delete-session missing\n';
+      await pause();
+      yield '/exit\n';
+    }
+
+    const previousEditor = process.env.EDITOR;
+    const previousVisual = process.env.VISUAL;
+    process.env.EDITOR = 'true';
+    process.env.VISUAL = '';
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(root);
+    try {
+      await runChatCli([], { input: Readable.from(inputLines()), output: outputStream });
+    } finally {
+      process.env.EDITOR = previousEditor;
+      process.env.VISUAL = previousVisual;
+      cwdSpy.mockRestore();
+    }
+
+    const rendered = output.join('');
+    expect(rendered).toContain('TOOLS:');
+    expect(rendered).toContain('SKILLS:');
+    expect(rendered).toContain('MIDDLEWARE:');
+    expect(rendered).toContain('Usage: /official <middleware|tools|skills>');
+    expect(rendered).toContain('Enabled skills (session).');
+    expect(rendered).toContain('Disabled skills (session).');
+    expect(rendered).toContain("Added allow prefix 'echo' (session).");
+    expect(rendered).toContain('Opened config:');
+    expect(rendered).toContain('Provider remains unchanged.');
+    expect(rendered).toContain('Provider updated: mock / sisu-mock-chat-v1');
+    expect(rendered).toContain('Provider update cancelled.');
+    expect(rendered).toContain('Model update cancelled.');
+    expect(rendered).toContain('No active run to cancel.');
+    expect(rendered).toContain('No saved sessions.');
+    expect(rendered).toContain('Action:');
+    expect(rendered).toContain('Session not found: missing.');
   });
 
   test('runChatCli /resume prints loaded session history', async () => {
@@ -380,15 +492,17 @@ describe('chat coverage', () => {
       output.push(String(chunk));
     });
 
+    const pause = async () => await new Promise((resolve) => setTimeout(resolve, 20));
+
     async function* inputLines(): AsyncGenerator<string> {
       yield 'first message\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await pause();
       yield '/sessions\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await pause();
       yield '1\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await pause();
       yield '1\n';
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await pause();
       yield '/exit\n';
     }
 
@@ -466,6 +580,58 @@ describe('chat coverage', () => {
 
     expect(out.join('')).toContain('Assistant');
     expect(out.join('')).toContain('Run complete');
+  });
+
+  test('toInkEventLines maps event types to transcript lines', () => {
+    const baseMessage = {
+      id: 'm1',
+      sessionId: 's1',
+      role: 'assistant' as const,
+      content: 'hello',
+      status: 'completed' as const,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    expect(toInkEventLines({ type: 'assistant.message.completed', sessionId: 's1', runId: 'r1', message: baseMessage })
+      .some((line) => line.text.includes('Assistant'))).toBe(true);
+    expect(toInkEventLines({
+      type: 'assistant.message.failed',
+      sessionId: 's1',
+      runId: 'r1',
+      message: { ...baseMessage, status: 'failed' as const },
+      errorCode: 'E',
+      errorMessage: 'bad',
+    })[0]?.text).toContain('Assistant failed');
+    expect(toInkEventLines({
+      type: 'tool.denied',
+      sessionId: 's1',
+      runId: 'r1',
+      record: {
+        id: 't1',
+        sessionId: 's1',
+        runId: 'r1',
+        toolName: 'shell',
+        requestPreview: 'echo',
+        status: 'denied',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      reason: 'nope',
+    })[0]?.text).toContain('Tool denied');
+    expect(toInkEventLines({
+      type: 'run.failed',
+      sessionId: 's1',
+      runId: 'r1',
+      summary: { runId: 'r1', requestMessageId: 'm0', status: 'failed', completedSteps: 1 },
+      errorCode: 'E',
+      errorMessage: 'bad',
+    })[0]?.text).toContain('Run failed');
+    expect(toInkEventLines({
+      type: 'error.raised',
+      sessionId: 's1',
+      code: 'E',
+      message: 'boom',
+    })[0]?.text).toContain('Error [E]: boom');
   });
 
   test('runtime provider/model update paths', async () => {

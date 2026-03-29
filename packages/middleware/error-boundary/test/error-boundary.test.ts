@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest';
 import type { Ctx } from '@sisu-ai/core';
 import { InMemoryKV, NullStream, SimpleTools, compose } from '@sisu-ai/core';
-import { errorBoundary } from '../src/index.js';
+import { errorBoundary, logAndRethrow, logErrors } from '../src/index.js';
 
 function makeCtx(): Ctx {
   const ac = new AbortController();
@@ -27,3 +27,26 @@ test('errorBoundary catches errors and invokes handler', async () => {
   expect(String(seen[0])).toMatch(/boom/);
 });
 
+test('errorBoundary stores _error details once and does not overwrite existing state', async () => {
+  const ctx = makeCtx();
+  ctx.state._error = { preexisting: true };
+  const onError = async () => {};
+  const boom = async () => { throw new Error('boom-state'); };
+  await compose([errorBoundary(onError as any), boom as any])(ctx);
+  expect(ctx.state._error).toEqual({ preexisting: true });
+});
+
+test('logErrors middleware swallows downstream error after logging', async () => {
+  const ctx = makeCtx();
+  let called = false;
+  ctx.log.error = () => { called = true; };
+  const boom = async () => { throw new Error('boom-log'); };
+  await expect(compose([logErrors(), boom as any])(ctx)).resolves.toBeUndefined();
+  expect(called).toBe(true);
+});
+
+test('logAndRethrow middleware rethrows downstream error', async () => {
+  const ctx = makeCtx();
+  const boom = async () => { throw new Error('boom-rethrow'); };
+  await expect(compose([logAndRethrow(), boom as any])(ctx)).rejects.toThrow('boom-rethrow');
+});

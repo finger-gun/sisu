@@ -1279,9 +1279,15 @@ importers:
       '@sisu-ai/core':
         specifier: workspace:*
         version: link:../../core
+      '@sisu-ai/mw-skills':
+        specifier: workspace:*
+        version: link:../../middleware/skills
       '@sisu-ai/skill-install':
         specifier: workspace:*
         version: link:../../skills/skill-install
+      '@sisu-ai/tool-terminal':
+        specifier: workspace:*
+        version: link:../../tools/terminal
       commander:
         specifier: ^14.0.1
         version: 14.0.3

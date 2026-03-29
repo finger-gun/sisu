@@ -148,3 +148,77 @@ test("openAIWebSearch reads results from content array", async () => {
   const arr = out as Array<{ title?: string }>;
   expect(arr[0]?.title).toBe("B");
 });
+
+test("openAIWebSearch uses deps overrides and falls back to full JSON when no result blocks", async () => {
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    headers: { get: () => "application/json; charset=utf-8" },
+    text: async () => JSON.stringify({ id: "resp_1", output: [] }),
+  } as any);
+
+  const out = await openAIWebSearch.handler(
+    { query: "hello" } as never,
+    makeCtx({
+      openai: {
+        apiKey: "dep-key",
+        responsesBaseUrl: "https://deps.example.com/",
+        responsesModel: "gpt-4.1",
+      },
+    }),
+  );
+
+  expect(out).toEqual({ id: "resp_1", output: [] });
+});
+
+test("openAIWebSearch emits debug diagnostics and throws on repeated fallback failure", async () => {
+  process.env.OPENAI_API_KEY = "k";
+  process.env.OPENAI_RESPONSES_BASE_URL = "https://api.example.com";
+  process.env.DEBUG_LLM = "1";
+
+  const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch" as any)
+    .mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+      headers: { get: () => "application/json" },
+      text: async () => JSON.stringify({ error: { message: "web_search not available" } }),
+    } as any)
+    .mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+      headers: { get: () => "application/json" },
+      text: async () => JSON.stringify({ error: { message: "still bad" } }),
+    } as any);
+
+  const ctx = makeCtx();
+  ctx.model = { name: "openai:not-supported" } as any;
+  await expect(
+    openAIWebSearch.handler({ query: "q" } as never, ctx),
+  ).rejects.toThrow(/still bad/);
+
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(errSpy.mock.calls.some((call) => String(call[0]).includes("[DEBUG_LLM] request"))).toBe(true);
+  expect(errSpy.mock.calls.some((call) => String(call[0]).includes("[DEBUG_LLM] retrying with fallback model"))).toBe(true);
+  expect(logSpy.mock.calls.some((call) => String(call[0]).includes("[DEBUG_LLM] response_ok"))).toBe(false);
+});
+
+test("openAIWebSearch does not retry on non-tool server failures", async () => {
+  process.env.OPENAI_API_KEY = "k";
+  vi.spyOn(globalThis, "fetch" as any).mockResolvedValue({
+    ok: false,
+    status: 500,
+    statusText: "Server Error",
+    headers: { get: () => "application/json" },
+    text: async () => JSON.stringify({ error: { message: "internal" } }),
+  } as any);
+
+  await expect(
+    openAIWebSearch.handler({ query: "q" } as never, makeCtx()),
+  ).rejects.toThrow(/500 Server Error/);
+});

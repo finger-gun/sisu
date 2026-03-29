@@ -1,13 +1,17 @@
 import { spawn } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import fs from 'node:fs/promises';
 import type { Interface as ReadlineInterface } from 'node:readline/promises';
 import { createInterface as createPromisesInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
+import path from 'node:path';
 import type { Writable } from 'node:stream';
 import type { Readable } from 'node:stream';
-import type { LLM, Message, ModelEvent, ModelResponse } from '@sisu-ai/core';
+import type { LLM, Message, ModelEvent, ModelResponse, Tool, ToolChoice, ToolCall } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
 import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
+import { createTerminalTool } from '@sisu-ai/tool-terminal';
 import ora from 'ora';
 import prompts from 'prompts';
 import {
@@ -22,8 +26,16 @@ import { type ChatState, applyChatEvent, createChatState, upsertChatRun } from '
 import {
   type ChatProfile,
   type ChatProviderId,
+  type ProfileLoadOptions,
+  defaultChatProfile,
+  ensureCapabilityDefaults,
   getInstalledOllamaModels,
+  getGlobalProfilePath,
+  getProjectProfilePath,
   loadResolvedProfile,
+  persistAllowCommandPrefix,
+  persistCapabilityOverride,
+  type SkillsScopeConfig,
   suggestedModelForProvider,
   updateProjectProfile,
 } from './profiles.js';
@@ -32,10 +44,33 @@ import { TerminalRenderer } from './renderer.js';
 import { type ToolRequest, evaluateToolRequest } from './tool-policy.js';
 import type { SessionStoreSearchResult } from './session-store.js';
 import { renderMarkdownLines } from './markdown.js';
+import {
+  buildCapabilityRegistry,
+  describeCapabilitySource,
+  enforceLockedCoreMiddleware,
+  isMiddlewareCapability,
+  isLockedMiddlewareCapability,
+  resolveCapabilityState,
+  type CapabilityConfig,
+  type CapabilityEntry,
+  type MiddlewarePipelineEntry,
+} from './capabilities.js';
+import { validateMiddlewareConfig } from './middleware/catalog.js';
+import {
+  listOfficialPackages,
+  type OfficialCapabilityCategory,
+} from './npm-discovery.js';
 
 interface ProviderStreamInput {
   messages: Message[];
   signal: AbortSignal;
+}
+
+interface ProviderGenerateInput {
+  messages: Message[];
+  signal: AbortSignal;
+  tools?: Tool[];
+  toolChoice?: ToolChoice;
 }
 
 interface ProviderStreamEvent {
@@ -46,6 +81,7 @@ interface ProviderStreamEvent {
 export interface ChatProvider {
   id: string;
   streamResponse(input: ProviderStreamInput): AsyncIterable<ProviderStreamEvent>;
+  generateResponse?(input: ProviderGenerateInput): Promise<ModelResponse>;
 }
 
 class MockStreamingProvider implements ChatProvider {
@@ -63,6 +99,16 @@ class MockStreamingProvider implements ChatProvider {
       yield { type: 'delta', text: token };
     }
     yield { type: 'done' };
+  }
+
+  async generateResponse(input: ProviderGenerateInput): Promise<ModelResponse> {
+    const lastUser = [...input.messages].reverse().find((message) => message.role === 'user');
+    return {
+      message: {
+        role: 'assistant',
+        content: `Request processed: ${lastUser?.content || ''}`,
+      },
+    };
   }
 }
 
@@ -122,6 +168,45 @@ class LlmStreamingProvider implements ChatProvider {
     const response = await out as ModelResponse;
     yield { type: 'delta', text: response.message.content };
     yield { type: 'done' };
+  }
+
+  async generateResponse(input: ProviderGenerateInput): Promise<ModelResponse> {
+    const out = this.llm.generate(input.messages, {
+      tools: input.tools,
+      toolChoice: input.toolChoice,
+      signal: input.signal,
+    });
+
+    if (isAsyncIterable<ModelEvent>(out)) {
+      let content = '';
+      let toolCalls: ToolCall[] | undefined;
+      let reasoningDetails: unknown = undefined;
+      for await (const event of out) {
+        if (event.type === 'token') {
+          content += event.token;
+        } else if (event.type === 'tool_call') {
+          toolCalls = [...(toolCalls || []), event.call];
+        } else if (event.type === 'assistant_message') {
+          content = event.message.content || content;
+          if (event.message.tool_calls) {
+            toolCalls = event.message.tool_calls;
+          }
+          if (event.message.reasoning_details !== undefined) {
+            reasoningDetails = event.message.reasoning_details;
+          }
+        }
+      }
+      return {
+        message: {
+          role: 'assistant',
+          content,
+          ...(toolCalls && toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+          ...(reasoningDetails !== undefined ? { reasoning_details: reasoningDetails } : {}),
+        },
+      };
+    }
+
+    return await out as ModelResponse;
   }
 }
 
@@ -225,6 +310,31 @@ function parseToolRequests(prompt: string): ToolRequest[] {
   return requests;
 }
 
+function toObjectArgs(input: unknown): Record<string, unknown> {
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    return input as Record<string, unknown>;
+  }
+  if (typeof input === 'string') {
+    try {
+      const parsed = JSON.parse(input) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function stringifyToolResult(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 async function runShellCommand(command: string, signal: AbortSignal, cwd: string): Promise<{ exitCode: number; output: string }> {
   return await new Promise((resolve, reject) => {
     const child = spawn(command, { cwd, shell: true, signal, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -272,6 +382,26 @@ export interface ChatRuntimeOptions {
   now?: () => Date;
   sessionId?: string;
   confirmToolExecution?: (request: ToolRequest, reason: string) => Promise<boolean>;
+  knownCapabilityIds?: string[];
+}
+
+type CapabilityScopeTarget = 'session' | 'project' | 'global';
+
+interface ListedCapability {
+  id: string;
+  type: 'tool' | 'skill' | 'middleware';
+  enabled: boolean;
+  source: string;
+  overridden: boolean;
+  lockedCore: boolean;
+  description?: string;
+}
+
+function parseScopeTarget(value: string | undefined): CapabilityScopeTarget | undefined {
+  if (value === 'session' || value === 'project' || value === 'global') {
+    return value;
+  }
+  return undefined;
 }
 
 export class ChatRuntime {
@@ -301,6 +431,39 @@ export class ChatRuntime {
 
   private lastSessionTitle = 'CLI Chat Session';
 
+  private capabilityRegistry: Map<string, CapabilityEntry>;
+
+  private capabilityDiagnostics: string[];
+
+  private readonly globalProfilePath: string;
+
+  private readonly projectProfilePath: string;
+
+  private readonly terminalTool: ReturnType<typeof createTerminalTool>;
+
+  private sessionCapabilityOverrides: CapabilityConfig = {};
+
+  private validateMiddlewarePipelineOrThrow(
+    pipeline: MiddlewarePipelineEntry[],
+    context: 'startup' | 'update',
+  ): void {
+    const unknown = pipeline
+      .map((entry) => entry.id)
+      .filter((id) => !this.capabilityRegistry.has(id) || !isMiddlewareCapability(id));
+    if (unknown.length > 0) {
+      const code = context === 'startup' ? 'E6512' : 'E6509';
+      throw new Error(`${code}: Unknown middleware pipeline entries: ${unknown.join(', ')}`);
+    }
+
+    for (const entry of pipeline) {
+      const issues = validateMiddlewareConfig(entry.id, entry.config || {});
+      if (issues.length > 0) {
+        const code = context === 'startup' ? 'E6513' : 'E6514';
+        throw new Error(`${code}: ${issues.join(' ')}`);
+      }
+    }
+  }
+
   private constructor(options: {
     profile: ChatProfile;
     state: ChatState;
@@ -312,6 +475,11 @@ export class ChatRuntime {
     cwd: string;
     now: () => Date;
     confirmToolExecution: (request: ToolRequest, reason: string) => Promise<boolean>;
+    capabilityRegistry: Map<string, CapabilityEntry>;
+    capabilityDiagnostics: string[];
+    globalProfilePath: string;
+    projectProfilePath: string;
+    terminalTool: ReturnType<typeof createTerminalTool>;
   }) {
     this.profile = options.profile;
     this.sessionStore = options.sessionStore;
@@ -323,11 +491,19 @@ export class ChatRuntime {
     this.now = options.now;
     this.state = options.state;
     this.confirmToolExecution = options.confirmToolExecution;
+    this.capabilityRegistry = options.capabilityRegistry;
+    this.capabilityDiagnostics = options.capabilityDiagnostics;
+    this.globalProfilePath = options.globalProfilePath;
+    this.projectProfilePath = options.projectProfilePath;
+    this.terminalTool = options.terminalTool;
   }
 
   static async create(options?: ChatRuntimeOptions): Promise<ChatRuntime> {
     const cwd = options?.cwd || process.cwd();
-    const profile = options?.profile || (await loadResolvedProfile({ cwd }));
+    const knownCapabilityIds = options?.knownCapabilityIds;
+    let profile = options?.profile || (await loadResolvedProfile({ cwd, knownCapabilityIds }));
+    let capabilities = ensureCapabilityDefaults(profile, { cwd });
+    profile.capabilities = capabilities;
     const sessionStore = options?.sessionStore || new FileSessionStore(profile.storageDir);
     const now = options?.now || (() => new Date());
     const state = createChatState(options?.sessionId || createId('session'), isoNow(now));
@@ -346,7 +522,23 @@ export class ChatRuntime {
       }
     }
 
-    return new ChatRuntime({
+    const registryBuild = await buildCapabilityRegistry({
+      cwd,
+      skillDirectories: capabilities.skills.directories,
+    });
+
+    if (!options?.profile && !knownCapabilityIds) {
+      const resolvedWithKnown = await loadResolvedProfile({
+        cwd,
+        knownCapabilityIds: [...registryBuild.registry.keys()],
+      } as ProfileLoadOptions);
+      profile = resolvedWithKnown;
+      capabilities = ensureCapabilityDefaults(profile, { cwd });
+      profile.capabilities = capabilities;
+    }
+
+    const diagnostics = registryBuild.skillDiagnostics.map((entry) => `${entry.path}: ${entry.error}`);
+    const runtime = new ChatRuntime({
       profile,
       state,
       sessionStore,
@@ -357,11 +549,280 @@ export class ChatRuntime {
       cwd,
       now,
       confirmToolExecution: confirm,
+      capabilityRegistry: registryBuild.registry,
+      capabilityDiagnostics: diagnostics,
+      globalProfilePath: getGlobalProfilePath(),
+      projectProfilePath: getProjectProfilePath(cwd),
+      terminalTool: createTerminalTool({
+        roots: [cwd],
+        allowPipe: true,
+        allowSequence: true,
+      }),
     });
+    runtime.validateMiddlewarePipelineOrThrow(runtime.listMiddlewarePipeline(), 'startup');
+    return runtime;
   }
 
   getProviderStartupError(): string | undefined {
     return this.providerStartupError;
+  }
+
+  private effectiveCapabilities(): ReturnType<typeof resolveCapabilityState> {
+    const defaults = ensureCapabilityDefaults(defaultChatProfile({ cwd: this.cwd }));
+    const profileCaps = ensureCapabilityDefaults(this.profile, { cwd: this.cwd });
+    const state = resolveCapabilityState({
+      defaults,
+      project: profileCaps,
+      session: this.sessionCapabilityOverrides,
+    });
+    this.validateMiddlewarePipelineOrThrow(state.middlewarePipeline, 'startup');
+    enforceLockedCoreMiddleware(state.middlewarePipeline, state.enabled);
+    return state;
+  }
+
+  getCapabilityDiagnostics(): string[] {
+    return [...this.capabilityDiagnostics];
+  }
+
+  listCapabilities(type?: 'tool' | 'skill' | 'middleware'): ListedCapability[] {
+    const effective = this.effectiveCapabilities();
+    const defaults = ensureCapabilityDefaults(defaultChatProfile({ cwd: this.cwd }), { cwd: this.cwd });
+    const defaultState = resolveCapabilityState({ defaults });
+    return [...this.capabilityRegistry.values()]
+      .filter((entry) => !type || entry.type === type)
+      .map((entry) => ({
+        id: entry.id,
+        type: entry.type,
+        enabled: effective.enabled.has(entry.id) && !effective.disabled.has(entry.id),
+        source: describeCapabilitySource(entry.source),
+        overridden:
+          (effective.enabled.has(entry.id) && !effective.disabled.has(entry.id))
+          !== (defaultState.enabled.has(entry.id) && !defaultState.disabled.has(entry.id)),
+        lockedCore: Boolean(entry.lockedCore),
+        description: entry.description,
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }
+
+  isCapabilityEnabled(capabilityId: string): boolean {
+    const effective = this.effectiveCapabilities();
+    return effective.enabled.has(capabilityId) && !effective.disabled.has(capabilityId);
+  }
+
+  listAllowCommandPrefixes(): string[] {
+    return [...this.profile.toolPolicy.allowCommandPrefixes];
+  }
+
+  private ensureCapabilityExists(capabilityId: string): CapabilityEntry {
+    const found = this.capabilityRegistry.get(capabilityId);
+    if (!found) {
+      throw new Error(`E6505: Unknown capability '${capabilityId}'.`);
+    }
+    return found;
+  }
+
+  private applySessionCapabilityOverride(
+    capabilityId: string,
+    enabled: boolean,
+    type: 'tool' | 'skill' | 'middleware',
+  ): void {
+    const key = type === 'tool' ? 'tools' : type === 'skill' ? 'skills' : 'middleware';
+    const current = this.sessionCapabilityOverrides[key] || {};
+    const nextEnabled = new Set(current.enabled || []);
+    const nextDisabled = new Set(current.disabled || []);
+
+    if (enabled) {
+      nextEnabled.add(capabilityId);
+      nextDisabled.delete(capabilityId);
+    } else {
+      nextDisabled.add(capabilityId);
+      nextEnabled.delete(capabilityId);
+    }
+
+    this.sessionCapabilityOverrides = {
+      ...this.sessionCapabilityOverrides,
+      [key]: {
+        ...current,
+        enabled: [...nextEnabled],
+        disabled: [...nextDisabled],
+      },
+    };
+  }
+
+  async setCapabilityEnabled(
+    capabilityId: string,
+    enabled: boolean,
+    scope: CapabilityScopeTarget,
+  ): Promise<{ profile?: ChatProfile; targetPath?: string }> {
+    const capability = this.ensureCapabilityExists(capabilityId);
+    if (capability.lockedCore && !enabled) {
+      throw new Error(`E6506: Locked core capability '${capabilityId}' cannot be disabled.`);
+    }
+
+    if (scope === 'session') {
+      this.applySessionCapabilityOverride(capabilityId, enabled, capability.type);
+      this.effectiveCapabilities();
+      return {};
+    }
+
+    const key = capability.type === 'tool' ? 'tools' : capability.type === 'skill' ? 'skills' : 'middleware';
+    const profile = await persistCapabilityOverride(
+      {
+        [key]: {
+          enabled: enabled ? [capabilityId] : [],
+          disabled: enabled ? [] : [capabilityId],
+        },
+      },
+      scope,
+      { cwd: this.cwd, knownCapabilityIds: [...this.capabilityRegistry.keys()] },
+    );
+    profile.capabilities = ensureCapabilityDefaults(profile, { cwd: this.cwd });
+    this.profile = profile;
+    return {
+      profile,
+      targetPath: scope === 'global' ? this.globalProfilePath : this.projectProfilePath,
+    };
+  }
+
+  listMiddlewarePipeline(): MiddlewarePipelineEntry[] {
+    return this.effectiveCapabilities().middlewarePipeline;
+  }
+
+  getMiddlewareStartupSummary(): string {
+    const pipeline = this.listMiddlewarePipeline();
+    if (pipeline.length === 0) {
+      return 'No middleware configured.';
+    }
+    const enabled = pipeline
+      .filter((entry) => entry.enabled !== false)
+      .map((entry) => entry.id);
+    return `Middleware pipeline: ${enabled.join(' -> ')}`;
+  }
+
+  async setMiddlewarePipeline(
+    pipeline: MiddlewarePipelineEntry[],
+    scope: CapabilityScopeTarget,
+  ): Promise<{ targetPath?: string }> {
+    this.validateMiddlewarePipelineOrThrow(pipeline, 'update');
+
+    if (scope === 'session') {
+      this.sessionCapabilityOverrides = {
+        ...this.sessionCapabilityOverrides,
+        middleware: {
+          ...(this.sessionCapabilityOverrides.middleware || {}),
+          pipeline,
+        },
+      };
+      this.effectiveCapabilities();
+      return {};
+    }
+
+    const profile = await persistCapabilityOverride(
+      { middleware: { pipeline } },
+      scope,
+      { cwd: this.cwd, knownCapabilityIds: [...this.capabilityRegistry.keys()] },
+    );
+    profile.capabilities = ensureCapabilityDefaults(profile, { cwd: this.cwd });
+    this.profile = profile;
+    return { targetPath: scope === 'global' ? this.globalProfilePath : this.projectProfilePath };
+  }
+
+  async setMiddlewareConfig(
+    middlewareId: string,
+    config: Record<string, unknown>,
+    scope: CapabilityScopeTarget,
+  ): Promise<{ targetPath?: string }> {
+    const pipeline = this.listMiddlewarePipeline();
+    const nextPipeline = pipeline.map((entry) => (
+      entry.id === middlewareId
+        ? { ...entry, config: { ...config } }
+        : entry
+    ));
+    if (!nextPipeline.some((entry) => entry.id === middlewareId)) {
+      nextPipeline.push({ id: middlewareId, enabled: true, config: { ...config } });
+    }
+    return await this.setMiddlewarePipeline(nextPipeline, scope);
+  }
+
+  async setSkillDirectories(
+    directories: string[],
+    scope: Exclude<CapabilityScopeTarget, 'session'>,
+  ): Promise<{ targetPath?: string }> {
+    const current = ensureCapabilityDefaults(this.profile, { cwd: this.cwd }).skills;
+    const nextSkills: SkillsScopeConfig = {
+      enabled: current.enabled,
+      disabled: current.disabled,
+      directories,
+    };
+    const profile = await persistCapabilityOverride(
+      { skills: nextSkills },
+      scope,
+      { cwd: this.cwd, knownCapabilityIds: [...this.capabilityRegistry.keys()] },
+    );
+    profile.capabilities = ensureCapabilityDefaults(profile, { cwd: this.cwd });
+    this.profile = profile;
+    const rebuilt = await buildCapabilityRegistry({ cwd: this.cwd, skillDirectories: directories });
+    this.capabilityRegistry = rebuilt.registry;
+    this.capabilityDiagnostics = rebuilt.skillDiagnostics.map((entry) => `${entry.path}: ${entry.error}`);
+    return { targetPath: scope === 'global' ? this.globalProfilePath : this.projectProfilePath };
+  }
+
+  async listOfficialCapabilityPackages(category: OfficialCapabilityCategory): Promise<Awaited<ReturnType<typeof listOfficialPackages>>> {
+    return await listOfficialPackages(category);
+  }
+
+  async addAllowCommandPrefix(
+    prefix: string,
+    scope: CapabilityScopeTarget,
+  ): Promise<{ targetPath?: string; profile?: ChatProfile }> {
+    if (scope === 'session') {
+      const merged = [...new Set([...this.profile.toolPolicy.allowCommandPrefixes, prefix])];
+      this.profile = {
+        ...this.profile,
+        toolPolicy: {
+          ...this.profile.toolPolicy,
+          allowCommandPrefixes: merged,
+        },
+      };
+      return {};
+    }
+
+    const profile = await persistAllowCommandPrefix(prefix, scope, {
+      cwd: this.cwd,
+      knownCapabilityIds: [...this.capabilityRegistry.keys()],
+    });
+    profile.capabilities = ensureCapabilityDefaults(profile, { cwd: this.cwd });
+    this.profile = profile;
+    return {
+      profile,
+      targetPath: scope === 'global' ? this.globalProfilePath : this.projectProfilePath,
+    };
+  }
+
+  async openConfigInEditor(scope: Exclude<CapabilityScopeTarget, 'session'>): Promise<string> {
+    const target = scope === 'global' ? this.globalProfilePath : this.projectProfilePath;
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    try {
+      await fs.access(target);
+    } catch {
+      await fs.writeFile(target, '{}\n', 'utf8');
+    }
+
+    const editor = process.env.VISUAL || process.env.EDITOR;
+    if (!editor) {
+      throw new Error('E6510: Set $EDITOR or $VISUAL to open config in editor.');
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      execFile(editor, [target], (error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+    return target;
   }
 
   async setProvider(provider: ChatProviderId): Promise<ChatProfile> {
@@ -543,6 +1004,349 @@ export class ChatRuntime {
     return await this.confirmToolExecution(request, reason);
   }
 
+  private getTerminalTools(): Tool[] {
+    const effective = this.effectiveCapabilities();
+    const enabled = effective.enabled.has('terminal') && !effective.disabled.has('terminal');
+    if (!enabled) {
+      return [];
+    }
+    return [...this.terminalTool.tools];
+  }
+
+  private async executeTerminalToolCall(
+    run: ChatRun,
+    call: ToolCall,
+    signal: AbortSignal,
+    toolStepIndex: number,
+  ): Promise<Message> {
+    const callId = call.id || createId('toolcall');
+    const args = toObjectArgs(call.arguments);
+    const requestCommand = call.name === 'terminalRun'
+      ? (typeof args.command === 'string' ? args.command : '')
+      : call.name === 'terminalCd'
+        ? `cd ${typeof args.path === 'string' ? args.path : '.'}`
+        : `cat ${typeof args.path === 'string' ? args.path : ''}`;
+    const step = `Execute tool step ${toolStepIndex}`;
+    this.emit({ type: 'run.step.started', sessionId: this.state.sessionId, runId: run.id, step });
+
+    const request = {
+      id: callId,
+      toolName: 'shell' as const,
+      command: requestCommand.slice(0, 2000),
+    };
+    const pendingRecord: ToolExecutionRecord = {
+      id: request.id,
+      sessionId: this.state.sessionId,
+      runId: run.id,
+      toolName: call.name,
+      requestPreview: request.command.slice(0, 140),
+      status: 'pending',
+      createdAt: isoNow(this.now),
+      updatedAt: isoNow(this.now),
+    };
+    this.emit({ type: 'tool.pending', sessionId: this.state.sessionId, runId: run.id, record: pendingRecord });
+
+    const decision = evaluateToolRequest(request, this.profile.toolPolicy);
+    if (decision.action === 'deny') {
+      const deniedRecord: ToolExecutionRecord = {
+        ...pendingRecord,
+        status: 'denied',
+        denialReason: decision.reason,
+        updatedAt: isoNow(this.now),
+        completedAt: isoNow(this.now),
+      };
+      this.emit({ type: 'tool.denied', sessionId: this.state.sessionId, runId: run.id, record: deniedRecord, reason: decision.reason });
+      run.stepSummaries.push(`${step} (denied)`);
+      this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+      return {
+        role: 'tool',
+        tool_call_id: callId,
+        name: call.name,
+        content: stringifyToolResult({ error: decision.reason }),
+      };
+    }
+
+    if (decision.action === 'confirm') {
+      const confirmed = await this.maybeConfirmTool(request, decision.reason);
+      if (!confirmed) {
+        const deniedRecord: ToolExecutionRecord = {
+          ...pendingRecord,
+          status: 'denied',
+          denialReason: 'User denied action.',
+          updatedAt: isoNow(this.now),
+          completedAt: isoNow(this.now),
+        };
+        this.emit({ type: 'tool.denied', sessionId: this.state.sessionId, runId: run.id, record: deniedRecord, reason: 'User denied action.' });
+        run.stepSummaries.push(`${step} (user-denied)`);
+        this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+        return {
+          role: 'tool',
+          tool_call_id: callId,
+          name: call.name,
+          content: stringifyToolResult({ error: 'User denied action.' }),
+        };
+      }
+    }
+
+    const runningRecord: ToolExecutionRecord = {
+      ...pendingRecord,
+      status: 'running',
+      startedAt: isoNow(this.now),
+      updatedAt: isoNow(this.now),
+    };
+    this.emit({ type: 'tool.running', sessionId: this.state.sessionId, runId: run.id, record: runningRecord });
+
+    let toolResult: unknown;
+    try {
+      if (call.name === 'terminalRun') {
+        toolResult = await this.terminalTool.run_command({
+          command: typeof args.command === 'string' ? args.command : '',
+          cwd: typeof args.cwd === 'string' ? args.cwd : undefined,
+          env: args.env && typeof args.env === 'object' && !Array.isArray(args.env)
+            ? Object.fromEntries(Object.entries(args.env as Record<string, unknown>).filter(([, v]) => typeof v === 'string')) as Record<string, string>
+            : undefined,
+          stdin: typeof args.stdin === 'string' ? args.stdin : undefined,
+          sessionId: typeof args.sessionId === 'string' ? args.sessionId : undefined,
+        });
+      } else if (call.name === 'terminalCd') {
+        toolResult = this.terminalTool.cd({
+          path: typeof args.path === 'string' ? args.path : '.',
+          sessionId: typeof args.sessionId === 'string' ? args.sessionId : undefined,
+        });
+      } else if (call.name === 'terminalReadFile') {
+        toolResult = await this.terminalTool.read_file({
+          path: typeof args.path === 'string' ? args.path : '',
+          encoding: args.encoding === 'base64' ? 'base64' : 'utf8',
+          sessionId: typeof args.sessionId === 'string' ? args.sessionId : undefined,
+        });
+      } else {
+        throw new Error(`Unsupported tool '${call.name}'.`);
+      }
+    } catch (error) {
+      if (signal.aborted) {
+        const cancelledRecord: ToolExecutionRecord = {
+          ...runningRecord,
+          status: 'cancelled',
+          updatedAt: isoNow(this.now),
+          completedAt: isoNow(this.now),
+        };
+        this.emit({ type: 'tool.cancelled', sessionId: this.state.sessionId, runId: run.id, record: cancelledRecord });
+        throw new Error('RUN_CANCELLED');
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      const failedRecord: ToolExecutionRecord = {
+        ...runningRecord,
+        status: 'failed',
+        updatedAt: isoNow(this.now),
+        completedAt: isoNow(this.now),
+        exitCode: -1,
+        outputPreview: message,
+      };
+      this.emit({
+        type: 'tool.failed',
+        sessionId: this.state.sessionId,
+        runId: run.id,
+        record: failedRecord,
+        errorCode: 'TOOL_EXECUTION_FAILED',
+        errorMessage: message,
+      });
+      run.stepSummaries.push(`${step} (failed)`);
+      this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+      return {
+        role: 'tool',
+        tool_call_id: callId,
+        name: call.name,
+        content: stringifyToolResult({ error: message }),
+      };
+    }
+
+    const resultText = stringifyToolResult(toolResult);
+    const completedRecord: ToolExecutionRecord = {
+      ...runningRecord,
+      status: 'completed',
+      updatedAt: isoNow(this.now),
+      completedAt: isoNow(this.now),
+      exitCode: 0,
+      outputPreview: resultText.slice(0, 4000),
+    };
+    this.emit({ type: 'tool.completed', sessionId: this.state.sessionId, runId: run.id, record: completedRecord });
+    run.stepSummaries.push(step);
+    this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+
+    return {
+      role: 'tool',
+      tool_call_id: callId,
+      name: call.name,
+      content: resultText,
+    };
+  }
+
+  private async generateAssistantResponse(input: {
+    messages: Message[];
+    signal: AbortSignal;
+    tools?: Tool[];
+    toolChoice?: ToolChoice;
+  }): Promise<ModelResponse> {
+    if (this.provider.generateResponse) {
+      return await this.provider.generateResponse(input);
+    }
+
+    let content = '';
+    for await (const event of this.provider.streamResponse({
+      messages: input.messages,
+      signal: input.signal,
+    })) {
+      if (input.signal.aborted) {
+        throw new Error('RUN_CANCELLED');
+      }
+      if (event.type === 'delta' && event.text) {
+        const delta = computeNovelStreamDelta(content, event.text);
+        if (delta) {
+          content += delta;
+        }
+      }
+    }
+    return { message: { role: 'assistant', content } };
+  }
+
+  private async runExplicitToolRequests(
+    run: ChatRun,
+    requests: ToolRequest[],
+    signal: AbortSignal,
+  ): Promise<string[]> {
+    const toolOutputs: string[] = [];
+    const effective = this.effectiveCapabilities();
+    const shellToolEnabled = effective.enabled.has('terminal') && !effective.disabled.has('terminal');
+
+    for (let index = 0; index < requests.length; index += 1) {
+      const request = requests[index];
+      const step = `Execute tool step ${index + 1}`;
+      this.emit({ type: 'run.step.started', sessionId: this.state.sessionId, runId: run.id, step });
+
+      const pendingRecord: ToolExecutionRecord = {
+        id: request.id,
+        sessionId: this.state.sessionId,
+        runId: run.id,
+        toolName: request.toolName,
+        requestPreview: request.command.slice(0, 140),
+        status: 'pending',
+        createdAt: isoNow(this.now),
+        updatedAt: isoNow(this.now),
+      };
+
+      this.emit({ type: 'tool.pending', sessionId: this.state.sessionId, runId: run.id, record: pendingRecord });
+
+      if (!shellToolEnabled) {
+        const deniedRecord: ToolExecutionRecord = {
+          ...pendingRecord,
+          status: 'denied',
+          denialReason: "Capability 'terminal' is disabled.",
+          updatedAt: isoNow(this.now),
+          completedAt: isoNow(this.now),
+        };
+        this.emit({
+          type: 'tool.denied',
+          sessionId: this.state.sessionId,
+          runId: run.id,
+          record: deniedRecord,
+          reason: "Capability 'terminal' is disabled.",
+        });
+        run.stepSummaries.push(`${step} (disabled-capability)`);
+        this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+        continue;
+      }
+
+      const decision = evaluateToolRequest(request, this.profile.toolPolicy);
+      if (decision.action === 'deny') {
+        const deniedRecord: ToolExecutionRecord = {
+          ...pendingRecord,
+          status: 'denied',
+          denialReason: decision.reason,
+          updatedAt: isoNow(this.now),
+          completedAt: isoNow(this.now),
+        };
+        this.emit({ type: 'tool.denied', sessionId: this.state.sessionId, runId: run.id, record: deniedRecord, reason: decision.reason });
+        run.stepSummaries.push(`${step} (denied)`);
+        this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+        continue;
+      }
+
+      if (decision.action === 'confirm') {
+        const confirmed = await this.maybeConfirmTool(request, decision.reason);
+        if (!confirmed) {
+          const deniedRecord: ToolExecutionRecord = {
+            ...pendingRecord,
+            status: 'denied',
+            denialReason: 'User denied action.',
+            updatedAt: isoNow(this.now),
+            completedAt: isoNow(this.now),
+          };
+          this.emit({ type: 'tool.denied', sessionId: this.state.sessionId, runId: run.id, record: deniedRecord, reason: 'User denied action.' });
+          run.stepSummaries.push(`${step} (user-denied)`);
+          this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+          continue;
+        }
+      }
+
+      const runningRecord: ToolExecutionRecord = {
+        ...pendingRecord,
+        status: 'running',
+        startedAt: isoNow(this.now),
+        updatedAt: isoNow(this.now),
+      };
+      this.emit({ type: 'tool.running', sessionId: this.state.sessionId, runId: run.id, record: runningRecord });
+
+      const result = await runShellCommand(request.command, signal, this.cwd);
+      if (signal.aborted) {
+        const cancelledRecord: ToolExecutionRecord = {
+          ...runningRecord,
+          status: 'cancelled',
+          updatedAt: isoNow(this.now),
+          completedAt: isoNow(this.now),
+        };
+        this.emit({ type: 'tool.cancelled', sessionId: this.state.sessionId, runId: run.id, record: cancelledRecord });
+        throw new Error('RUN_CANCELLED');
+      }
+
+      if (result.exitCode !== 0) {
+        const failedRecord: ToolExecutionRecord = {
+          ...runningRecord,
+          status: 'failed',
+          updatedAt: isoNow(this.now),
+          completedAt: isoNow(this.now),
+          exitCode: result.exitCode,
+          outputPreview: result.output,
+        };
+        this.emit({
+          type: 'tool.failed',
+          sessionId: this.state.sessionId,
+          runId: run.id,
+          record: failedRecord,
+          errorCode: 'TOOL_EXIT_NON_ZERO',
+          errorMessage: result.output || `Command exited with code ${result.exitCode}`,
+        });
+        toolOutputs.push(`Tool failed (${request.command}): ${result.output || `exit ${result.exitCode}`}`);
+        run.stepSummaries.push(`${step} (failed)`);
+      } else {
+        const completedRecord: ToolExecutionRecord = {
+          ...runningRecord,
+          status: 'completed',
+          updatedAt: isoNow(this.now),
+          completedAt: isoNow(this.now),
+          exitCode: result.exitCode,
+          outputPreview: result.output,
+        };
+        this.emit({ type: 'tool.completed', sessionId: this.state.sessionId, runId: run.id, record: completedRecord });
+        toolOutputs.push(`Tool output (${request.command}): ${result.output || '<no output>'}`);
+        run.stepSummaries.push(step);
+      }
+      this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+    }
+
+    return toolOutputs;
+  }
+
   async runPrompt(prompt: string): Promise<ChatCommandResult> {
     const nowIso = isoNow(this.now);
     this.lastSessionTitle = prompt.slice(0, 80) || this.lastSessionTitle;
@@ -588,7 +1392,6 @@ export class ChatRuntime {
     const signal = this.activeAbortController.signal;
 
     const toolRequests = parseToolRequests(prompt);
-    const toolOutputs: string[] = [];
 
     try {
       const analyzeStep = 'Analyze request';
@@ -596,134 +1399,86 @@ export class ChatRuntime {
       run.stepSummaries.push(analyzeStep);
       this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step: analyzeStep });
 
-      for (let index = 0; index < toolRequests.length; index += 1) {
-        const request = toolRequests[index];
-        const step = `Execute tool step ${index + 1}`;
-        this.emit({ type: 'run.step.started', sessionId: this.state.sessionId, runId: run.id, step });
-
-        const pendingRecord: ToolExecutionRecord = {
-          id: request.id,
-          sessionId: this.state.sessionId,
-          runId: run.id,
-          toolName: request.toolName,
-          requestPreview: request.command.slice(0, 140),
-          status: 'pending',
-          createdAt: isoNow(this.now),
-          updatedAt: isoNow(this.now),
-        };
-
-        this.emit({ type: 'tool.pending', sessionId: this.state.sessionId, runId: run.id, record: pendingRecord });
-
-        const decision = evaluateToolRequest(request, this.profile.toolPolicy);
-        if (decision.action === 'deny') {
-          const deniedRecord: ToolExecutionRecord = {
-            ...pendingRecord,
-            status: 'denied',
-            denialReason: decision.reason,
-            updatedAt: isoNow(this.now),
-            completedAt: isoNow(this.now),
-          };
-          this.emit({ type: 'tool.denied', sessionId: this.state.sessionId, runId: run.id, record: deniedRecord, reason: decision.reason });
-          run.stepSummaries.push(`${step} (denied)`);
-          this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
-          continue;
-        }
-
-        if (decision.action === 'confirm') {
-          const confirmed = await this.maybeConfirmTool(request, decision.reason);
-          if (!confirmed) {
-            const deniedRecord: ToolExecutionRecord = {
-              ...pendingRecord,
-              status: 'denied',
-              denialReason: 'User denied action.',
-              updatedAt: isoNow(this.now),
-              completedAt: isoNow(this.now),
-            };
-            this.emit({ type: 'tool.denied', sessionId: this.state.sessionId, runId: run.id, record: deniedRecord, reason: 'User denied action.' });
-            run.stepSummaries.push(`${step} (user-denied)`);
-            this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
-            continue;
-          }
-        }
-
-        const runningRecord: ToolExecutionRecord = {
-          ...pendingRecord,
-          status: 'running',
-          startedAt: isoNow(this.now),
-          updatedAt: isoNow(this.now),
-        };
-        this.emit({ type: 'tool.running', sessionId: this.state.sessionId, runId: run.id, record: runningRecord });
-
-        const result = await runShellCommand(request.command, signal, this.cwd);
-        if (signal.aborted) {
-          const cancelledRecord: ToolExecutionRecord = {
-            ...runningRecord,
-            status: 'cancelled',
-            updatedAt: isoNow(this.now),
-            completedAt: isoNow(this.now),
-          };
-          this.emit({ type: 'tool.cancelled', sessionId: this.state.sessionId, runId: run.id, record: cancelledRecord });
-          throw new Error('RUN_CANCELLED');
-        }
-
-        if (result.exitCode !== 0) {
-          const failedRecord: ToolExecutionRecord = {
-            ...runningRecord,
-            status: 'failed',
-            updatedAt: isoNow(this.now),
-            completedAt: isoNow(this.now),
-            exitCode: result.exitCode,
-            outputPreview: result.output,
-          };
-          this.emit({
-            type: 'tool.failed',
-            sessionId: this.state.sessionId,
-            runId: run.id,
-            record: failedRecord,
-            errorCode: 'TOOL_EXIT_NON_ZERO',
-            errorMessage: result.output || `Command exited with code ${result.exitCode}`,
-          });
-          toolOutputs.push(`Tool failed (${request.command}): ${result.output || `exit ${result.exitCode}`}`);
-          run.stepSummaries.push(`${step} (failed)`);
-        } else {
-          const completedRecord: ToolExecutionRecord = {
-            ...runningRecord,
-            status: 'completed',
-            updatedAt: isoNow(this.now),
-            completedAt: isoNow(this.now),
-            exitCode: result.exitCode,
-            outputPreview: result.output,
-          };
-          this.emit({ type: 'tool.completed', sessionId: this.state.sessionId, runId: run.id, record: completedRecord });
-          toolOutputs.push(`Tool output (${request.command}): ${result.output || '<no output>'}`);
-          run.stepSummaries.push(step);
-        }
-        this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
-      }
-
       const synthesizeStep = 'Synthesize response';
       this.emit({ type: 'run.step.started', sessionId: this.state.sessionId, runId: run.id, step: synthesizeStep });
       run.stepSummaries.push(synthesizeStep);
-      this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step: synthesizeStep });
 
-      const providerMessages = toProviderMessages(this.state.messages, assistantMessage.id, toolOutputs);
       let streamedContent = '';
-      for await (const event of this.provider.streamResponse({ messages: providerMessages, signal })) {
-        if (signal.aborted) {
-          throw new Error('RUN_CANCELLED');
-        }
-        if (event.type === 'delta' && event.text) {
-          const delta = computeNovelStreamDelta(streamedContent, event.text);
-          if (!delta) {
-            continue;
+      if (toolRequests.length > 0) {
+        const toolOutputs = await this.runExplicitToolRequests(run, toolRequests, signal);
+        this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step: synthesizeStep });
+        const providerMessages = toProviderMessages(this.state.messages, assistantMessage.id, toolOutputs);
+        for await (const event of this.provider.streamResponse({ messages: providerMessages, signal })) {
+          if (signal.aborted) {
+            throw new Error('RUN_CANCELLED');
           }
-          streamedContent += delta;
+          if (event.type === 'delta' && event.text) {
+            const delta = computeNovelStreamDelta(streamedContent, event.text);
+            if (!delta) {
+              continue;
+            }
+            streamedContent += delta;
+            this.emit({
+              type: 'assistant.token.delta',
+              sessionId: this.state.sessionId,
+              runId: run.id,
+              messageId: assistantMessage.id,
+              delta,
+            });
+          }
+        }
+      } else {
+        const tools = this.getTerminalTools();
+        let conversation = toProviderMessages(this.state.messages, assistantMessage.id, []);
+        let finalResponse: ModelResponse | undefined;
+        let stepCounter = 1;
+
+        for (let round = 0; round < 8; round += 1) {
+          const response = await this.generateAssistantResponse({
+            messages: conversation,
+            signal,
+            tools,
+            toolChoice: tools.length > 0 ? 'auto' : 'none',
+          });
+          const assistantOut = response.message;
+          const toolCalls = assistantOut.tool_calls || [];
+          if (toolCalls.length === 0) {
+            finalResponse = response;
+            break;
+          }
+
+          conversation = [
+            ...conversation,
+            {
+              role: 'assistant',
+              content: assistantOut.content || '',
+              ...(assistantOut.tool_calls ? { tool_calls: assistantOut.tool_calls } : {}),
+              ...(assistantOut.reasoning_details !== undefined ? { reasoning_details: assistantOut.reasoning_details } : {}),
+            },
+          ];
+
+          for (const call of toolCalls) {
+            if (signal.aborted) {
+              throw new Error('RUN_CANCELLED');
+            }
+            const toolMessage = await this.executeTerminalToolCall(run, call, signal, stepCounter);
+            stepCounter += 1;
+            conversation = [...conversation, toolMessage];
+          }
+        }
+
+        if (!finalResponse) {
+          throw new Error('E6515: Maximum tool-calling rounds exceeded.');
+        }
+        this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step: synthesizeStep });
+        streamedContent = finalResponse.message.content || '';
+        if (streamedContent) {
           this.emit({
             type: 'assistant.token.delta',
             sessionId: this.state.sessionId,
             runId: run.id,
             messageId: assistantMessage.id,
-            delta,
+            delta: streamedContent,
           });
         }
       }
@@ -875,6 +1630,18 @@ function asProviderChoice(value: string): ChatProviderId | undefined {
     return value;
   }
   return undefined;
+}
+
+function formatCapabilityStateRow(capability: ListedCapability): string {
+  const flags = [
+    capability.enabled ? 'enabled' : 'disabled',
+    `source:${capability.source}`,
+    capability.overridden ? 'override' : 'inherited',
+  ];
+  if (capability.lockedCore) {
+    flags.push('locked-core');
+  }
+  return `${capability.id} (${flags.join(', ')})`;
 }
 
 export type InkLineTone = 'normal' | 'muted' | 'info' | 'success' | 'warning' | 'error';
@@ -1284,6 +2051,11 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         { label: 'Switch provider', run: openProviderMenu },
         { label: 'Switch model', run: openModelMenu },
         { label: 'Sessions (resume/delete)', run: openSessionListMenu },
+        { label: 'Capabilities: tools', run: async () => { await handleCommand('/tools'); } },
+        { label: 'Capabilities: skills', run: async () => { await handleCommand('/skills'); } },
+        { label: 'Capabilities: middleware', run: async () => { await handleCommand('/middleware'); } },
+        { label: 'Open project config in editor', run: async () => { await handleCommand('/open-config project'); } },
+        { label: 'Open global config in editor', run: async () => { await handleCommand('/open-config global'); } },
       ]);
     };
 
@@ -1294,7 +2066,7 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         { label: 'Sessions (resume/delete)', run: openSessionListMenu },
         { label: 'Branch from message', run: openBranchMenu },
         { label: 'Cancel active run', run: async () => { const runtime = runtimeRef.current; if (runtime) { const cancelled = runtime.cancelActiveRun(); appendLine(cancelled ? 'Cancellation requested.' : 'No active run to cancel.', cancelled ? 'warning' : 'muted'); } } },
-        { label: 'Help', run: async () => { appendLine('Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted'); } },
+        { label: 'Help', run: async () => { appendLine('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted'); } },
         { label: 'Exit', run: async () => { exit(); } },
       ]);
     };
@@ -1377,7 +2149,7 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
       }
 
       if (line === '/help') {
-        appendLine('Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted');
+        appendLine('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted');
         appendLine('Shortcuts: Ctrl+O (options), Shift+S (settings), Shift+Enter newline (Ctrl+J fallback), Esc (close menu).', 'muted');
         return true;
       }
@@ -1449,6 +2221,81 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
       }
       if (line === '/provider') {
         await openProviderMenu();
+        return true;
+      }
+      if (line === '/tools' || line === '/skills' || line === '/middleware') {
+        const category = line.slice(1) as 'tools' | 'skills' | 'middleware';
+        const mapped = category === 'tools' ? 'tool' : category === 'skills' ? 'skill' : 'middleware';
+        appendLine(`${category.toUpperCase()}:`, 'muted');
+        const capabilities = runtime.listCapabilities(mapped);
+        if (capabilities.length === 0) {
+          appendLine('  (none)', 'muted');
+          return true;
+        }
+        for (const capability of capabilities) {
+          appendLine(`- ${formatCapabilityStateRow(capability)}`, 'muted');
+        }
+        if (category === 'middleware') {
+          appendLine(runtime.getMiddlewareStartupSummary(), 'muted');
+        }
+        return true;
+      }
+      if (line.startsWith('/official ')) {
+        const category = line.slice('/official '.length).trim();
+        if (category !== 'middleware' && category !== 'tools' && category !== 'skills') {
+          appendLine('Usage: /official <middleware|tools|skills>', 'warning');
+          return true;
+        }
+        const packages = await runtime.listOfficialCapabilityPackages(category);
+        if (packages.length === 0) {
+          appendLine(`No official ${category} packages found.`, 'muted');
+          return true;
+        }
+        for (const pkg of packages) {
+          appendLine(`- ${pkg.name}@${pkg.version} ${pkg.description}`, 'muted');
+        }
+        return true;
+      }
+      if (line.startsWith('/enable ') || line.startsWith('/disable ')) {
+        const enable = line.startsWith('/enable ');
+        const payload = line.slice(enable ? '/enable '.length : '/disable '.length).trim();
+        const [capabilityId, scopeRaw] = payload.split(/\s+/, 2);
+        const scope = parseScopeTarget(scopeRaw) || 'session';
+        if (!capabilityId) {
+          appendLine(`Usage: ${enable ? '/enable' : '/disable'} <capability-id> [session|project|global]`, 'warning');
+          return true;
+        }
+        const result = await runtime.setCapabilityEnabled(capabilityId, enable, scope);
+        appendLine(`${enable ? 'Enabled' : 'Disabled'} ${capabilityId} (${scope}).`, 'success');
+        if (result.targetPath) {
+          appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+        }
+        return true;
+      }
+      if (line.startsWith('/allow-command ')) {
+        const payload = line.slice('/allow-command '.length).trim();
+        const [prefix, scopeRaw] = payload.split(/\s+/, 2);
+        const scope = parseScopeTarget(scopeRaw) || 'session';
+        if (!prefix) {
+          appendLine('Usage: /allow-command <prefix> [session|project|global]', 'warning');
+          return true;
+        }
+        const result = await runtime.addAllowCommandPrefix(prefix, scope);
+        appendLine(`Added allow prefix '${prefix}' (${scope}).`, 'success');
+        if (result.targetPath) {
+          appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+        }
+        return true;
+      }
+      if (line === '/middleware setup') {
+        appendLine('Use terminal mode for guided middleware setup.', 'muted');
+        return true;
+      }
+      if (line === '/open-config' || line.startsWith('/open-config ')) {
+        const rawScope = line.slice('/open-config'.length).trim();
+        const scope = (rawScope === 'global' || rawScope === 'project') ? rawScope : 'project';
+        const opened = await runtime.openConfigInEditor(scope);
+        appendLine(`Opened config: ${opened}`, 'success');
         return true;
       }
       if (line.startsWith('/provider ')) {
@@ -1688,6 +2535,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     output.write('Using mock provider. Set provider/model in ~/.sisu/chat-profile.json or ./.sisu/chat-profile.json for real LLM responses.\n');
   }
   output.write(`Active provider/model: ${runtime.profile.provider} / ${runtime.profile.model}\n`);
+  output.write(`${runtime.getMiddlewareStartupSummary()}\n`);
 
   if (pipedPrompt) {
     try {
@@ -1706,7 +2554,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
   });
   let ui: ReadlineInterface = createUi();
 
-    output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /resume <sessionId>, /delete-session <sessionId>, /search <query>, /branch <messageId>, /exit\n');
+    output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume <sessionId>, /delete-session <sessionId>, /search <query>, /branch <messageId>, /exit\n');
   output.write('Tip: /help for commands. Prompt shows active provider/model and session.\n');
 
   const renderPromptContext = (): void => {
@@ -1767,6 +2615,142 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
       return values[numeric - 1];
     }
     return answer;
+  };
+
+  const promptConfigScope = async (includeSession = true): Promise<CapabilityScopeTarget | undefined> => {
+    const values = includeSession ? ['session', 'project', 'global'] : ['project', 'global'];
+    const picked = await promptChoice('Select scope:', values);
+    return parseScopeTarget(picked);
+  };
+
+  const runMiddlewareSetupMenu = async (): Promise<void> => {
+    while (true) {
+      const pipeline = runtime.listMiddlewarePipeline();
+      output.write(`${runtime.getMiddlewareStartupSummary()}\n`);
+      if (pipeline.length === 0) {
+        output.write('No middleware pipeline entries found.\n');
+        return;
+      }
+
+      const entries = pipeline.map((entry, index) => (
+        `${index + 1}. ${entry.id}${entry.enabled === false ? ' (disabled)' : ''}${isLockedMiddlewareCapability(entry.id) ? ' [locked]' : ''}`
+      ));
+      const picked = await promptChoice(
+        'Select middleware entry:',
+        [...entries, 'Open config in editor', 'Done'],
+      );
+      if (!picked || picked === 'Done') {
+        return;
+      }
+
+      if (picked === 'Open config in editor') {
+        const editorScope = await promptConfigScope(false);
+        if (!editorScope || editorScope === 'session') {
+          output.write('Open-config cancelled.\n');
+          continue;
+        }
+        const opened = await runtime.openConfigInEditor(editorScope);
+        output.write(`Opened config: ${opened}\n`);
+        continue;
+      }
+
+      const selectedIndex = entries.indexOf(picked);
+      if (selectedIndex < 0 || selectedIndex >= pipeline.length) {
+        output.write('Invalid middleware selection.\n');
+        continue;
+      }
+      const selected = pipeline[selectedIndex];
+      const action = await promptChoice(
+        `Action for ${selected.id}:`,
+        ['Toggle enabled', 'Move up', 'Move down', 'Edit config JSON', 'Back'],
+      );
+      if (!action || action === 'Back') {
+        continue;
+      }
+
+      const scope = await promptConfigScope(true);
+      if (!scope) {
+        output.write('Scope selection cancelled.\n');
+        continue;
+      }
+
+      if (action === 'Toggle enabled') {
+        const nextPipeline = pipeline.map((entry, index) => (
+          index === selectedIndex ? { ...entry, enabled: !entry.enabled } : entry
+        ));
+        const result = await runtime.setMiddlewarePipeline(nextPipeline, scope);
+        output.write(`Updated ${selected.id} (${scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+        continue;
+      }
+
+      if (action === 'Move up') {
+        if (selectedIndex === 0) {
+          output.write(`${selected.id} is already first.\n`);
+          continue;
+        }
+        const nextPipeline = [...pipeline];
+        const [entry] = nextPipeline.splice(selectedIndex, 1);
+        nextPipeline.splice(selectedIndex - 1, 0, entry);
+        const result = await runtime.setMiddlewarePipeline(nextPipeline, scope);
+        output.write(`Moved ${selected.id} earlier (${scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+        continue;
+      }
+
+      if (action === 'Move down') {
+        if (selectedIndex >= pipeline.length - 1) {
+          output.write(`${selected.id} is already last.\n`);
+          continue;
+        }
+        const nextPipeline = [...pipeline];
+        const [entry] = nextPipeline.splice(selectedIndex, 1);
+        nextPipeline.splice(selectedIndex + 1, 0, entry);
+        const result = await runtime.setMiddlewarePipeline(nextPipeline, scope);
+        output.write(`Moved ${selected.id} later (${scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+        continue;
+      }
+
+      if (action === 'Edit config JSON') {
+        let configText = '';
+        try {
+          configText = (await ui.question(`JSON config for ${selected.id} (object): `)).trim();
+        } catch (error) {
+          if (!isReadlineClosedError(error)) {
+            throw error;
+          }
+          ui = createUi();
+          configText = (await ui.question(`JSON config for ${selected.id} (object): `)).trim();
+        }
+        if (!configText) {
+          output.write('Config update cancelled.\n');
+          continue;
+        }
+        let parsedConfig: unknown;
+        try {
+          parsedConfig = JSON.parse(configText);
+        } catch (error) {
+          output.write(`Invalid JSON: ${error instanceof Error ? error.message : String(error)}\n`);
+          continue;
+        }
+        if (!parsedConfig || typeof parsedConfig !== 'object' || Array.isArray(parsedConfig)) {
+          output.write('Config must be a JSON object.\n');
+          continue;
+        }
+        const result = await runtime.setMiddlewareConfig(selected.id, parsedConfig as Record<string, unknown>, scope);
+        output.write(`Updated config for ${selected.id} (${scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+      }
+    }
   };
 
   const runStartupRecoveryWizard = async (errorMessage: string): Promise<boolean> => {
@@ -1857,15 +2841,108 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     }
 
     if (trimmed === '/help') {
-      output.write('Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit\n');
+      output.write('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit\n');
       return true;
     }
 
-    if (trimmed === '/new') {
-      const sessionId = await withLoader('Starting new session', async () => await runtime.startNewSession());
-      output.write(`Started new session ${sessionId}.\n`);
-      return true;
-    }
+      if (trimmed === '/new') {
+        const sessionId = await withLoader('Starting new session', async () => await runtime.startNewSession());
+        output.write(`Started new session ${sessionId}.\n`);
+        return true;
+      }
+
+      if (trimmed === '/tools' || trimmed === '/skills' || trimmed === '/middleware') {
+        const category = trimmed.slice(1) as 'tools' | 'skills' | 'middleware';
+        const mapped = category === 'tools' ? 'tool' : category === 'skills' ? 'skill' : 'middleware';
+        const capabilities = runtime.listCapabilities(mapped);
+        output.write(`${category.toUpperCase()}:\n`);
+        if (capabilities.length === 0) {
+          output.write('  (none)\n');
+          return true;
+        }
+        for (const capability of capabilities) {
+          output.write(`- ${formatCapabilityStateRow(capability)}\n`);
+        }
+        if (category === 'middleware') {
+          output.write(`${runtime.getMiddlewareStartupSummary()}\n`);
+        }
+        return true;
+      }
+
+      if (trimmed.startsWith('/official ')) {
+        const category = trimmed.slice('/official '.length).trim();
+        if (category !== 'middleware' && category !== 'tools' && category !== 'skills') {
+          output.write("Usage: /official <middleware|tools|skills>\n");
+          return true;
+        }
+        const packages = await withLoader(
+          `Listing official ${category}`,
+          async () => await runtime.listOfficialCapabilityPackages(category),
+        );
+        if (packages.length === 0) {
+          output.write(`No official ${category} packages found.\n`);
+          return true;
+        }
+        for (const pkg of packages) {
+          output.write(`- ${pkg.name}@${pkg.version} ${pkg.description}\n`);
+        }
+        return true;
+      }
+
+      if (trimmed.startsWith('/enable ') || trimmed.startsWith('/disable ')) {
+        const enable = trimmed.startsWith('/enable ');
+        const payload = trimmed.slice(enable ? '/enable '.length : '/disable '.length).trim();
+        const [capabilityId, scopeRaw] = payload.split(/\s+/, 2);
+        const scope = parseScopeTarget(scopeRaw) || 'session';
+        if (!capabilityId) {
+          output.write(`Usage: ${enable ? '/enable' : '/disable'} <capability-id> [session|project|global]\n`);
+          return true;
+        }
+        const result = await withLoader(
+          `${enable ? 'Enabling' : 'Disabling'} capability`,
+          async () => await runtime.setCapabilityEnabled(capabilityId, enable, scope),
+        );
+        output.write(`${enable ? 'Enabled' : 'Disabled'} ${capabilityId} (${scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+        return true;
+      }
+
+      if (trimmed.startsWith('/allow-command ')) {
+        const payload = trimmed.slice('/allow-command '.length).trim();
+        const [prefix, scopeRaw] = payload.split(/\s+/, 2);
+        const scope = parseScopeTarget(scopeRaw) || 'session';
+        if (!prefix) {
+          output.write('Usage: /allow-command <prefix> [session|project|global]\n');
+          return true;
+        }
+        const result = await withLoader(
+          'Updating allow list',
+          async () => await runtime.addAllowCommandPrefix(prefix, scope),
+        );
+        output.write(`Added allow prefix '${prefix}' (${scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+        return true;
+      }
+
+      if (trimmed === '/middleware setup') {
+        await runMiddlewareSetupMenu();
+        return true;
+      }
+
+      if (trimmed === '/open-config' || trimmed.startsWith('/open-config ')) {
+        const rawScope = trimmed.slice('/open-config'.length).trim();
+        const scope = (rawScope === 'global' || rawScope === 'project') ? rawScope : 'project';
+        const opened = await withLoader(
+          `Opening ${scope} config`,
+          async () => await runtime.openConfigInEditor(scope),
+        );
+        output.write(`Opened config: ${opened}\n`);
+        return true;
+      }
 
     if (trimmed === '/provider' || trimmed.startsWith('/provider ')) {
       const value = trimmed.slice('/provider'.length).trim();

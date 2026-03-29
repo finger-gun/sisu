@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { LLM, Message, ModelEvent, ModelResponse } from "@sisu-ai/core";
 import {
+  createDefaultProviders,
   createRuntimeController,
   createRuntimeHttpServer,
   runtimeDesktopInternal,
@@ -295,6 +296,382 @@ describe("runtime desktop controller", () => {
     };
     expect(providerJson.providers[0]?.providerId).toBe("openai");
     await server.stop();
+  });
+
+  test("http server covers settings, threads, streams, search and auth paths", async () => {
+    const runtime = createRuntimeController({
+      providers: [
+        simpleProvider(
+          "openai",
+          "OpenAI",
+          [
+            {
+              providerId: "openai",
+              modelId: "gpt-4o-mini",
+              displayName: "GPT-4o mini",
+              capabilities: { streaming: true, imageInput: true, toolCalling: true },
+            },
+          ],
+          () => staticTextModel("mock-openai", "route response"),
+        ),
+      ],
+    });
+
+    const server = createRuntimeHttpServer(runtime, {
+      host: "127.0.0.1",
+      port: 0,
+      apiKey: "secret",
+    });
+    const started = await server.start();
+    const base = `http://${started.host}:${started.port}`;
+
+    const unauthorized = await fetch(`${base}/health`);
+    expect(unauthorized.status).toBe(401);
+
+    const authHeaders = {
+      authorization: "Bearer secret",
+      "content-type": "application/json",
+    };
+
+    const putDefault = await fetch(`${base}/settings/default-model`, {
+      method: "PUT",
+      headers: authHeaders,
+      body: JSON.stringify({ providerId: "openai", modelId: "gpt-4o-mini" }),
+    });
+    expect(putDefault.status).toBe(200);
+
+    const getDefault = await fetch(`${base}/settings/default-model`, {
+      headers: { authorization: "Bearer secret" },
+    });
+    expect(getDefault.status).toBe(200);
+
+    const createThread = await fetch(`${base}/threads`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ title: "routes", providerId: "openai", modelId: "gpt-4o-mini" }),
+    });
+    expect(createThread.status).toBe(201);
+    const createThreadJson = (await createThread.json()) as { thread: { threadId: string } };
+    const threadId = createThreadJson.thread.threadId;
+
+    const listThreads = await fetch(`${base}/threads?limit=5`, {
+      headers: { authorization: "Bearer secret" },
+    });
+    expect(listThreads.status).toBe(200);
+
+    const accepted = await fetch(`${base}/chat/generate`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        threadId,
+        prompt: "hello from routes",
+        modelId: "gpt-4o-mini",
+      }),
+    });
+    expect(accepted.status).toBe(202);
+    const acceptedJson = (await accepted.json()) as { streamId: string };
+    const streamId = acceptedJson.streamId;
+
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const statusRes = await fetch(`${base}/streams/${streamId}/status`, {
+        headers: { authorization: "Bearer secret" },
+      });
+      if (statusRes.status === 200) {
+        const statusJson = (await statusRes.json()) as { status: string };
+        if (statusJson.status === "completed" || statusJson.status === "failed" || statusJson.status === "cancelled") {
+          break;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const threadDetail = await fetch(`${base}/threads/${threadId}?limit=100`, {
+      headers: { authorization: "Bearer secret" },
+    });
+    expect(threadDetail.status).toBe(200);
+    const detailJson = (await threadDetail.json()) as { messages: Array<{ messageId: string; role: string }> };
+    const assistantMessageId = detailJson.messages.find((message) => message.role === "assistant")?.messageId;
+    expect(assistantMessageId).toBeTruthy();
+
+    const branch = await fetch(`${base}/threads/branch`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ sourceMessageId: assistantMessageId, title: "branch" }),
+    });
+    expect(branch.status).toBe(201);
+
+    const override = await fetch(`${base}/threads/${threadId}/override-model`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ providerId: "openai", modelId: "gpt-4o-mini" }),
+    });
+    expect(override.status).toBe(200);
+
+    const search = await fetch(`${base}/search?query=routes&limit=5`, {
+      headers: { authorization: "Bearer secret" },
+    });
+    expect(search.status).toBe(200);
+
+    const streamMissing = await fetch(`${base}/streams/missing/status`, {
+      headers: { authorization: "Bearer secret" },
+    });
+    expect(streamMissing.status).toBe(404);
+
+    const cancelMissing = await fetch(`${base}/streams/missing/cancel`, {
+      method: "POST",
+      headers: { authorization: "Bearer secret" },
+    });
+    expect(cancelMissing.status).toBe(404);
+
+    const invalidJson = await fetch(`${base}/chat/generate`, {
+      method: "POST",
+      headers: authHeaders,
+      body: "{",
+    });
+    expect(invalidJson.status).toBe(400);
+
+    const unknown = await fetch(`${base}/nope`, {
+      headers: { authorization: "Bearer secret" },
+    });
+    expect(unknown.status).toBe(404);
+
+    await server.stop();
+  });
+
+  test("startup recovery marks pending/streaming messages as cancelled", async () => {
+    const logger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    };
+    const storage = runtimeDesktopInternal.makeMemoryStorage(logger);
+    const thread = await storage.createThread({
+      title: "recover",
+      providerId: "openai",
+      modelId: "gpt-4o-mini",
+    });
+    const pending = await storage.appendMessage({
+      threadId: thread.threadId,
+      role: "assistant",
+      content: "",
+      status: "pending",
+      providerId: "openai",
+      modelId: "gpt-4o-mini",
+    });
+
+    const runtime = createRuntimeController({
+      storage,
+      providers: [
+        simpleProvider(
+          "openai",
+          "OpenAI",
+          [
+            {
+              providerId: "openai",
+              modelId: "gpt-4o-mini",
+              displayName: "GPT-4o mini",
+              capabilities: { streaming: true, imageInput: true, toolCalling: true },
+            },
+          ],
+          () => staticTextModel("mock-openai", "ok"),
+        ),
+      ],
+    });
+
+    const started = await runtime.start();
+    expect(started.degradedCapabilities).toContain("recovery.pending");
+    const recovered = await storage.findMessage(pending.messageId);
+    expect(recovered?.status).toBe("cancelled");
+  });
+
+  test("runtime validates request edge-cases and terminal stream replay", async () => {
+    const runtime = createRuntimeController({
+      providers: [
+        simpleProvider(
+          "openai",
+          "OpenAI",
+          [
+            {
+              providerId: "openai",
+              modelId: "gpt-4o-mini",
+              displayName: "GPT-4o mini",
+              capabilities: { streaming: true, imageInput: true, toolCalling: true },
+            },
+          ],
+          () => staticTextModel("mock-openai", "ok"),
+        ),
+      ],
+    });
+
+    await runtime.start();
+
+    await expect(runtime.searchHistory("   ")).rejects.toMatchObject({
+      error: { code: "invalid_request" },
+    });
+    await expect(runtime.branchThread({ sourceMessageId: "missing" })).rejects.toMatchObject({
+      error: { code: "not_found" },
+    });
+    await expect(
+      runtime.setThreadModelOverride({
+        threadId: "missing",
+        providerId: "openai",
+        modelId: "gpt-4o-mini",
+      }),
+    ).rejects.toMatchObject({
+      error: { code: "not_found" },
+    });
+
+    const accepted = await runtime.generate({
+      prompt: "replay",
+      providerId: "openai",
+      modelId: "gpt-4o-mini",
+      stream: true,
+    });
+    for await (const _event of runtime.streamEvents(accepted.streamId)) {
+      // drain initial stream
+    }
+
+    const replayEvents: string[] = [];
+    for await (const event of runtime.streamEvents(accepted.streamId)) {
+      replayEvents.push(event.type);
+    }
+    expect(replayEvents[0]).toBe("message.started");
+    expect(replayEvents.at(-1)).toBe("message.completed");
+
+    const cancelCompleted = await runtime.cancelStream(accepted.streamId);
+    expect(cancelCompleted.status).toBe("completed");
+
+    await runtime.stop();
+    await expect(
+      runtime.generate({
+        prompt: "after stop",
+        providerId: "openai",
+        modelId: "gpt-4o-mini",
+        stream: true,
+      }),
+    ).rejects.toMatchObject({
+      error: { code: "internal_error" },
+    });
+  });
+
+  test("http server maps error status codes, SSE route, and start/address branches", async () => {
+    const runtime = createRuntimeController({
+      providers: [
+        simpleProvider(
+          "openai",
+          "OpenAI",
+          [
+            {
+              providerId: "openai",
+              modelId: "gpt-4o-mini",
+              displayName: "GPT-4o mini",
+              capabilities: { streaming: true, imageInput: true, toolCalling: true },
+            },
+          ],
+          () => staticTextModel("mock-openai", "sse ok"),
+        ),
+      ],
+    });
+
+    const server = createRuntimeHttpServer(runtime, {
+      host: "127.0.0.1",
+      port: 0,
+      apiKey: "secret",
+      maxBodyBytes: 128,
+    });
+
+    expect(server.address()).toBeNull();
+    const started = await server.start();
+    const startedAgain = await server.start();
+    expect(startedAgain.port).toBe(started.port);
+    expect(server.address()).toBeTruthy();
+
+    const base = `http://${started.host}:${started.port}`;
+    const auth = { authorization: "Bearer secret", "content-type": "application/json" };
+
+    const invalidSearch = await fetch(`${base}/search?query=%20%20`, {
+      headers: { authorization: "Bearer secret" },
+    });
+    expect(invalidSearch.status).toBe(400);
+
+    const invalidProvider = await fetch(`${base}/settings/default-model`, {
+      method: "PUT",
+      headers: auth,
+      body: JSON.stringify({ providerId: "missing", modelId: "x" }),
+    });
+    expect(invalidProvider.status).toBe(503);
+
+    const unavailableModel = await fetch(`${base}/chat/generate`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ prompt: "x", providerId: "openai", modelId: "missing-model" }),
+    });
+    expect(unavailableModel.status).toBe(422);
+
+    const tooLarge = await fetch(`${base}/chat/generate`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({
+        prompt:
+          "this body is intentionally too large for configured max bytes because it repeats repeatedly repeatedly repeatedly repeatedly",
+        providerId: "openai",
+        modelId: "gpt-4o-mini",
+      }),
+    });
+    expect(tooLarge.status).toBe(400);
+
+    const accepted = await fetch(`${base}/chat/generate`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ prompt: "stream me", providerId: "openai", modelId: "gpt-4o-mini" }),
+    });
+    expect(accepted.status).toBe(202);
+    const acceptedJson = (await accepted.json()) as { streamId: string };
+    const events = await fetch(`${base}/streams/${acceptedJson.streamId}/events`, {
+      headers: { authorization: "Bearer secret" },
+    });
+    expect(events.status).toBe(200);
+    const sseBody = await events.text();
+    expect(sseBody).toContain("event: message.started");
+
+    await server.stop();
+    expect(server.address()).toBeNull();
+  });
+
+  test("provider helpers expose defaults and static model abort semantics", async () => {
+    const providers = createDefaultProviders({
+      openAI: { models: ["gpt-4o-mini-custom"] },
+      anthropic: { models: ["claude-custom"] },
+      ollama: { models: ["llama-custom"] },
+    });
+    expect(providers.map((provider) => provider.id)).toEqual(["openai", "anthropic", "ollama"]);
+    expect(providers[0]?.models[0]?.modelId).toBe("gpt-4o-mini-custom");
+    expect(providers[1]?.models[0]?.modelId).toBe("claude-custom");
+    expect(providers[2]?.models[0]?.modelId).toBe("llama-custom");
+
+    const defaultProviders = createDefaultProviders();
+    expect(defaultProviders[0]?.models[0]?.modelId).toBe("gpt-4o-mini");
+
+    const model = staticTextModel("static", "hello world");
+    const nonStream = (await model.generate([
+      { role: "user", content: "hi" } as Message,
+    ])) as ModelResponse;
+    expect(nonStream.message.content).toBe("hello world");
+
+    const controller = new AbortController();
+    controller.abort();
+    const streamOut = model.generate([], {
+      stream: true,
+      signal: controller.signal,
+    }) as AsyncIterable<ModelEvent>;
+    await expect(
+      (async () => {
+        for await (const _event of streamOut) {
+          // should abort before any token is consumed
+        }
+      })(),
+    ).rejects.toMatchObject({ name: "AbortError" });
   });
 
   test("isLocalAddress accepts loopback and rejects non-local", () => {

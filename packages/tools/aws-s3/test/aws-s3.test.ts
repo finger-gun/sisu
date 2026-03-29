@@ -27,6 +27,17 @@ const ctxWith = (client: any, allowWrite?: boolean): ToolContext => {
   } as ToolContext;
 };
 
+test("s3GetObject falls back to String() for unknown Body shapes", async () => {
+  const client = {
+    getObject: vi.fn(async () => ({ Body: 12345 })),
+  };
+  const out: any = await s3GetObject.handler(
+    { bucket: "b", key: "k" } as any,
+    ctxWith(client),
+  );
+  expect(out.content).toBe("12345");
+});
+
 test("s3GetObject returns UTF-8 content", async () => {
   const client = {
     getObject: vi.fn(async () => ({ Body: Buffer.from("hello") })),
@@ -134,4 +145,57 @@ test("s3GetObjectMetadata returns metadata map", async () => {
     ctxWith(client),
   );
   expect(out).toEqual({ foo: "bar" });
+});
+
+test("v2-like client contract errors are surfaced for missing methods", async () => {
+  await expect(
+    s3GetObject.handler({ bucket: "b", key: "k" } as any, ctxWith({})),
+  ).rejects.toThrow(/getObject\/send/);
+
+  await expect(
+    s3ListObjects.handler({ bucket: "b" } as any, ctxWith({})),
+  ).rejects.toThrow(/listObjectsV2\/send/);
+
+  await expect(
+    s3ListObjectsDetailed.handler({ bucket: "b" } as any, ctxWith({})),
+  ).rejects.toThrow(/listObjectsV2\/send/);
+
+  await expect(
+    s3PutObject.handler(
+      { bucket: "b", key: "k", content: "x" } as any,
+      ctxWith({}, true),
+    ),
+  ).rejects.toThrow(/putObject\/send/);
+
+  await expect(
+    s3DeleteObject.handler({ bucket: "b", key: "k" } as any, ctxWith({}, true)),
+  ).rejects.toThrow(/deleteObject\/send/);
+
+  await expect(
+    s3GetObjectMetadata.handler({ bucket: "b", key: "k" } as any, ctxWith({})),
+  ).rejects.toThrow(/headObject\/send/);
+});
+
+test("s3ListObjects handles non-array Contents defensively", async () => {
+  const client = {
+    listObjectsV2: vi.fn(async () => ({ Contents: "not-array" })),
+  };
+  const out: any = await s3ListObjects.handler(
+    { bucket: "b" } as any,
+    ctxWith(client),
+  );
+  expect(out).toEqual([]);
+});
+
+test("s3ListObjectsDetailed skips entries without keys", async () => {
+  const client = {
+    listObjectsV2: vi.fn(async () => ({
+      Contents: [{ LastModified: new Date("2020-01-01") }, { Key: "ok" }],
+    })),
+  };
+  const out: any = await s3ListObjectsDetailed.handler(
+    { bucket: "b" } as any,
+    ctxWith(client),
+  );
+  expect(out).toEqual([{ key: "ok" }]);
 });
