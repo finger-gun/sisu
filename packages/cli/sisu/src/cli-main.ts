@@ -9,6 +9,8 @@ import { Command } from 'commander';
 import prompts from 'prompts';
 import { categories, formatInfo, formatList, getTemplateIds, listCategory, resolveEntry, scaffoldTemplate } from './lib.js';
 import { runChatCli } from './chat/runtime.js';
+import { listOfficialPackages } from './chat/npm-discovery.js';
+import { installSkill, resolveSkillTargetRoot } from './chat/skill-install.js';
 import type { CatalogCategory } from './catalog.js';
 
 const require = createRequire(import.meta.url);
@@ -50,6 +52,8 @@ Usage:
   sisu list <category>
   sisu info <name>
   sisu create <template> <project-name>
+  sisu list-official <middleware|tools|skills>
+  sisu install-skill <package-or-path> [--global|--project] [--dir <path>] [--official]
   sisu install skill [installer-options]
   sisu chat [--session <session-id>] [--prompt <text>]
 
@@ -64,8 +68,10 @@ Categories:
 
 Examples:
   sisu list tools
+  sisu list-official tools
   sisu info vector-vectra
   sisu create chat-agent my-app
+  sisu install-skill @sisu-ai/skill-debug --project
   sisu install skill
   sisu chat
   sisu chat --prompt "run: git status"
@@ -247,6 +253,29 @@ export async function runCli(argsInput: string[]): Promise<void> {
     return;
   }
 
+  if (command === 'list-official') {
+    const category = await promptIfMissing(arg1, 'Official category', ['middleware', 'tools', 'skills']);
+    if (category !== 'middleware' && category !== 'tools' && category !== 'skills') {
+      throw new CliError('E1205', `Unknown official category: ${category}`, {
+        hint: 'Use one of: middleware, tools, skills.',
+        exitCode: 2,
+      });
+    }
+    const packages = await listOfficialPackages(category);
+    if (options.json) {
+      console.log(JSON.stringify(packages, null, 2));
+      return;
+    }
+    if (packages.length === 0) {
+      console.log(`No official ${category} packages found.`);
+      return;
+    }
+    for (const pkg of packages) {
+      console.log(`- ${pkg.name}@${pkg.version} ${pkg.description}`);
+    }
+    return;
+  }
+
   if (command === 'install') {
     if (arg1 !== 'skill') {
       throw new CliError('E1101', 'Usage: sisu install skill [installer-options]', { exitCode: 2 });
@@ -266,6 +295,52 @@ export async function runCli(argsInput: string[]): Promise<void> {
       });
       child.on('error', reject);
     });
+    return;
+  }
+
+  if (command === 'install-skill') {
+    const packageOrPath = await promptIfMissing(arg1, 'Skill package name (or local path)');
+    let scope: 'project' | 'global' = 'project';
+    let dir: string | undefined;
+    let officialOnly = false;
+    const optionTokens = [arg2, ...rest].filter((token): token is string => typeof token === 'string');
+    for (let index = 0; index < optionTokens.length; index += 1) {
+      const token = optionTokens[index];
+      if (token === '--global') {
+        scope = 'global';
+        continue;
+      }
+      if (token === '--project') {
+        scope = 'project';
+        continue;
+      }
+      if (token === '--official') {
+        officialOnly = true;
+        continue;
+      }
+      if (token.startsWith('--dir=')) {
+        dir = token.slice('--dir='.length);
+        continue;
+      }
+      if (token === '--dir') {
+        const value = optionTokens[index + 1];
+        if (!value) {
+          throw new CliError('E1203', 'Missing value for --dir', { exitCode: 2 });
+        }
+        dir = value;
+        index += 1;
+        continue;
+      }
+      throw new CliError('E1204', `Unknown install-skill option: ${token}`, {
+        hint: 'Use --global, --project, --dir <path>, or --official.',
+        exitCode: 2,
+      });
+    }
+
+    const result = await installSkill({ packageOrPath, scope, dir, officialOnly });
+    const root = resolveSkillTargetRoot({ scope, dir });
+    console.log(`Installed skill '${result.skillId}' to ${result.targetDir}`);
+    console.log(`Skill root: ${root}`);
     return;
   }
 

@@ -3,12 +3,29 @@ import path from 'node:path';
 import { catalog, categories, type CatalogCategory, type CatalogEntry } from './catalog.js';
 export * from './chat/events.js';
 export * from './chat/markdown.js';
+export * from './chat/npm-discovery.js';
 export * from './chat/profiles.js';
 export * from './chat/renderer.js';
 export * from './chat/runtime.js';
 export * from './chat/session-store.js';
+export * from './chat/skill-install.js';
 export * from './chat/state.js';
 export * from './chat/tool-policy.js';
+export {
+  getMiddlewareCatalogEntry,
+  getLockedCoreMiddlewareIds,
+  isLockedCoreMiddleware,
+  validateMiddlewareConfig,
+} from './chat/middleware/catalog.js';
+export {
+  BUILTIN_TOOL_CAPABILITIES,
+  buildCapabilityRegistry,
+  describeCapabilitySource,
+  enforceLockedCoreMiddleware,
+  isLockedMiddlewareCapability,
+  isMiddlewareCapability,
+  resolveCapabilityState,
+} from './chat/capabilities.js';
 export * from './cli-main.js';
 
 export function listCategory(category: CatalogCategory): CatalogEntry[] {

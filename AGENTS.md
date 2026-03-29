@@ -1,7 +1,8 @@
 # AGENTS Guidelines for This Repository
 
 ## Project Overview
-**Sisu** is a TypeScript framework for building reliable AI agents with full transparency and control. This monorepo contains:
+**Sisu** is a TypeScript framework for building reliable AI agents with full transparency and control.
+This monorepo contains:
 - **Core**: The main framework engine and types
 - **Adapters**: Provider integrations (OpenAI, Anthropic, Ollama)
 - **Middleware**: Composable functionality (tracing, tool-calling, error handling, etc.)
@@ -10,20 +11,22 @@
 - **Server**: HTTP server implementation
 - **Examples**: 25+ working examples demonstrating features
 
+**Philosophy:** small, explicit, composable. Favor simple, testable building blocks (middleware, tools, adapters) over monoliths.
+
 ## Dev Environment Setup
-- This monorepo uses **pnpm@9** and **Turbo@2** for fast, efficient builds and dependency management.
-- **Node.js**: Requires >= 18.17 (specified in engines)
-- **Package Manager**: Uses pnpm@9.0.0 (see packageManager field)
+- This monorepo uses **pnpm** and **Turbo** for fast, efficient builds and dependency management.
+- **Node.js**: Requires >= 22.x
+- **Package Manager**: Uses pnpm
 
 ### Initial Setup
 ```bash
 # Install pnpm globally (if not already installed)
-npm install -g pnpm@9
+npm install -g pnpm
 
 # Install all workspace dependencies
 pnpm install
 
-# Build all packages (required before running examples)
+# Build all packages
 pnpm build
 ```
 
@@ -42,52 +45,23 @@ pnpm build
 - Each package has its own README.md with specific documentation
 
 ## Running Examples
-The repository includes 25+ examples demonstrating different capabilities. All examples support tracing:
-
-### Quick Example Commands
-```bash
-# Basic examples
-pnpm ex:openai:hello        # Simple hello world
-pnpm ex:anthropic:hello     # Anthropic version
-pnpm ex:ollama:hello        # Local Ollama version
-
-# Advanced features
-pnpm ex:openai:reasoning    # O1 reasoning models
-pnpm ex:openai:react        # ReAct pattern
-pnpm ex:openai:control      # Control flow
-pnpm ex:openai:guardrails   # Safety guardrails
-pnpm ex:openai:vision       # Image understanding
-
-# Tool usage
-pnpm ex:openai:weather      # Weather tool
-pnpm ex:openai:web-search   # Web search
-pnpm ex:openai:terminal     # Terminal commands
-pnpm ex:openai:github-projects  # GitHub integration
-
-# Streaming and real-time
-pnpm ex:openai:stream       # Streaming responses
-pnpm ex:openai:server       # HTTP server
-```
-
-All examples generate HTML trace files in `./trace-*.html` for debugging.
+The repository includes 25+ examples demonstrating different capabilities.
 
 ## Testing Instructions
-- **Test Framework**: Vitest with ≥80% coverage target
+- **Test Framework**: Vitest MUST have ≥80% coverage target
 - **CI/CD**: GitHub Actions (see `.github/workflows/`)
 - **Commands**:
   - `pnpm test` - Run all tests
   - `pnpm test:coverage` - Run with coverage report
-  - `pnpm test:watch` - Run in watch mode
   - `pnpm vitest run -t "<test name>"` - Run specific test
 - **Coverage**: Reports available in `./coverage/` directory
 - **Always**: Add/update tests for any code changes, build and test before commits
+- **NEVER**: Disable tests to meet coverage or to fix broken tests.
 
 ## Code Guidelines (TypeScript)
 
 **Always keep runnable code**. Always build and test the code base when changes has been make.
 **Never edit dist/ files**. Work on the source code, build the dist/.
-
-**Philosophy:** small, explicit, composable. Favor simple, testable building blocks (middleware, tools, adapters) over monoliths.
 
 ### 1) Language & Linting
 
@@ -136,23 +110,15 @@ export const getWeather = {
 
 * Throw real `Error` objects with helpful messages; include `cause` when wrapping.
 * No catch-and-silence: either handle or rethrow to the **error boundary** middleware.
-* Validate protocol with invariants middleware (tool\_calls ↔ tool replies) in development.
 
 ### 8) Tests
 
 * **Vitest** with target **≥ 80%** coverage.
-* Unit tests for:
-
-  * happy path,
-  * invalid schema inputs,
-  * cancellation via `AbortSignal`,
-  * edge cases (empty messages, provider quirks).
 * Mock external I/O; keep tests deterministic.
 
 ### 9) Tracing & Observability
 
 * Use the tracing logger; prefer **structured logs** over ad-hoc strings.
-* For examples and demos, write trace files (`run.json`/`run.html`) to aid debugging.
 
 ### 10) Performance & Safety
 
@@ -165,34 +131,11 @@ export const getWeather = {
 **Packages Overview:**
 - **`@sisu-ai/core`** - Core framework, types, context management
 - **`@sisu-ai/adapter-*`** - LLM provider adapters (openai, anthropic, ollama)
-- **`@sisu-ai/mw-*`** - Middleware packages (20+ available)
-- **`@sisu-ai/tool-*`** - Pre-built tools (12+ available)
+- **`@sisu-ai/mw-*`** - Middleware packages
+- **`@sisu-ai/tool-*`** - Pre-built tools
 - **`@sisu-ai/vector-*`** - Vector storage and retrieval
 - **`@sisu-ai/server`** - HTTP server implementation
 
-### 12) Release Management & PR Guidelines
-
-**Changeset Workflow:**
-```bash
-pnpm changeset          # Create changeset
-pnpm version-packages   # Bump versions
-pnpm release            # Publish packages
-```
-
-**Release Commands:**
-- `pnpm release:plan` - Preview upcoming releases
-- `pnpm release:report` - Generate release report
-- `pnpm check-changes-since-publish` - Check for unpublished changes
-
-**PR Checklist:**
-- [ ] API surface is minimal and documented
-- [ ] Types precise; zero `any`
-- [ ] Tests added/updated; coverage ≥80%
-- [ ] Changeset created (`pnpm changeset`)
-- [ ] Examples updated if public API changed
-- [ ] No secrets or API keys in logs
-- [ ] Build passes (`pnpm build`)
-- [ ] All tests pass (`pnpm test`)
 
 ### 13) Environment Variables & Configuration
 
@@ -207,9 +150,4 @@ API_KEY=sk-ant-...
 # Optional
 LOG_LEVEL=info          # debug, info, warn, error
 TRACE_HTML=1           # Generate HTML traces
-```
-
-**Development:**
-```bash
-NODE_ENV=development    # Enable debug features
 ```

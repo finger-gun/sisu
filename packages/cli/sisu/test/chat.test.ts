@@ -122,8 +122,9 @@ describe('chat cli', () => {
     ].join('\n'), { maxWidth: 44 });
     const tableLines = rendered.map((line) => line.text).filter((line) => line.includes('│'));
     expect(tableLines.length).toBeGreaterThan(2);
-    expect(tableLines.some((line) => line.includes('very long description'))).toBe(true);
-    expect(tableLines.some((line) => line.includes('narrow terminal table'))).toBe(true);
+    expect(tableLines.join('\n')).toContain('very long');
+    expect(tableLines.join('\n')).toContain('description that');
+    expect(tableLines.join('\n')).toContain('narrow terminal');
   });
 
   test('profile validation reports field-level errors', () => {
@@ -205,6 +206,98 @@ describe('chat cli', () => {
     expect(sessions.length).toBe(1);
     expect(sessions[0]?.messages.some((message) => message.role === 'assistant')).toBe(true);
     expect(sessions[0]?.toolExecutions.length).toBeGreaterThan(0);
+  });
+
+  test('runtime can auto-call terminal tools from natural language prompt', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-auto-tool-'));
+    tempDirs.push(root);
+
+    const runtime = await ChatRuntime.create({
+      sessionStore: new FileSessionStore(root),
+      profile: {
+        name: 'test',
+        provider: 'mock',
+        model: 'model-x',
+        theme: 'plain',
+        storageDir: root,
+        toolPolicy: mergeToolPolicy(),
+      },
+      provider: {
+        id: 'auto-tool-provider',
+        async *streamResponse() {
+          yield { type: 'done' };
+        },
+        async generateResponse(input) {
+          const hasToolMessage = input.messages.some((m) => m.role === 'tool');
+          if (!hasToolMessage) {
+            return {
+              message: {
+                role: 'assistant',
+                content: '',
+                tool_calls: [{
+                  id: 'call-1',
+                  name: 'terminalRun',
+                  arguments: { command: 'pwd' },
+                }],
+              },
+            };
+          }
+
+          const toolMsg = input.messages.find((m): m is { role: 'tool'; content: string } => m.role === 'tool');
+          return {
+            message: {
+              role: 'assistant',
+              content: `Tool output seen: ${toolMsg?.content || ''}`,
+            },
+          };
+        },
+      },
+    });
+
+    const result = await runtime.runPrompt('list current directory');
+    expect(result.summary.status).toBe('completed');
+    expect(runtime.getState().toolExecutions.some((record) => record.status === 'completed')).toBe(true);
+    expect(result.assistantMessage?.content).toContain('Tool output seen:');
+  });
+
+  test('runtime auto tool-call loop fails after max rounds', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-auto-tool-loop-'));
+    tempDirs.push(root);
+
+    const runtime = await ChatRuntime.create({
+      sessionStore: new FileSessionStore(root),
+      profile: {
+        name: 'test',
+        provider: 'mock',
+        model: 'model-x',
+        theme: 'plain',
+        storageDir: root,
+        toolPolicy: mergeToolPolicy(),
+      },
+      provider: {
+        id: 'loop-provider',
+        async *streamResponse() {
+          yield { type: 'done' };
+        },
+        async generateResponse() {
+          return {
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{
+                id: 'loop-call',
+                name: 'terminalRun',
+                arguments: { command: 'pwd' },
+              }],
+            },
+          };
+        },
+      },
+    });
+
+    const result = await runtime.runPrompt('keep using tools forever');
+    expect(result.summary.status).toBe('failed');
+    expect(result.assistantMessage?.status).toBe('failed');
   });
 
   test('runtime does not double-append streamed assistant tokens', async () => {

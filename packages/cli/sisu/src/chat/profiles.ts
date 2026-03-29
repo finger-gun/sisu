@@ -3,6 +3,12 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { type ToolPolicy, mergeToolPolicy } from './tool-policy.js';
+import {
+  CORE_MIDDLEWARE_ORDER,
+  isLockedCoreMiddleware,
+} from './middleware/catalog.js';
+
+export type CapabilityType = 'tool' | 'skill' | 'middleware';
 
 export type ChatProviderId = 'mock' | 'openai' | 'anthropic' | 'ollama';
 
@@ -13,6 +19,38 @@ export interface ChatProfile {
   theme: 'auto' | 'color' | 'plain';
   toolPolicy: ToolPolicy;
   storageDir: string;
+  capabilities?: ChatCapabilityConfig;
+}
+
+export interface CapabilityScopeConfig {
+  enabled: string[];
+  disabled: string[];
+}
+
+export interface MiddlewarePipelineEntry {
+  id: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+}
+
+export interface MiddlewareScopeConfig extends CapabilityScopeConfig {
+  pipeline: MiddlewarePipelineEntry[];
+}
+
+export interface SkillsScopeConfig extends CapabilityScopeConfig {
+  directories: string[];
+}
+
+export interface ChatCapabilityConfig {
+  tools: CapabilityScopeConfig;
+  skills: SkillsScopeConfig;
+  middleware: MiddlewareScopeConfig;
+}
+
+export interface CapabilityOverrideInput {
+  tools?: Partial<CapabilityScopeConfig>;
+  skills?: Partial<SkillsScopeConfig>;
+  middleware?: Partial<MiddlewareScopeConfig>;
 }
 
 export interface ProfileValidationIssue {
@@ -36,6 +74,7 @@ export interface ProfileLoadOptions {
   globalPath?: string;
   projectPath?: string;
   installedOllamaModels?: string[];
+  knownCapabilityIds?: string[];
 }
 
 export const PROFILE_FILE_NAME = 'chat-profile.json';
@@ -66,6 +105,59 @@ export function defaultChatProfile(options?: { cwd?: string; homeDir?: string })
     theme: 'auto',
     toolPolicy: mergeToolPolicy(),
     storageDir: path.join(homeDir, '.sisu', 'chat-sessions', path.basename(cwd)),
+    capabilities: {
+      tools: {
+        enabled: ['terminal'],
+        disabled: [],
+      },
+      skills: {
+        enabled: [],
+        disabled: [],
+        directories: [
+          path.join(cwd, '.sisu', 'skills'),
+          path.join(homeDir, '.sisu', 'skills'),
+        ],
+      },
+      middleware: {
+        enabled: [...CORE_MIDDLEWARE_ORDER, 'conversation-buffer', 'skills'],
+        disabled: [],
+        pipeline: [
+          { id: 'error-boundary', enabled: true, config: {} },
+          { id: 'invariants', enabled: true, config: {} },
+          { id: 'register-tools', enabled: true, config: {} },
+          { id: 'tool-calling', enabled: true, config: {} },
+          { id: 'conversation-buffer', enabled: true, config: {} },
+          { id: 'skills', enabled: true, config: {} },
+        ],
+      },
+    },
+  };
+}
+
+export function ensureCapabilityDefaults(
+  profile: ChatProfile,
+  options?: { cwd?: string; homeDir?: string },
+): ChatCapabilityConfig {
+  const defaults = defaultChatProfile(options).capabilities!;
+  const capabilities = profile.capabilities;
+  if (!capabilities) {
+    return defaults;
+  }
+  return {
+    tools: {
+      enabled: capabilities.tools?.enabled || defaults.tools.enabled,
+      disabled: capabilities.tools?.disabled || [],
+    },
+    skills: {
+      enabled: capabilities.skills?.enabled || [],
+      disabled: capabilities.skills?.disabled || [],
+      directories: capabilities.skills?.directories || defaults.skills.directories,
+    },
+    middleware: {
+      enabled: capabilities.middleware?.enabled || defaults.middleware.enabled,
+      disabled: capabilities.middleware?.disabled || [],
+      pipeline: capabilities.middleware?.pipeline || defaults.middleware.pipeline,
+    },
   };
 }
 
@@ -178,6 +270,133 @@ function parseJsonFile(content: string, filePath: string): Record<string, unknow
   return record;
 }
 
+function normalizeIdList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => String(item).trim())
+    .filter((item) => item.length > 0);
+}
+
+function parseCapabilityScope(input: Record<string, unknown> | undefined): CapabilityScopeConfig {
+  if (!input) {
+    return { enabled: [], disabled: [] };
+  }
+  return {
+    enabled: normalizeIdList(input.enabled),
+    disabled: normalizeIdList(input.disabled),
+  };
+}
+
+function parseMiddlewarePipeline(value: unknown): MiddlewarePipelineEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
+    .map((item) => ({
+      id: String(item.id || '').trim(),
+      enabled: item.enabled === undefined ? true : Boolean(item.enabled),
+      config: asRecord(item.config) || {},
+    }))
+    .filter((item) => item.id.length > 0);
+}
+
+function parseSkillsScope(input: Record<string, unknown> | undefined): SkillsScopeConfig {
+  if (!input) {
+    return { enabled: [], disabled: [], directories: [] };
+  }
+  return {
+    enabled: normalizeIdList(input.enabled),
+    disabled: normalizeIdList(input.disabled),
+    directories: normalizeIdList(input.directories),
+  };
+}
+
+function parseMiddlewareScope(input: Record<string, unknown> | undefined): MiddlewareScopeConfig {
+  if (!input) {
+    return { enabled: [], disabled: [], pipeline: [] };
+  }
+  return {
+    enabled: normalizeIdList(input.enabled),
+    disabled: normalizeIdList(input.disabled),
+    pipeline: parseMiddlewarePipeline(input.pipeline),
+  };
+}
+
+function findDuplicates(values: string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value)) {
+      duplicates.add(value);
+    }
+    seen.add(value);
+  }
+  return [...duplicates];
+}
+
+function checkEnableDisableConflicts(scope: CapabilityScopeConfig, field: string, issues: ProfileValidationIssue[]): void {
+  const enabledSet = new Set(scope.enabled);
+  for (const id of scope.disabled) {
+    if (enabledSet.has(id)) {
+      issues.push({
+        field,
+        message: `Capability '${id}' cannot appear in both enabled and disabled.`,
+      });
+    }
+  }
+}
+
+function validateKnownCapabilityIds(
+  ids: string[],
+  knownCapabilityIds: string[] | undefined,
+  field: string,
+  issues: ProfileValidationIssue[],
+): void {
+  if (!knownCapabilityIds || knownCapabilityIds.length === 0) {
+    return;
+  }
+  const known = new Set(knownCapabilityIds);
+  for (const id of ids) {
+    if (!known.has(id)) {
+      issues.push({ field, message: `Unknown capability id '${id}'.` });
+    }
+  }
+}
+
+function validateLockedCore(
+  middleware: MiddlewareScopeConfig,
+  issues: ProfileValidationIssue[],
+): void {
+  for (const id of middleware.disabled) {
+    if (isLockedCoreMiddleware(id)) {
+      issues.push({
+        field: 'capabilities.middleware.disabled',
+        message: `Locked core middleware '${id}' cannot be disabled.`,
+      });
+    }
+  }
+
+  const duplicatePipeline = findDuplicates(middleware.pipeline.map((entry) => entry.id));
+  for (const id of duplicatePipeline) {
+    issues.push({
+      field: 'capabilities.middleware.pipeline',
+      message: `Duplicate middleware pipeline entry '${id}'.`,
+    });
+  }
+
+  for (const entry of middleware.pipeline) {
+    if (isLockedCoreMiddleware(entry.id) && entry.enabled === false) {
+      issues.push({
+        field: 'capabilities.middleware.pipeline',
+        message: `Locked core middleware '${entry.id}' cannot be disabled in pipeline.`,
+      });
+    }
+  }
+}
+
 async function readOptionalProfile(filePath: string): Promise<Record<string, unknown> | undefined> {
   try {
     const content = await fs.readFile(filePath, 'utf8');
@@ -199,6 +418,21 @@ function mergeRecords(base: Record<string, unknown>, overlay?: Record<string, un
   const baseToolPolicy = asRecord(base.toolPolicy) || {};
   const overlayToolPolicy = asRecord(overlay.toolPolicy) || {};
   merged.toolPolicy = { ...baseToolPolicy, ...overlayToolPolicy };
+
+  const baseCapabilities = asRecord(base.capabilities) || {};
+  const overlayCapabilities = asRecord(overlay.capabilities) || {};
+  const mergedCapabilities: Record<string, unknown> = { ...baseCapabilities, ...overlayCapabilities };
+
+  const mergeScope = (key: 'tools' | 'skills' | 'middleware') => {
+    const baseScope = asRecord(baseCapabilities[key]) || {};
+    const overlayScope = asRecord(overlayCapabilities[key]) || {};
+    mergedCapabilities[key] = { ...baseScope, ...overlayScope };
+  };
+
+  mergeScope('tools');
+  mergeScope('skills');
+  mergeScope('middleware');
+  merged.capabilities = mergedCapabilities;
   return merged;
 }
 
@@ -220,8 +454,13 @@ export function suggestedModelForProvider(provider: ChatProviderId, installedOll
   return defaultModelForProvider(provider, DEFAULT_MODEL_BY_PROVIDER.mock);
 }
 
-export function validateAndNormalizeProfile(input: Record<string, unknown>, defaults: ChatProfile): ChatProfile {
+export function validateAndNormalizeProfile(
+  input: Record<string, unknown>,
+  defaults: ChatProfile,
+  options?: { knownCapabilityIds?: string[] },
+): ChatProfile {
   const issues: ProfileValidationIssue[] = [];
+  const defaultCapabilities = ensureCapabilityDefaults(defaults);
 
   const provider = input.provider === undefined ? defaults.provider : asProvider(input.provider);
   if (!provider) {
@@ -276,6 +515,40 @@ export function validateAndNormalizeProfile(input: Record<string, unknown>, defa
     issues.push({ field: 'toolPolicy.mode', message: 'Mode must be one of: strict, balanced, permissive.' });
   }
 
+  const capabilitiesInput = asRecord(input.capabilities);
+  const toolsScope = parseCapabilityScope(asRecord(capabilitiesInput?.tools));
+  const skillsScope = parseSkillsScope(asRecord(capabilitiesInput?.skills));
+  const middlewareScope = parseMiddlewareScope(asRecord(capabilitiesInput?.middleware));
+
+  checkEnableDisableConflicts(toolsScope, 'capabilities.tools', issues);
+  checkEnableDisableConflicts(skillsScope, 'capabilities.skills', issues);
+  checkEnableDisableConflicts(middlewareScope, 'capabilities.middleware', issues);
+
+  validateKnownCapabilityIds(
+    [...toolsScope.enabled, ...toolsScope.disabled],
+    options?.knownCapabilityIds,
+    'capabilities.tools',
+    issues,
+  );
+  validateKnownCapabilityIds(
+    [...skillsScope.enabled, ...skillsScope.disabled],
+    options?.knownCapabilityIds,
+    'capabilities.skills',
+    issues,
+  );
+  validateKnownCapabilityIds(
+    [
+      ...middlewareScope.enabled,
+      ...middlewareScope.disabled,
+      ...middlewareScope.pipeline.map((entry) => entry.id),
+    ],
+    options?.knownCapabilityIds,
+    'capabilities.middleware',
+    issues,
+  );
+
+  validateLockedCore(middlewareScope, issues);
+
   if (issues.length > 0) {
     throw new ProfileValidationError(issues);
   }
@@ -287,6 +560,22 @@ export function validateAndNormalizeProfile(input: Record<string, unknown>, defa
     theme: theme as ChatProfile['theme'],
     toolPolicy: policy,
     storageDir: path.resolve(storageDir),
+    capabilities: {
+      tools: {
+        enabled: toolsScope.enabled.length > 0 ? toolsScope.enabled : defaultCapabilities.tools.enabled,
+        disabled: toolsScope.disabled,
+      },
+      skills: {
+        enabled: skillsScope.enabled,
+        disabled: skillsScope.disabled,
+        directories: skillsScope.directories.length > 0 ? skillsScope.directories : defaultCapabilities.skills.directories,
+      },
+      middleware: {
+        enabled: middlewareScope.enabled.length > 0 ? middlewareScope.enabled : defaultCapabilities.middleware.enabled,
+        disabled: middlewareScope.disabled,
+        pipeline: middlewareScope.pipeline.length > 0 ? middlewareScope.pipeline : defaultCapabilities.middleware.pipeline,
+      },
+    },
   };
 }
 
@@ -304,7 +593,7 @@ export async function loadResolvedProfile(options?: ProfileLoadOptions): Promise
   const hasExplicitModel = globalProfile?.model !== undefined || projectProfile?.model !== undefined;
 
   const mergedRecord = mergeRecords(mergeRecords(defaults as unknown as Record<string, unknown>, globalProfile), projectProfile);
-  const resolved = validateAndNormalizeProfile(mergedRecord, defaults);
+  const resolved = validateAndNormalizeProfile(mergedRecord, defaults, { knownCapabilityIds: options?.knownCapabilityIds });
   let installedCache: string[] | undefined;
   const loadInstalled = async (): Promise<string[]> => {
     if (installedCache) {
@@ -355,5 +644,92 @@ export async function updateProjectProfile(
   await fs.mkdir(path.dirname(projectPath), { recursive: true });
   await fs.writeFile(projectPath, `${JSON.stringify(nextProject, null, 2)}\n`, 'utf8');
 
-  return await loadResolvedProfile({ cwd, homeDir, globalPath, projectPath });
+  return await loadResolvedProfile({ cwd, homeDir, globalPath, projectPath, knownCapabilityIds: options?.knownCapabilityIds });
+}
+
+export async function persistCapabilityOverride(
+  updates: CapabilityOverrideInput,
+  scope: 'project' | 'global',
+  options?: ProfileLoadOptions,
+): Promise<ChatProfile> {
+  const cwd = options?.cwd || process.cwd();
+  const homeDir = options?.homeDir || os.homedir();
+  const targetPath = scope === 'global'
+    ? (options?.globalPath || getGlobalProfilePath(homeDir))
+    : (options?.projectPath || getProjectProfilePath(cwd));
+
+  const existing = (await readOptionalProfile(targetPath)) || {};
+  const existingCapabilities = asRecord(existing.capabilities) || {};
+  const nextCapabilities: Record<string, unknown> = { ...existingCapabilities };
+
+  const assignScope = (key: keyof ChatCapabilityConfig) => {
+    const current = asRecord(existingCapabilities[key]) || {};
+    const incoming = updates[key];
+    if (!incoming) {
+      return;
+    }
+    nextCapabilities[key] = {
+      ...current,
+      ...incoming,
+    };
+  };
+
+  assignScope('tools');
+  assignScope('skills');
+  assignScope('middleware');
+
+  const nextRecord: Record<string, unknown> = {
+    ...existing,
+    capabilities: nextCapabilities,
+  };
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.writeFile(targetPath, `${JSON.stringify(nextRecord, null, 2)}\n`, 'utf8');
+  return await loadResolvedProfile({
+    cwd,
+    homeDir,
+    globalPath: options?.globalPath,
+    projectPath: options?.projectPath,
+    knownCapabilityIds: options?.knownCapabilityIds,
+  });
+}
+
+export async function persistAllowCommandPrefix(
+  prefix: string,
+  scope: 'project' | 'global',
+  options?: ProfileLoadOptions,
+): Promise<ChatProfile> {
+  const trimmed = prefix.trim();
+  if (!trimmed) {
+    throw new Error('E6511: Command prefix must be non-empty.');
+  }
+
+  const cwd = options?.cwd || process.cwd();
+  const homeDir = options?.homeDir || os.homedir();
+  const targetPath = scope === 'global'
+    ? (options?.globalPath || getGlobalProfilePath(homeDir))
+    : (options?.projectPath || getProjectProfilePath(cwd));
+
+  const existing = (await readOptionalProfile(targetPath)) || {};
+  const currentPolicy = asRecord(existing.toolPolicy) || {};
+  const currentAllow = normalizeIdList(currentPolicy.allowCommandPrefixes);
+  const merged = [...new Set([...currentAllow, trimmed])];
+
+  const nextRecord: Record<string, unknown> = {
+    ...existing,
+    toolPolicy: {
+      ...currentPolicy,
+      allowCommandPrefixes: merged,
+    },
+  };
+
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.writeFile(targetPath, `${JSON.stringify(nextRecord, null, 2)}\n`, 'utf8');
+
+  return await loadResolvedProfile({
+    cwd,
+    homeDir,
+    globalPath: options?.globalPath,
+    projectPath: options?.projectPath,
+    knownCapabilityIds: options?.knownCapabilityIds,
+  });
 }

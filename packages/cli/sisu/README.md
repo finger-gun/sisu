@@ -30,6 +30,8 @@ sisu chat
 - `sisu list <category>`
 - `sisu info <name>`
 - `sisu create <template> <project-name>`
+- `sisu list-official <middleware|tools|skills>`
+- `sisu install-skill <package-or-path> [--global|--project] [--dir <path>] [--official]`
 - `sisu install skill [installer-options]`
 - `sisu chat [--session <session-id>] [--prompt <text>]`
 - `sisu --version`
@@ -52,10 +54,15 @@ This version introduces a first-class interactive chat mode for daily CLI workfl
 ### Core flow
 
 - Start interactive mode: `sisu chat` (Ink UI by default in TTY)
-- Run one-shot prompt: `sisu chat --prompt "run: git status"`
+- Run one-shot prompt: `sisu chat --prompt "show me git status"` (tools can be called automatically when enabled)
 - Pipe prompt from stdin: `echo "hello" | sisu chat`
 - Resume a known session: `sisu chat --session <session-id>`
 - Startup now uses cached provider/model immediately and runs provider health checks in the background.
+
+Legacy explicit tool triggers still work:
+
+- `run: <command>`
+- `!<command>`
 
 ### In-chat commands
 
@@ -63,6 +70,13 @@ This version introduces a first-class interactive chat mode for daily CLI workfl
 - `/new` - start a brand new chat session
 - `/provider [ollama|openai|anthropic|mock]` - set provider (interactive picker if omitted)
 - `/model [name]` - set model (interactive picker if omitted)
+- `/tools`, `/skills`, `/middleware` - list capability state by category
+- `/enable <capability-id> [session|project|global]` - enable capability with explicit scope
+- `/disable <capability-id> [session|project|global]` - disable capability with explicit scope
+- `/official <middleware|tools|skills>` - list official `@sisu-ai/*` capability packages
+- `/middleware setup` - guided middleware toggle/reorder/config flow
+- `/allow-command <prefix> [session|project|global]` - persist command allow-list prefix by scope
+- `/open-config [project|global]` - open profile config in your `$EDITOR`/`$VISUAL`
 - `/cancel` - cancel active run/tool execution
 - `/sessions` - list persisted sessions and choose resume/delete action
 - `/delete-session <session-id>` - delete a saved session directly
@@ -99,6 +113,7 @@ Chat profile resolution uses deterministic precedence:
 1. Built-in defaults
 2. Global profile: `~/.sisu/chat-profile.json`
 3. Project profile: `<project>/.sisu/chat-profile.json` (overrides global)
+4. Session overrides: in-memory updates from interactive commands
 
 Example profile:
 
@@ -113,8 +128,64 @@ Example profile:
     "mode": "balanced",
     "requireConfirmationForHighImpact": true,
     "allowCommandPrefixes": ["echo", "ls", "git status", "pnpm test"]
+  },
+  "capabilities": {
+    "tools": { "enabled": ["terminal"], "disabled": [] },
+    "skills": {
+      "enabled": [],
+      "disabled": [],
+      "directories": ["./.sisu/skills", "~/.sisu/skills"]
+    },
+    "middleware": {
+      "enabled": ["error-boundary", "invariants", "register-tools", "tool-calling", "conversation-buffer", "skills"],
+      "disabled": [],
+      "pipeline": [
+        { "id": "error-boundary", "enabled": true, "config": {} },
+        { "id": "invariants", "enabled": true, "config": {} },
+        { "id": "register-tools", "enabled": true, "config": {} },
+        { "id": "tool-calling", "enabled": true, "config": {} },
+        { "id": "conversation-buffer", "enabled": true, "config": {} },
+        { "id": "skills", "enabled": true, "config": {} }
+      ]
+    }
   }
 }
+```
+
+Capability behavior notes:
+
+- Core middleware (`error-boundary`, `invariants`, `register-tools`, `tool-calling`) is locked and cannot be disabled or reordered past core constraints.
+- Skill discovery loads from `./.sisu/skills` and `~/.sisu/skills` with project precedence.
+- Unknown capability IDs and conflicting `enabled`/`disabled` entries are rejected at startup with field-level diagnostics.
+
+### Official package discovery and install
+
+- List official packages by category:
+
+```bash
+sisu list-official tools
+sisu list-official middleware
+sisu list-official skills
+```
+
+- Install skills to standard directories:
+
+```bash
+sisu install-skill @sisu-ai/skill-debug --project
+sisu install-skill @sisu-ai/skill-repo-search --global
+sisu install-skill ./path/to/local-skill --dir ~/.sisu/skills
+```
+
+- Enforce official namespace policy (`@sisu-ai/*`) during install:
+
+```bash
+sisu install-skill @sisu-ai/skill-debug --official
+```
+
+For script wrappers (for example `skills.sh`-style installers), use non-interactive flags only:
+
+```bash
+sisu install-skill @sisu-ai/skill-debug --project --official
 ```
 
 Provider notes:
@@ -152,6 +223,7 @@ It also provides a built-in path to install the `sisu-framework` skill:
 
 ```bash
 npx @sisu-ai/cli install skill
+npx @sisu-ai/cli install-skill @sisu-ai/skill-debug --project
 ```
 
 ---
