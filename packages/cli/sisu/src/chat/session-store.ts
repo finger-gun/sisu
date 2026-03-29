@@ -90,6 +90,16 @@ export class FileSessionStore {
     return Object.values(file.sessions).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
+  async deleteSession(sessionId: string): Promise<boolean> {
+    const file = await this.readStoreFile();
+    if (!file.sessions[sessionId]) {
+      return false;
+    }
+    delete file.sessions[sessionId];
+    await this.writeStoreFile(file);
+    return true;
+  }
+
   async searchSessions(query: string): Promise<SessionStoreSearchResult[]> {
     const normalized = query.trim().toLowerCase();
     if (!normalized) {

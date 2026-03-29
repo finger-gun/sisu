@@ -1,5 +1,6 @@
 import type { Writable } from 'node:stream';
 import type { ChatEvent } from './events.js';
+import { renderMarkdownLines } from './markdown.js';
 
 export interface ColorSupport {
   enabled: boolean;
@@ -54,6 +55,8 @@ export class TerminalRenderer {
 
   private streamingMessageId?: string;
 
+  private streamingBuffer = '';
+
   constructor(options?: { output?: Writable; forceColor?: boolean; disableColor?: boolean }) {
     this.output = options?.output || process.stdout;
     const support: ColorSupport = options?.disableColor
@@ -76,20 +79,32 @@ export class TerminalRenderer {
         return;
       case 'assistant.message.started':
         this.streamingMessageId = event.message.id;
-        this.output.write(this.theme.success('Assistant: '));
+        this.streamingBuffer = '';
+        this.writeLine(this.theme.success('Assistant:'));
         return;
       case 'assistant.token.delta':
         if (this.streamingMessageId === event.messageId) {
-          this.output.write(event.delta);
+          this.streamingBuffer += event.delta;
         }
         return;
       case 'assistant.message.completed':
         if (this.streamingMessageId === event.message.id) {
-          this.output.write('\n');
+          const content = event.message.content || this.streamingBuffer;
+          for (const line of renderMarkdownLines(content, {
+            maxWidth: Math.max(40, (process.stdout.columns || 100) - 4),
+          })) {
+            this.writeLine(line.text.length > 0 ? `  ${line.text}` : '');
+          }
+          this.streamingBuffer = '';
           this.streamingMessageId = undefined;
           return;
         }
-        this.writeLine(this.theme.success(`Assistant: ${event.message.content}`));
+        this.writeLine(this.theme.success('Assistant:'));
+        for (const line of renderMarkdownLines(event.message.content, {
+          maxWidth: Math.max(40, (process.stdout.columns || 100) - 4),
+        })) {
+          this.writeLine(line.text.length > 0 ? `  ${line.text}` : '');
+        }
         return;
       case 'assistant.message.failed':
         this.writeLine(this.theme.error(`Assistant failed (${event.errorCode}): ${event.errorMessage}`));

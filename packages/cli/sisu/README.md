@@ -51,9 +51,11 @@ This version introduces a first-class interactive chat mode for daily CLI workfl
 
 ### Core flow
 
-- Start interactive mode: `sisu chat`
+- Start interactive mode: `sisu chat` (Ink UI by default in TTY)
 - Run one-shot prompt: `sisu chat --prompt "run: git status"`
+- Pipe prompt from stdin: `echo "hello" | sisu chat`
 - Resume a known session: `sisu chat --session <session-id>`
+- Startup now uses cached provider/model immediately and runs provider health checks in the background.
 
 ### In-chat commands
 
@@ -62,11 +64,14 @@ This version introduces a first-class interactive chat mode for daily CLI workfl
 - `/provider [ollama|openai|anthropic|mock]` - set provider (interactive picker if omitted)
 - `/model [name]` - set model (interactive picker if omitted)
 - `/cancel` - cancel active run/tool execution
-- `/sessions` - list persisted sessions
+- `/sessions` - list persisted sessions and choose resume/delete action
+- `/delete-session <session-id>` - delete a saved session directly
 - `/search <query>` - search conversation history
 - `/resume <session-id>` - switch to a prior session
 - `/branch <message-id>` - create a new branch session from a prior message
 - `/exit` - close chat
+- `/options` - open interactive options menu
+- `/settings` - open interactive settings menu
 
 ### Tool safety model
 
@@ -77,6 +82,15 @@ Tool executions are policy-gated before execution:
 - **deny**: command is blocked with a reason
 
 High-impact commands require confirmation by default. Denied and completed actions are persisted in session records with status and metadata.
+
+### Ink shortcuts and menus
+
+- `Ctrl+O` opens the options menu (new session, switch session, branch, help, exit).
+- `Shift+S` opens settings (provider/model/session switching).
+- `Shift+Enter` inserts a newline in the input box for multiline messages.
+- `Ctrl+J` is supported as a fallback in terminals that don't expose Shift+Enter distinctly.
+- Menus support `↑/↓` to navigate, `Enter` to select, and `Esc` to close.
+- Assistant output is markdown-aware in terminal rendering (headers/lists/code blocks are formatted for readability).
 
 ### Profiles and configuration
 

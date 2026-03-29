@@ -14,6 +14,8 @@ import {
   mergeToolPolicy,
   parseChatArgs,
   runChatCli,
+  isInkEraseKey,
+  isInkNewlineKey,
 } from '../src/lib.js';
 
 const tempDirs: string[] = [];
@@ -55,6 +57,19 @@ describe('chat coverage', () => {
   test('parseChatArgs validates missing values', () => {
     expect(() => parseChatArgs(['--session'])).toThrow('Missing value for --session');
     expect(() => parseChatArgs(['--prompt'])).toThrow('Missing value for --prompt');
+    expect(() => parseChatArgs(['--ui'])).toThrow("--ui is no longer supported. Use 'sisu chat' for interactive mode.");
+  });
+
+  test('isInkEraseKey handles control sequence fallback', () => {
+    expect(isInkEraseKey('\x7f', {})).toBe(true);
+    expect(isInkEraseKey('\b', {})).toBe(true);
+    expect(isInkEraseKey('h', { ctrl: true })).toBe(true);
+  });
+
+  test('isInkNewlineKey covers multiline key paths', () => {
+    expect(isInkNewlineKey('j', { ctrl: true })).toBe(true);
+    expect(isInkNewlineKey('', { return: true, shift: true })).toBe(true);
+    expect(isInkNewlineKey('x', {})).toBe(false);
   });
 
   test('tool policy covers empty, max-length, and balanced confirm paths', () => {
@@ -298,6 +313,96 @@ describe('chat coverage', () => {
     expect(rendered).toContain('Select provider:');
     expect(rendered).toContain('Provider updated: mock / sisu-mock-chat-v1');
     expect(rendered).toContain('[mock/sisu-mock-chat-v1] [session');
+  });
+
+  test('runChatCli /sessions allows deleting and resuming from interactive list', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-cli-session-actions-'));
+    tempDirs.push(root);
+
+    const profileDir = path.join(root, '.sisu');
+    await fs.mkdir(profileDir, { recursive: true });
+    await fs.writeFile(
+      path.join(profileDir, 'chat-profile.json'),
+      JSON.stringify({ provider: 'mock', model: 'sisu-mock-chat-v1', storageDir: path.join(root, 'sessions') }),
+      'utf8',
+    );
+
+    const output: string[] = [];
+    const outputStream = new PassThrough();
+    outputStream.on('data', (chunk: Buffer | string) => {
+      output.push(String(chunk));
+    });
+
+    async function* inputLines(): AsyncGenerator<string> {
+      yield 'hello world\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '/sessions\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '1\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '2\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '/sessions\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '/exit\n';
+    }
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(root);
+    try {
+      await runChatCli([], { input: Readable.from(inputLines()), output: outputStream });
+    } finally {
+      cwdSpy.mockRestore();
+    }
+
+    const rendered = output.join('');
+    expect(rendered).toContain('Select session to act on');
+    expect(rendered).toContain('Action:');
+    expect(rendered).toContain('Deleted session');
+  });
+
+  test('runChatCli /resume prints loaded session history', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-cli-resume-history-'));
+    tempDirs.push(root);
+
+    const profileDir = path.join(root, '.sisu');
+    await fs.mkdir(profileDir, { recursive: true });
+    await fs.writeFile(
+      path.join(profileDir, 'chat-profile.json'),
+      JSON.stringify({ provider: 'mock', model: 'sisu-mock-chat-v1', storageDir: path.join(root, 'sessions') }),
+      'utf8',
+    );
+
+    const output: string[] = [];
+    const outputStream = new PassThrough();
+    outputStream.on('data', (chunk: Buffer | string) => {
+      output.push(String(chunk));
+    });
+
+    async function* inputLines(): AsyncGenerator<string> {
+      yield 'first message\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '/sessions\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '1\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '1\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '/exit\n';
+    }
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(root);
+    try {
+      await runChatCli([], { input: Readable.from(inputLines()), output: outputStream });
+    } finally {
+      cwdSpy.mockRestore();
+    }
+
+    const rendered = output.join('');
+    expect(rendered).toContain('Resumed session');
+    expect(rendered).toContain('Loaded session history:');
+    expect(rendered).toContain('You: first message');
   });
 
   test('renderer covers all event branches', () => {

@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/cli",
-  "version": "0.4.0",
+  "version": "0.5.1",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/lib.js",
@@ -18,11 +18,14 @@
     "@sisu-ai/core": "workspace:*",
     "@sisu-ai/skill-install": "workspace:*",
     "commander": "^14.0.1",
+    "ink": "^5.1.0",
     "ora": "^8.1.1",
-    "prompts": "^2.4.2"
+    "prompts": "^2.4.2",
+    "react": "^18.3.1"
   },
   "devDependencies": {
-    "@types/prompts": "^2.4.9"
+    "@types/prompts": "^2.4.9",
+    "@types/react": "^18.3.3"
   },
   "publishConfig": {
     "access": "public"

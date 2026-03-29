@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { catalog, categories, type CatalogCategory, type CatalogEntry } from './catalog.js';
 export * from './chat/events.js';
+export * from './chat/markdown.js';
 export * from './chat/profiles.js';
 export * from './chat/renderer.js';
 export * from './chat/runtime.js';

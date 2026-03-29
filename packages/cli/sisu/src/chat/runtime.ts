@@ -30,6 +30,8 @@ import {
 import { FileSessionStore, type ChatSessionSnapshot } from './session-store.js';
 import { TerminalRenderer } from './renderer.js';
 import { type ToolRequest, evaluateToolRequest } from './tool-policy.js';
+import type { SessionStoreSearchResult } from './session-store.js';
+import { renderMarkdownLines } from './markdown.js';
 
 interface ProviderStreamInput {
   messages: Message[];
@@ -121,6 +123,32 @@ class LlmStreamingProvider implements ChatProvider {
     yield { type: 'delta', text: response.message.content };
     yield { type: 'done' };
   }
+}
+
+export function computeNovelStreamDelta(existingText: string, incomingDelta: string): string {
+  if (!incomingDelta) {
+    return '';
+  }
+  if (!existingText) {
+    return incomingDelta;
+  }
+
+  if (incomingDelta.startsWith(existingText)) {
+    return incomingDelta.slice(existingText.length);
+  }
+
+  if (existingText.endsWith(incomingDelta)) {
+    return '';
+  }
+
+  const maxOverlap = Math.min(existingText.length, incomingDelta.length);
+  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+    if (existingText.slice(-overlap) === incomingDelta.slice(0, overlap)) {
+      return incomingDelta.slice(overlap);
+    }
+  }
+
+  return incomingDelta;
 }
 
 export function createProviderFromProfile(
@@ -465,6 +493,17 @@ export class ChatRuntime {
     return await this.sessionStore.listSessions();
   }
 
+  async deleteSession(sessionId: string): Promise<boolean> {
+    const deleted = await this.sessionStore.deleteSession(sessionId);
+    if (!deleted) {
+      return false;
+    }
+    if (this.state.sessionId === sessionId) {
+      await this.startNewSession();
+    }
+    return true;
+  }
+
   async branchFromMessage(messageId: string): Promise<string> {
     const nowIso = isoNow(this.now);
     const snapshot = await this.sessionStore.branchSession(this.state.sessionId, messageId, nowIso);
@@ -668,23 +707,28 @@ export class ChatRuntime {
       this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step: synthesizeStep });
 
       const providerMessages = toProviderMessages(this.state.messages, assistantMessage.id, toolOutputs);
+      let streamedContent = '';
       for await (const event of this.provider.streamResponse({ messages: providerMessages, signal })) {
         if (signal.aborted) {
           throw new Error('RUN_CANCELLED');
         }
         if (event.type === 'delta' && event.text) {
-          assistantMessage.content += event.text;
-          assistantMessage.updatedAt = isoNow(this.now);
+          const delta = computeNovelStreamDelta(streamedContent, event.text);
+          if (!delta) {
+            continue;
+          }
+          streamedContent += delta;
           this.emit({
             type: 'assistant.token.delta',
             sessionId: this.state.sessionId,
             runId: run.id,
             messageId: assistantMessage.id,
-            delta: event.text,
+            delta,
           });
         }
       }
 
+      assistantMessage.content = streamedContent;
       assistantMessage.status = 'completed';
       assistantMessage.updatedAt = isoNow(this.now);
       this.emit({
@@ -810,6 +854,14 @@ export function parseChatArgs(argv: string[]): ChatCliArgs {
       continue;
     }
 
+    if (token === '--ui' || token === '--ink') {
+      throw new Error(`${token} is no longer supported. Use 'sisu chat' for interactive mode.`);
+    }
+
+    if (token === '--json') {
+      continue;
+    }
+
     throw new Error(`Unknown chat option: ${token}`);
   }
 
@@ -825,12 +877,779 @@ function asProviderChoice(value: string): ChatProviderId | undefined {
   return undefined;
 }
 
+export type InkLineTone = 'normal' | 'muted' | 'info' | 'success' | 'warning' | 'error';
+
+export interface InkTranscriptLine {
+  text: string;
+  tone: InkLineTone;
+}
+
+function toInkHistoryLines(messages: ChatMessage[]): InkTranscriptLine[] {
+  const lines: InkTranscriptLine[] = [];
+  for (const message of messages) {
+    if (message.role === 'assistant') {
+      lines.push({ text: 'Assistant:', tone: 'success' });
+      const rendered = renderMarkdownLines(message.content, {
+        maxWidth: Math.max(40, (process.stdout.columns || 100) - 6),
+      });
+      if (rendered.length === 0) {
+        lines.push({ text: '  <empty response>', tone: 'muted' });
+      } else {
+        lines.push(...rendered.map((line) => ({
+          text: line.text.length > 0 ? `  ${line.text}` : '',
+          tone: line.tone,
+        })));
+      }
+      continue;
+    }
+
+    if (message.role === 'user') {
+      const parts = message.content.split('\n');
+      parts.forEach((part, index) => {
+        lines.push({ text: index === 0 ? `You: ${part}` : `  ${part}`, tone: 'info' });
+      });
+      continue;
+    }
+
+    if (message.role === 'system') {
+      lines.push({ text: `System: ${message.content}`, tone: 'muted' });
+      continue;
+    }
+
+    lines.push({ text: `Tool: ${message.content}`, tone: 'muted' });
+  }
+  return lines;
+}
+
+function writeLoadedSessionHistory(output: Writable, messages: ChatMessage[]): void {
+  output.write('Loaded session history:\n');
+  if (messages.length === 0) {
+    output.write('(empty session)\n');
+    return;
+  }
+
+  for (const message of messages) {
+    if (message.role === 'assistant') {
+      output.write('Assistant:\n');
+      const rendered = renderMarkdownLines(message.content, {
+        maxWidth: Math.max(40, (process.stdout.columns || 100) - 4),
+      });
+      if (rendered.length === 0) {
+        output.write('  <empty response>\n');
+      } else {
+        rendered.forEach((line) => {
+          output.write(line.text.length > 0 ? `  ${line.text}\n` : '\n');
+        });
+      }
+      continue;
+    }
+
+    const prefix = message.role === 'user' ? 'You' : message.role === 'system' ? 'System' : 'Tool';
+    const parts = message.content.split('\n');
+    parts.forEach((part, index) => {
+      output.write(index === 0 ? `${prefix}: ${part}\n` : `  ${part}\n`);
+    });
+  }
+}
+
+export function toInkEventLines(event: ChatEvent): InkTranscriptLine[] {
+  switch (event.type) {
+    case 'user.submitted':
+      return [];
+    case 'assistant.message.started':
+      return [];
+    case 'assistant.token.delta':
+      return [];
+    case 'assistant.message.completed': {
+      const rendered = renderMarkdownLines(event.message.content, {
+        maxWidth: Math.max(40, (process.stdout.columns || 100) - 6),
+      });
+      if (rendered.length === 0) {
+        return [{ text: 'Assistant: <empty response>', tone: 'muted' }];
+      }
+      return [
+        { text: 'Assistant:', tone: 'success' },
+        ...rendered.map((line) => ({
+          text: line.text.length > 0 ? `  ${line.text}` : '',
+          tone: line.tone,
+        })),
+      ];
+    }
+    case 'assistant.message.failed':
+      return [{ text: `Assistant failed (${event.errorCode}): ${event.errorMessage}`, tone: 'error' }];
+    case 'assistant.message.cancelled':
+      return [{ text: 'Assistant response cancelled.', tone: 'warning' }];
+    case 'run.step.started':
+      return [];
+    case 'run.step.completed':
+      return [];
+    case 'tool.pending':
+      return [];
+    case 'tool.running':
+      return [];
+    case 'tool.completed':
+      return [];
+    case 'tool.denied':
+      return [{ text: `! Tool denied [${event.record.toolName}]: ${event.reason}`, tone: 'warning' }];
+    case 'tool.failed':
+      return [{ text: `X Tool failed [${event.record.toolName}]: ${event.errorMessage}`, tone: 'error' }];
+    case 'tool.cancelled':
+      return [{ text: `! Tool cancelled [${event.record.toolName}]`, tone: 'warning' }];
+    case 'run.completed':
+      return [];
+    case 'run.failed':
+      return [{ text: `Run failed: ${event.errorCode} - ${event.errorMessage}`, tone: 'error' }];
+    case 'run.cancelled':
+      return [{ text: 'Run cancelled.', tone: 'warning' }];
+    case 'session.saved':
+      return [];
+    case 'error.raised':
+      return [{ text: `Error [${event.code}]: ${event.message}`, tone: 'error' }];
+    default:
+      return [];
+  }
+}
+
+function inkToneToColor(tone: InkLineTone): { color?: string; dimColor?: boolean } {
+  switch (tone) {
+    case 'muted':
+      return { dimColor: true };
+    case 'info':
+      return { color: 'cyan' };
+    case 'success':
+      return { color: 'green' };
+    case 'warning':
+      return { color: 'yellow' };
+    case 'error':
+      return { color: 'red' };
+    default:
+      return {};
+  }
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function readPipedPrompt(input: Readable): Promise<string | undefined> {
+  const inputState = input as Readable & { isTTY?: boolean };
+  if (inputState.isTTY) {
+    return undefined;
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of input) {
+    if (typeof chunk === 'string') {
+      chunks.push(Buffer.from(chunk));
+    } else {
+      chunks.push(chunk as Buffer);
+    }
+  }
+  const text = Buffer.concat(chunks).toString('utf8').trim();
+  return text.length > 0 ? text : undefined;
+}
+
+export function isInkEraseKey(value: string, key: {
+  backspace?: boolean;
+  delete?: boolean;
+  ctrl?: boolean;
+}): boolean {
+  if (key.backspace || key.delete) {
+    return true;
+  }
+  if (value === '\x7f' || value === '\b') {
+    return true;
+  }
+  return Boolean(key.ctrl) && value.toLowerCase() === 'h';
+}
+
+export function isInkNewlineKey(value: string, key: {
+  return?: boolean;
+  ctrl?: boolean;
+  meta?: boolean;
+  shift?: boolean;
+}): boolean {
+  if (key.return && (key.shift || key.meta)) {
+    return true;
+  }
+  return Boolean(key.ctrl) && value.toLowerCase() === 'j';
+}
+
+interface InkMenuItem {
+  label: string;
+  run: () => Promise<void>;
+}
+
+async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output: Writable }): Promise<void> {
+  const React = await import('react');
+  const ink = await import('ink');
+  const { render, Box, Text, Static, useInput, useApp } = ink;
+  const { createElement, useEffect, useRef, useState } = React;
+  const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
+
+  const App = (): ReturnType<typeof createElement> => {
+    const { exit } = useApp();
+    const [transcript, setTranscript] = useState<Array<InkTranscriptLine & { id: string }>>([]);
+    const [inputValue, setInputValue] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [ready, setReady] = useState(false);
+    const [spinnerFrame, setSpinnerFrame] = useState(0);
+    const [cursorVisible, setCursorVisible] = useState(true);
+    const [providerHealth, setProviderHealth] = useState<'checking' | 'ready' | 'error'>('checking');
+    const [providerHealthText, setProviderHealthText] = useState('Checking provider...');
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [menuTitle, setMenuTitle] = useState('Options');
+    const [menuItems, setMenuItems] = useState<InkMenuItem[]>([]);
+    const [menuIndex, setMenuIndex] = useState(0);
+    const runtimeRef = useRef<ChatRuntime | undefined>(undefined);
+
+    const appendLine = (text: string, tone: InkLineTone = 'normal') => {
+      setTranscript((previous) => [...previous, { id: createId('ink-line'), text, tone }].slice(-250));
+    };
+
+    const appendLines = (lines: InkTranscriptLine[]) => {
+      if (lines.length === 0) {
+        return;
+      }
+      setTranscript((previous) => [
+        ...previous,
+        ...lines.map((line) => ({ id: createId('ink-line'), ...line })),
+      ].slice(-250));
+    };
+
+    const renderInputText = (prefix: string, value: string, cursor: string): string => {
+      if (!value) {
+        return `${prefix}${cursor}`;
+      }
+      const lines = value.split('\n');
+      return lines
+        .map((line, index) => {
+          const start = index === 0 ? prefix : '  ';
+          const withLine = `${start}${line}`;
+          return index === lines.length - 1 ? `${withLine}${cursor}` : withLine;
+        })
+        .join('\n');
+    };
+
+    const openMenu = (title: string, items: InkMenuItem[]) => {
+      if (items.length === 0) {
+        appendLine('No options available right now.', 'muted');
+        return;
+      }
+      setMenuTitle(title);
+      setMenuItems(items);
+      setMenuIndex(0);
+      setMenuOpen(true);
+    };
+
+    const closeMenu = () => {
+      setMenuOpen(false);
+      setMenuItems([]);
+      setMenuIndex(0);
+    };
+
+    const probeProviderInBackground = (runtime: ChatRuntime) => {
+      setProviderHealth('checking');
+      setProviderHealthText('Checking provider...');
+      void (async () => {
+        try {
+          await runtime.probeProvider();
+          setProviderHealth('ready');
+          setProviderHealthText('Provider ready');
+        } catch (error) {
+          const message = formatError(error);
+          setProviderHealth('error');
+          setProviderHealthText(message);
+          appendLine(`Provider check failed: ${message}`, 'warning');
+          appendLine('Use /provider or /model (or Ctrl+O) to recover.', 'muted');
+        }
+      })();
+    };
+
+    const openProviderMenu = async (): Promise<void> => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      const items: InkMenuItem[] = PROVIDER_CHOICES.map((provider) => ({
+        label: provider === runtime.profile.provider ? `${provider} (current)` : provider,
+        run: async () => {
+          const next = await runtime.setProvider(provider);
+          appendLine(`Provider updated: ${next.provider} / ${next.model}`, 'success');
+          probeProviderInBackground(runtime);
+        },
+      }));
+      openMenu('Select provider', items);
+    };
+
+    const openModelMenu = async (): Promise<void> => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      setBusy(true);
+      try {
+        const models = await runtime.listSuggestedModels(runtime.profile.provider);
+        const items: InkMenuItem[] = models.map((model) => ({
+          label: model === runtime.profile.model ? `${model} (current)` : model,
+          run: async () => {
+            const next = await runtime.setModel(model);
+            appendLine(`Model updated: ${next.provider} / ${next.model}`, 'success');
+            probeProviderInBackground(runtime);
+          },
+        }));
+        openMenu(`Select model (${runtime.profile.provider})`, items);
+      } catch (error) {
+        appendLine(formatError(error), 'error');
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    const openSessionListMenu = async (): Promise<void> => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      setBusy(true);
+      try {
+        const sessions = await runtime.listSessions();
+        if (sessions.length === 0) {
+          appendLine('No saved sessions.', 'muted');
+          return;
+        }
+        const items: InkMenuItem[] = sessions.slice(0, 25).map((session) => ({
+          label: `${session.sessionId} · ${session.title || 'Untitled'}`,
+          run: async () => {
+            openMenu(`Session ${session.sessionId}`, [
+              {
+                label: 'Resume this session',
+                run: async () => {
+                  await runtime.resumeSession(session.sessionId);
+                  appendLine(`Resumed session ${session.sessionId}.`, 'success');
+                  appendLine('Loaded session history:', 'muted');
+                  appendLines(toInkHistoryLines(runtime.getState().messages));
+                },
+              },
+              {
+                label: 'Delete this session',
+                run: async () => {
+                  const deleted = await runtime.deleteSession(session.sessionId);
+                  appendLine(
+                    deleted
+                      ? `Deleted session ${session.sessionId}.`
+                      : `Session not found: ${session.sessionId}.`,
+                    deleted ? 'warning' : 'muted',
+                  );
+                },
+              },
+            ]);
+          },
+        }));
+        openMenu('Sessions', items);
+      } catch (error) {
+        appendLine(formatError(error), 'error');
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    const openBranchMenu = async (): Promise<void> => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      const items: InkMenuItem[] = runtime
+        .getState()
+        .messages
+        .filter((message) => message.role !== 'tool')
+        .slice(-25)
+        .reverse()
+        .map((message) => ({
+          label: `${message.id} · ${message.role}: ${message.content.slice(0, 48)}`,
+          run: async () => {
+            const branchId = await runtime.branchFromMessage(message.id);
+            appendLine(`Created branch session ${branchId}.`, 'success');
+          },
+        }));
+      openMenu('Branch from message', items);
+    };
+
+    const openSettingsMenu = async (): Promise<void> => {
+      openMenu('Settings', [
+        { label: 'Switch provider', run: openProviderMenu },
+        { label: 'Switch model', run: openModelMenu },
+        { label: 'Sessions (resume/delete)', run: openSessionListMenu },
+      ]);
+    };
+
+    const openOptionsMenu = async (): Promise<void> => {
+      openMenu('Options', [
+        { label: 'New session', run: async () => { const runtime = runtimeRef.current; if (runtime) { const id = await runtime.startNewSession(); appendLine(`Started new session ${id}.`, 'success'); } } },
+        { label: 'Settings…', run: openSettingsMenu },
+        { label: 'Sessions (resume/delete)', run: openSessionListMenu },
+        { label: 'Branch from message', run: openBranchMenu },
+        { label: 'Cancel active run', run: async () => { const runtime = runtimeRef.current; if (runtime) { const cancelled = runtime.cancelActiveRun(); appendLine(cancelled ? 'Cancellation requested.' : 'No active run to cancel.', cancelled ? 'warning' : 'muted'); } } },
+        { label: 'Help', run: async () => { appendLine('Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted'); } },
+        { label: 'Exit', run: async () => { exit(); } },
+      ]);
+    };
+
+    useEffect(() => {
+      if (!busy) {
+        return () => {};
+      }
+      const timer = setInterval(() => {
+        setSpinnerFrame((value: number) => (value + 1) % spinnerFrames.length);
+      }, 90);
+      return () => clearInterval(timer);
+    }, [busy]);
+
+    useEffect(() => {
+      if (!ready || busy) {
+        setCursorVisible(true);
+        return () => {};
+      }
+      const timer = setInterval(() => {
+        setCursorVisible((value: boolean) => !value);
+      }, 500);
+      return () => clearInterval(timer);
+    }, [ready, busy]);
+
+    useEffect(() => {
+      let disposed = false;
+      let teardown = () => {};
+      const init = async () => {
+        try {
+          const runtime = await ChatRuntime.create({
+            sessionId: parsed.sessionId,
+            confirmToolExecution: async () => false,
+          });
+          if (disposed) {
+            return;
+          }
+          runtimeRef.current = runtime;
+          teardown = runtime.onEvent((event) => {
+            const lines = toInkEventLines(event);
+            if (lines.length === 0) {
+              return;
+            }
+            appendLines(lines);
+          });
+          setReady(true);
+          appendLine('Ready. Type /help or press Ctrl+O for options.', 'muted');
+          const startupError = runtime.getProviderStartupError();
+          if (startupError) {
+            setProviderHealth('error');
+            setProviderHealthText(startupError);
+            appendLine(`Provider startup error: ${startupError}`, 'warning');
+            appendLine('Use /provider or /model to recover.', 'muted');
+          } else {
+            probeProviderInBackground(runtime);
+          }
+        } catch (error) {
+          appendLine(`Startup error: ${formatError(error)}`, 'error');
+          setProviderHealth('error');
+          setProviderHealthText(formatError(error));
+        } finally {
+          if (!disposed) {
+            setReady(true);
+          }
+        }
+      };
+
+      void init();
+      return () => {
+        disposed = true;
+        teardown();
+      };
+    }, []);
+
+    const handleCommand = async (line: string): Promise<boolean> => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return true;
+      }
+
+      if (line === '/help') {
+        appendLine('Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted');
+        appendLine('Shortcuts: Ctrl+O (options), Shift+S (settings), Shift+Enter newline (Ctrl+J fallback), Esc (close menu).', 'muted');
+        return true;
+      }
+      if (line === '/exit' || line === '/quit') {
+        return false;
+      }
+      if (line === '/options') {
+        await openOptionsMenu();
+        return true;
+      }
+      if (line === '/settings') {
+        await openSettingsMenu();
+        return true;
+      }
+      if (line === '/new') {
+        const sessionId = await runtime.startNewSession();
+        appendLine(`Started new session ${sessionId}.`, 'success');
+        return true;
+      }
+      if (line === '/cancel') {
+        const cancelled = runtime.cancelActiveRun();
+        appendLine(cancelled ? 'Cancellation requested.' : 'No active run to cancel.', cancelled ? 'warning' : 'muted');
+        return true;
+      }
+      if (line === '/sessions') {
+        await openSessionListMenu();
+        return true;
+      }
+      if (line.startsWith('/search ')) {
+        const query = line.slice('/search '.length).trim();
+        const results = await runtime.searchSessions(query);
+        results.forEach((result: SessionStoreSearchResult) => {
+          appendLine(`- ${result.sessionId} | ${result.updatedAt} | ${result.preview}`, 'muted');
+        });
+        return true;
+      }
+      if (line.startsWith('/resume ')) {
+        const sessionId = line.slice('/resume '.length).trim();
+        await runtime.resumeSession(sessionId);
+        appendLine(`Resumed session ${sessionId}.`, 'success');
+        appendLine('Loaded session history:', 'muted');
+        appendLines(toInkHistoryLines(runtime.getState().messages));
+        return true;
+      }
+      if (line.startsWith('/delete-session ')) {
+        const sessionId = line.slice('/delete-session '.length).trim();
+        const deleted = await runtime.deleteSession(sessionId);
+        appendLine(
+          deleted
+            ? `Deleted session ${sessionId}.`
+            : `Session not found: ${sessionId}.`,
+          deleted ? 'warning' : 'muted',
+        );
+        return true;
+      }
+      if (line === '/resume') {
+        await openSessionListMenu();
+        return true;
+      }
+      if (line.startsWith('/branch ')) {
+        const messageId = line.slice('/branch '.length).trim();
+        const nextSession = await runtime.branchFromMessage(messageId);
+        appendLine(`Created branch session ${nextSession}.`, 'success');
+        return true;
+      }
+      if (line === '/branch') {
+        await openBranchMenu();
+        return true;
+      }
+      if (line === '/provider') {
+        await openProviderMenu();
+        return true;
+      }
+      if (line.startsWith('/provider ')) {
+        const provider = asProviderChoice(line.slice('/provider '.length).trim());
+        if (!provider) {
+          appendLine('Invalid provider. Use ollama, openai, anthropic, or mock.', 'error');
+          return true;
+        }
+        const next = await runtime.setProvider(provider);
+        appendLine(`Provider updated: ${next.provider} / ${next.model}`, 'success');
+        return true;
+      }
+      if (line === '/model') {
+        await openModelMenu();
+        return true;
+      }
+      if (line.startsWith('/model ')) {
+        const model = line.slice('/model '.length).trim();
+        const next = await runtime.setModel(model);
+        appendLine(`Model updated: ${next.provider} / ${next.model}`, 'success');
+        return true;
+      }
+
+      appendLine(`Unknown command: ${line}`, 'warning');
+      return true;
+    };
+
+    const submit = async (): Promise<void> => {
+      const runtime = runtimeRef.current;
+      const trimmed = inputValue.trim();
+      setInputValue('');
+      if (!trimmed) {
+        return;
+      }
+      if (!trimmed.startsWith('/')) {
+        appendLine(`You: ${trimmed}`, 'info');
+      }
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+
+      setBusy(true);
+      try {
+        if (trimmed.startsWith('/')) {
+          const keepRunning = await handleCommand(trimmed);
+          if (!keepRunning) {
+            exit();
+          }
+        } else {
+          await runtime.runPrompt(trimmed);
+        }
+      } catch (error) {
+        appendLine(formatError(error), 'error');
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    useInput((value, key) => {
+      if (key.ctrl && value === 'c') {
+        exit();
+        return;
+      }
+      if (!ready) {
+        return;
+      }
+      if (menuOpen) {
+        if (key.escape) {
+          closeMenu();
+          return;
+        }
+        if (key.upArrow) {
+          setMenuIndex((current) => (current <= 0 ? Math.max(menuItems.length - 1, 0) : current - 1));
+          return;
+        }
+        if (key.downArrow) {
+          setMenuIndex((current) => (current + 1) % Math.max(menuItems.length, 1));
+          return;
+        }
+        if (key.return) {
+          const selected = menuItems[menuIndex];
+          if (!selected) {
+            closeMenu();
+            return;
+          }
+          closeMenu();
+          setBusy(true);
+          void (async () => {
+            try {
+              await selected.run();
+            } catch (error) {
+              appendLine(formatError(error), 'error');
+            } finally {
+              setBusy(false);
+            }
+          })();
+          return;
+        }
+      }
+
+      if ((key.ctrl && value.toLowerCase() === 'o') || (key.shift && value === 'S' && inputValue.length === 0)) {
+        void ((async () => {
+          if (key.ctrl) {
+            await openOptionsMenu();
+          } else {
+            await openSettingsMenu();
+          }
+        })());
+        return;
+      }
+
+      if (!busy && isInkNewlineKey(value, key)) {
+        setInputValue((previous: string) => `${previous}\n`);
+        return;
+      }
+
+      if (key.return) {
+        void submit();
+        return;
+      }
+      if (isInkEraseKey(value, key)) {
+        setInputValue((previous: string) => previous.slice(0, -1));
+        return;
+      }
+      if (busy) {
+        return;
+      }
+      if (!key.ctrl && !key.meta && value.length > 0) {
+        setInputValue((previous: string) => `${previous}${value}`);
+      }
+    });
+
+    const runtime = runtimeRef.current;
+    const profileText = runtime ? `${runtime.profile.provider}/${runtime.profile.model}` : 'loading/provider';
+    const sessionText = runtime?.getState().sessionId || parsed.sessionId || 'session-pending';
+    const promptPrefix = busy ? `${spinnerFrames[spinnerFrame]} > ` : '> ';
+    const cursorGlyph = cursorVisible ? '▋' : ' ';
+    const renderedInput = renderInputText(promptPrefix, inputValue, cursorGlyph);
+    const providerHealthColor = providerHealth === 'error' ? 'red' : providerHealth === 'ready' ? 'green' : 'yellow';
+
+    return createElement(
+      Box,
+      { flexDirection: 'column' },
+      createElement(
+        Box,
+        { flexDirection: 'column', marginTop: 1, flexGrow: 1 },
+        transcript.length > 0
+          ? createElement(Static, {
+            items: transcript,
+            children: (line: unknown) => {
+              const item = line as InkTranscriptLine & { id: string };
+              return createElement(Text, { key: item.id, ...inkToneToColor(item.tone) }, item.text);
+            },
+          })
+          : createElement(Text, { dimColor: true }, 'Start chatting...'),
+      ),
+      menuOpen
+        ? createElement(
+          Box,
+          { marginTop: 1, borderStyle: 'round', borderColor: 'magenta', paddingX: 1, flexDirection: 'column' },
+          createElement(Text, { color: 'magenta' }, `${menuTitle} · ↑/↓ navigate · Enter select · Esc close`),
+          ...menuItems.map((item, index) => createElement(
+            Text,
+            { key: `${item.label}-${index}`, color: index === menuIndex ? 'cyan' : undefined },
+            `${index === menuIndex ? '›' : ' '} ${item.label}`,
+          )),
+        )
+        : undefined,
+      createElement(
+        Box,
+        { marginTop: 1, borderStyle: 'round', borderColor: busy ? 'yellow' : 'cyan', paddingX: 1 },
+        createElement(Text, { color: busy ? 'yellow' : 'green' }, renderedInput),
+      ),
+      createElement(Text, { dimColor: true, color: 'cyan' }, `[${profileText}]  ${sessionText}`),
+      createElement(Text, { color: providerHealthColor }, providerHealthText),
+      createElement(Text, { dimColor: true }, 'Enter send · Shift+Enter newline (Ctrl+J fallback) · Backspace edit · Ctrl+O options · Shift+S settings · /help · Ctrl+C exit'),
+    );
+  };
+
+  const app = render(createElement(App), {
+    stdin: io.input as typeof stdin,
+    stdout: io.output as typeof stdout,
+    exitOnCtrlC: true,
+  });
+  await app.waitUntilExit();
+}
+
 export async function runChatCli(argv: string[], io?: { input?: Readable; output?: Writable }): Promise<void> {
   const parsed = parseChatArgs(argv);
   const input = io?.input || stdin;
   const output = io?.output || stdout;
   const inputWithTty = input as Readable & { isTTY?: boolean };
   const outputWithTty = output as Writable & { isTTY?: boolean };
+  const pipedPrompt = parsed.prompt || (io?.input ? undefined : await readPipedPrompt(input));
+
+  if (!pipedPrompt && inputWithTty.isTTY && outputWithTty.isTTY) {
+    await runInkChatCli(parsed, { input, output });
+    return;
+  }
+
   const pickerEnabled = Boolean(inputWithTty.isTTY) && Boolean(outputWithTty.isTTY);
   const spinnerEnabled = !io?.output && Boolean(stdout.isTTY) && !process.env.NO_COLOR;
   const renderer = new TerminalRenderer({ output });
@@ -870,9 +1689,9 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
   }
   output.write(`Active provider/model: ${runtime.profile.provider} / ${runtime.profile.model}\n`);
 
-  if (parsed.prompt) {
+  if (pipedPrompt) {
     try {
-      await runtime.runPrompt(parsed.prompt);
+      await runtime.runPrompt(pipedPrompt);
     } finally {
       teardown();
     }
@@ -887,7 +1706,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
   });
   let ui: ReadlineInterface = createUi();
 
-  output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /search <query>, /resume <sessionId>, /branch <messageId>, /exit\n');
+    output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /resume <sessionId>, /delete-session <sessionId>, /search <query>, /branch <messageId>, /exit\n');
   output.write('Tip: /help for commands. Prompt shows active provider/model and session.\n');
 
   const renderPromptContext = (): void => {
@@ -1038,7 +1857,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     }
 
     if (trimmed === '/help') {
-      output.write('Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /search <query>, /resume <sessionId>, /branch <messageId>, /exit\n');
+      output.write('Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit\n');
       return true;
     }
 
@@ -1120,8 +1939,25 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
 
     if (trimmed === '/sessions') {
       const sessions = await withLoader('Loading sessions', async () => await runtime.listSessions());
+      if (sessions.length === 0) {
+        output.write('No saved sessions.\n');
+        return true;
+      }
       for (const session of sessions) {
         output.write(`- ${session.sessionId} | ${session.updatedAt} | ${session.title}\n`);
+      }
+      const selected = await promptChoice('Select session to act on (or Enter to skip):', sessions.map((session) => session.sessionId));
+      if (!selected) {
+        return true;
+      }
+      const action = await promptChoice('Action:', ['Resume', 'Delete', 'Cancel']);
+      if (action === 'Resume') {
+        await withLoader('Resuming session', async () => await runtime.resumeSession(selected));
+        output.write(`Resumed session ${selected}.\n`);
+        writeLoadedSessionHistory(output, runtime.getState().messages);
+      } else if (action === 'Delete') {
+        const deleted = await withLoader('Deleting session', async () => await runtime.deleteSession(selected));
+        output.write(deleted ? `Deleted session ${selected}.\n` : `Session not found: ${selected}.\n`);
       }
       return true;
     }
@@ -1139,6 +1975,14 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
       const sessionId = trimmed.slice('/resume '.length).trim();
       await withLoader('Resuming session', async () => await runtime.resumeSession(sessionId));
       output.write(`Resumed session ${sessionId}.\n`);
+      writeLoadedSessionHistory(output, runtime.getState().messages);
+      return true;
+    }
+
+    if (trimmed.startsWith('/delete-session ')) {
+      const sessionId = trimmed.slice('/delete-session '.length).trim();
+      const deleted = await withLoader('Deleting session', async () => await runtime.deleteSession(sessionId));
+      output.write(deleted ? `Deleted session ${sessionId}.\n` : `Session not found: ${sessionId}.\n`);
       return true;
     }
 
