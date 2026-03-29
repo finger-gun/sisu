@@ -34,6 +34,10 @@ function requestFromCall(call: unknown[]): Request {
   return new Request(input, init);
 }
 
+function toAsyncIterable<T = any>(value: unknown): AsyncIterable<T> {
+  return value as AsyncIterable<T>;
+}
+
 test("openAIAdapter throws without API key", async () => {
   delete (process.env as any).OPENAI_API_KEY;
   expect(() => openAIAdapter({ model: "gpt-4o-mini" })).toThrow(
@@ -127,7 +131,7 @@ test("openAIAdapter streams tokens when stream option is set", async () => {
     );
   const llm = openAIAdapter({ model: "gpt-4o" });
   const out: string[] = [];
-  const iter = (await llm.generate([], { stream: true })) as AsyncIterable<any>;
+  const iter = toAsyncIterable(await llm.generate([], { stream: true }));
   for await (const ev of iter) {
     if (ev.type === "token") out.push(ev.token);
   }
@@ -568,10 +572,12 @@ test("openAIAdapter captures reasoning_details in streaming mode", async () => {
 
   const llm = openAIAdapter({ model: "gpt-5.1" });
   const events: any[] = [];
-  const iter = (await llm.generate([{ role: "user", content: "test" }], {
-    stream: true,
-    reasoning: true,
-  })) as AsyncIterable<any>;
+  const iter = toAsyncIterable(
+    await llm.generate([{ role: "user", content: "test" }], {
+      stream: true,
+      reasoning: true,
+    }),
+  );
 
   for await (const ev of iter) {
     events.push(ev);
