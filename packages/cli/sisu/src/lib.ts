@@ -8,6 +8,7 @@ export * from './chat/runtime.js';
 export * from './chat/session-store.js';
 export * from './chat/state.js';
 export * from './chat/tool-policy.js';
+export * from './cli-main.js';
 
 export function listCategory(category: CatalogCategory): CatalogEntry[] {
   return catalog.filter((entry) => entry.category === category);

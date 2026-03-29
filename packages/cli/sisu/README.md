@@ -32,6 +32,8 @@ sisu chat
 - `sisu create <template> <project-name>`
 - `sisu install skill [installer-options]`
 - `sisu chat [--session <session-id>] [--prompt <text>]`
+- `sisu --version`
+- `sisu --json list <category>`
 
 Categories:
 
@@ -56,6 +58,9 @@ This version introduces a first-class interactive chat mode for daily CLI workfl
 ### In-chat commands
 
 - `/help` - show command help
+- `/new` - start a brand new chat session
+- `/provider [ollama|openai|anthropic|mock]` - set provider (interactive picker if omitted)
+- `/model [name]` - set model (interactive picker if omitted)
 - `/cancel` - cancel active run/tool execution
 - `/sessions` - list persisted sessions
 - `/search <query>` - search conversation history
@@ -86,8 +91,8 @@ Example profile:
 ```json
 {
   "name": "default",
-  "provider": "mock",
-  "model": "sisu-mock-chat-v1",
+  "provider": "ollama",
+  "model": "qwen3.5:9b",
   "theme": "auto",
   "storageDir": "/Users/you/.sisu/chat-sessions/my-project",
   "toolPolicy": {
@@ -104,6 +109,12 @@ Provider notes:
 - `openai`: set `OPENAI_API_KEY` (or `API_KEY`) and choose a valid OpenAI model.
 - `anthropic`: set `ANTHROPIC_API_KEY` (or `API_KEY`) and choose a valid Claude model.
 - `ollama`: ensure `ollama serve` is running and use a locally available model.
+
+Default provider behavior:
+
+- If no provider is configured, chat auto-detects local Ollama models (`ollama list`) and defaults to `ollama`.
+- Preferred Ollama defaults are selected in this order when available: `qwen3.5:9b`, `llama3.1`, `llama4`, `qwen3.5:0.8b`.
+- If no local Ollama models are found, chat falls back to `mock`.
 
 ### Session persistence
 

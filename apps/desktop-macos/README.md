@@ -15,6 +15,10 @@ SwiftUI shell for the desktop-first Sisu chat experience.
 ## Build and run
 
 ```bash
+# from repo root (recommended)
+pnpm run ex:desktop:macos
+
+# or run only the Swift app from this folder
 cd apps/desktop-macos
 swift build
 swift run SisuDesktopMacOS

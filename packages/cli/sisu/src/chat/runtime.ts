@@ -8,6 +8,8 @@ import type { LLM, Message, ModelEvent, ModelResponse } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
 import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
+import ora from 'ora';
+import prompts from 'prompts';
 import {
   type ChatCommandResult,
   type ChatEvent,
@@ -17,7 +19,14 @@ import {
   type ToolExecutionRecord,
 } from './events.js';
 import { type ChatState, applyChatEvent, createChatState, upsertChatRun } from './state.js';
-import { type ChatProfile, type ChatProviderId, loadResolvedProfile } from './profiles.js';
+import {
+  type ChatProfile,
+  type ChatProviderId,
+  getInstalledOllamaModels,
+  loadResolvedProfile,
+  suggestedModelForProvider,
+  updateProjectProfile,
+} from './profiles.js';
 import { FileSessionStore, type ChatSessionSnapshot } from './session-store.js';
 import { TerminalRenderer } from './renderer.js';
 import { type ToolRequest, evaluateToolRequest } from './tool-policy.js';
@@ -131,6 +140,24 @@ export function createProviderFromProfile(
   return new LlmStreamingProvider(profile.provider, map[profile.provider]());
 }
 
+async function suggestedModelsForProvider(provider: ChatProviderId, cwd: string): Promise<string[]> {
+  if (provider === 'ollama') {
+    const installed = await getInstalledOllamaModels({ cwd });
+    if (installed.length > 0) {
+      const preferred = suggestedModelForProvider('ollama', installed);
+      return [preferred, ...installed].filter((value, index, arr): value is string => Boolean(value) && arr.indexOf(value) === index);
+    }
+    return [suggestedModelForProvider('ollama', [])];
+  }
+  if (provider === 'openai') {
+    return ['gpt-4o-mini', 'gpt-4.1', 'gpt-5-mini'];
+  }
+  if (provider === 'anthropic') {
+    return ['claude-sonnet-4-20250514', 'claude-opus-4.1'];
+  }
+  return ['sisu-mock-chat-v1'];
+}
+
 function isoNow(now: () => Date): string {
   return now().toISOString();
 }
@@ -220,11 +247,17 @@ export interface ChatRuntimeOptions {
 }
 
 export class ChatRuntime {
-  readonly profile: ChatProfile;
+  profile: ChatProfile;
 
   private readonly sessionStore: FileSessionStore;
 
-  private readonly provider: ChatProvider;
+  private provider: ChatProvider;
+
+  private providerStartupError?: string;
+
+  private readonly adapterFactories: AdapterFactories;
+
+  private readonly providerLocked: boolean;
 
   private readonly cwd: string;
 
@@ -245,6 +278,9 @@ export class ChatRuntime {
     state: ChatState;
     sessionStore: FileSessionStore;
     provider: ChatProvider;
+    providerStartupError?: string;
+    adapterFactories: AdapterFactories;
+    providerLocked: boolean;
     cwd: string;
     now: () => Date;
     confirmToolExecution: (request: ToolRequest, reason: string) => Promise<boolean>;
@@ -252,6 +288,9 @@ export class ChatRuntime {
     this.profile = options.profile;
     this.sessionStore = options.sessionStore;
     this.provider = options.provider;
+    this.providerStartupError = options.providerStartupError;
+    this.adapterFactories = options.adapterFactories;
+    this.providerLocked = options.providerLocked;
     this.cwd = options.cwd;
     this.now = options.now;
     this.state = options.state;
@@ -268,19 +307,105 @@ export class ChatRuntime {
     const confirm = options?.confirmToolExecution
       || (async () => false);
 
+    let provider = options?.provider;
+    let providerStartupError: string | undefined;
+    if (!provider) {
+      try {
+        provider = createProviderFromProfile(profile, options?.adapterFactories);
+      } catch (error) {
+        providerStartupError = error instanceof Error ? error.message : String(error);
+        provider = new MockStreamingProvider();
+      }
+    }
+
     return new ChatRuntime({
       profile,
       state,
       sessionStore,
-      provider: options?.provider || createProviderFromProfile(profile, options?.adapterFactories),
+      provider,
+      providerStartupError,
+      adapterFactories: options?.adapterFactories || DEFAULT_ADAPTER_FACTORIES,
+      providerLocked: Boolean(options?.provider),
       cwd,
       now,
       confirmToolExecution: confirm,
     });
   }
 
+  getProviderStartupError(): string | undefined {
+    return this.providerStartupError;
+  }
+
+  async setProvider(provider: ChatProviderId): Promise<ChatProfile> {
+    if (this.providerLocked) {
+      throw new Error('E6201: Runtime provider is locked and cannot be changed.');
+    }
+    const installed = provider === 'ollama' ? await getInstalledOllamaModels({ cwd: this.cwd }) : [];
+    const nextModel = suggestedModelForProvider(provider, installed);
+    const candidateProvider = createProviderFromProfile({
+      ...this.profile,
+      provider,
+      model: nextModel,
+    }, this.adapterFactories);
+    const nextProfile = await updateProjectProfile(
+      { provider, model: nextModel },
+      { cwd: this.cwd },
+    );
+    this.profile = nextProfile;
+    this.provider = candidateProvider;
+    this.providerStartupError = undefined;
+    return nextProfile;
+  }
+
+  async setModel(model: string): Promise<ChatProfile> {
+    if (this.providerLocked) {
+      throw new Error('E6202: Runtime provider is locked and model cannot be changed.');
+    }
+    const trimmed = model.trim();
+    if (!trimmed) {
+      throw new Error('E6203: Model must be non-empty.');
+    }
+    const candidateProvider = createProviderFromProfile({
+      ...this.profile,
+      model: trimmed,
+    }, this.adapterFactories);
+    const nextProfile = await updateProjectProfile(
+      { provider: this.profile.provider, model: trimmed },
+      { cwd: this.cwd },
+    );
+    this.profile = nextProfile;
+    this.provider = candidateProvider;
+    this.providerStartupError = undefined;
+    return nextProfile;
+  }
+
+  async listSuggestedModels(provider = this.profile.provider): Promise<string[]> {
+    return await suggestedModelsForProvider(provider, this.cwd);
+  }
+
+  async probeProvider(): Promise<void> {
+    for await (const event of this.provider.streamResponse({
+      messages: [{ role: 'user', content: 'health-check' }],
+      signal: new AbortController().signal,
+    })) {
+      if (event.type === 'delta' || event.type === 'done') {
+        return;
+      }
+      break;
+    }
+  }
+
   getState(): ChatState {
     return this.state;
+  }
+
+  async startNewSession(sessionId?: string): Promise<string> {
+    const nextSessionId = sessionId || createId('session');
+    const nowIso = isoNow(this.now);
+    this.state = createChatState(nextSessionId, nowIso);
+    this.lastSessionTitle = 'CLI Chat Session';
+    await this.saveSession();
+    return nextSessionId;
   }
 
   onEvent(listener: (event: ChatEvent) => void): () => void {
@@ -691,15 +816,41 @@ export function parseChatArgs(argv: string[]): ChatCliArgs {
   return parsed;
 }
 
+const PROVIDER_CHOICES: ChatProviderId[] = ['ollama', 'openai', 'anthropic', 'mock'];
+
+function asProviderChoice(value: string): ChatProviderId | undefined {
+  if (value === 'ollama' || value === 'openai' || value === 'anthropic' || value === 'mock') {
+    return value;
+  }
+  return undefined;
+}
+
 export async function runChatCli(argv: string[], io?: { input?: Readable; output?: Writable }): Promise<void> {
   const parsed = parseChatArgs(argv);
+  const input = io?.input || stdin;
   const output = io?.output || stdout;
+  const inputWithTty = input as Readable & { isTTY?: boolean };
+  const outputWithTty = output as Writable & { isTTY?: boolean };
+  const pickerEnabled = Boolean(inputWithTty.isTTY) && Boolean(outputWithTty.isTTY);
+  const spinnerEnabled = !io?.output && Boolean(stdout.isTTY) && !process.env.NO_COLOR;
   const renderer = new TerminalRenderer({ output });
+
+  const withLoader = async <T>(text: string, task: () => Promise<T>): Promise<T> => {
+    const spinner = spinnerEnabled ? ora({ text, discardStdin: false }).start() : undefined;
+    try {
+      const result = await task();
+      spinner?.succeed(text);
+      return result;
+    } catch (error) {
+      spinner?.fail(text);
+      throw error;
+    }
+  };
 
   const runtime = await ChatRuntime.create({
     sessionId: parsed.sessionId,
     confirmToolExecution: async (request, reason) => {
-      const ui = createPromisesInterface({ input: io?.input || stdin, output });
+      const ui = createPromisesInterface({ input, output });
       try {
         const answer = await ui.question(`Confirm tool action? ${reason}\n$ ${request.command}\n[y/N] `);
         const normalized = answer.trim().toLowerCase();
@@ -717,6 +868,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
   if (runtime.profile.provider === 'mock') {
     output.write('Using mock provider. Set provider/model in ~/.sisu/chat-profile.json or ./.sisu/chat-profile.json for real LLM responses.\n');
   }
+  output.write(`Active provider/model: ${runtime.profile.provider} / ${runtime.profile.model}\n`);
 
   if (parsed.prompt) {
     try {
@@ -728,13 +880,136 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
   }
 
   const ui: ReadlineInterface = createPromisesInterface({
-    input: io?.input || stdin,
+    input,
     output,
     terminal: true,
     historySize: 500,
   });
 
-  output.write('Sisu Chat started. Commands: /help, /cancel, /sessions, /search <query>, /resume <sessionId>, /branch <messageId>, /exit\n');
+  output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /search <query>, /resume <sessionId>, /branch <messageId>, /exit\n');
+  output.write('Tip: /help for commands. Prompt shows active provider/model and session.\n');
+
+  const renderPromptContext = (): void => {
+    const state = runtime.getState();
+    output.write(`[${runtime.profile.provider}/${runtime.profile.model}] [session ${state.sessionId}]\n`);
+  };
+
+  const promptChoice = async (title: string, values: string[], current?: string): Promise<string | undefined> => {
+    if (values.length === 0) {
+      return undefined;
+    }
+
+    if (pickerEnabled) {
+      const response = await prompts({
+        type: 'select',
+        name: 'value',
+        message: title,
+        choices: values.map((value) => ({
+          title: value === current ? `${value} (current)` : value,
+          value,
+        })),
+        initial: Math.max(values.findIndex((value) => value === current), 0),
+      }, {
+        onCancel: () => true,
+      });
+      if (typeof response.value === 'string' && response.value.trim().length > 0) {
+        return response.value;
+      }
+      return undefined;
+    }
+
+    output.write(`${title}\n`);
+    values.forEach((value, index) => {
+      const marker = value === current ? ' (current)' : '';
+      output.write(`  ${index + 1}. ${value}${marker}\n`);
+    });
+    const answer = (await ui.question('Select number/value (Enter to cancel): ')).trim();
+    if (!answer) {
+      return undefined;
+    }
+    const numeric = Number.parseInt(answer, 10);
+    if (Number.isInteger(numeric) && numeric >= 1 && numeric <= values.length) {
+      return values[numeric - 1];
+    }
+    return answer;
+  };
+
+  const runStartupRecoveryWizard = async (errorMessage: string): Promise<boolean> => {
+    output.write(`Provider startup error: ${errorMessage}\n`);
+    output.write('Let’s recover your chat setup.\n');
+    const action = await promptChoice(
+      'Choose recovery action:',
+      ['Switch provider', 'Set model', 'Use mock fallback', 'Cancel'],
+    );
+    if (!action || action === 'Cancel') {
+      output.write('Startup cancelled.\n');
+      return false;
+    }
+
+    if (action === 'Use mock fallback') {
+      const next = await runtime.setProvider('mock');
+      output.write(`Provider updated: ${next.provider} / ${next.model}\n`);
+      return true;
+    }
+
+    if (action === 'Switch provider') {
+      const picked = await promptChoice('Select provider:', PROVIDER_CHOICES, runtime.profile.provider);
+      if (!picked) {
+        output.write('Provider update cancelled.\n');
+        return false;
+      }
+      const provider = asProviderChoice(picked);
+      if (!provider) {
+        output.write('Invalid provider. Recovery cancelled.\n');
+        return false;
+      }
+      const next = await runtime.setProvider(provider);
+      output.write(`Provider updated: ${next.provider} / ${next.model}\n`);
+      return true;
+    }
+
+    const options = await withLoader(
+      `Loading models for ${runtime.profile.provider}`,
+      async () => await runtime.listSuggestedModels(runtime.profile.provider),
+    );
+    const model = await promptChoice(`Select model for ${runtime.profile.provider}:`, options, runtime.profile.model);
+    if (!model) {
+      output.write('Model update cancelled.\n');
+      return false;
+    }
+      const next = await runtime.setModel(model);
+      output.write(`Model updated: ${next.provider} / ${next.model}\n`);
+    return true;
+  };
+
+  const ensureProviderReady = async (): Promise<void> => {
+    while (true) {
+      const startupError = runtime.getProviderStartupError();
+      if (startupError) {
+        const recovered = await runStartupRecoveryWizard(startupError);
+        if (!recovered) {
+          throw new Error('E6301: Chat startup cancelled due to provider configuration.');
+        }
+        continue;
+      }
+
+      try {
+        await withLoader('Checking provider', async () => await runtime.probeProvider());
+        output.write('Provider ready.\n');
+        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const recovered = await runStartupRecoveryWizard(message);
+        if (!recovered) {
+          throw new Error('E6301: Chat startup cancelled due to provider configuration.');
+        }
+      }
+    }
+  };
+
+  if (!parsed.prompt) {
+    await ensureProviderReady();
+  }
 
   const handleCommand = async (line: string): Promise<boolean> => {
     const trimmed = line.trim();
@@ -747,7 +1022,77 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     }
 
     if (trimmed === '/help') {
-      output.write('Commands: /help, /cancel, /sessions, /search <query>, /resume <sessionId>, /branch <messageId>, /exit\n');
+      output.write('Commands: /help, /new, /provider [id], /model [name], /cancel, /sessions, /search <query>, /resume <sessionId>, /branch <messageId>, /exit\n');
+      return true;
+    }
+
+    if (trimmed === '/new') {
+      const sessionId = await withLoader('Starting new session', async () => await runtime.startNewSession());
+      output.write(`Started new session ${sessionId}.\n`);
+      return true;
+    }
+
+    if (trimmed === '/provider' || trimmed.startsWith('/provider ')) {
+      const value = trimmed.slice('/provider'.length).trim();
+      let provider = asProviderChoice(value);
+
+      if (!provider) {
+        const picked = await promptChoice(
+          'Select provider:',
+          PROVIDER_CHOICES,
+          runtime.profile.provider,
+        );
+        if (!picked) {
+          output.write('Provider update cancelled.\n');
+          return true;
+        }
+        provider = asProviderChoice(picked);
+      }
+
+      if (!provider) {
+        output.write('Invalid provider. Choose one of: ollama, openai, anthropic, mock.\n');
+        return true;
+      }
+
+      try {
+        const next = await withLoader('Updating provider', async () => await runtime.setProvider(provider));
+        output.write(`Provider updated: ${next.provider} / ${next.model}\n`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const recovered = await runStartupRecoveryWizard(message);
+        if (!recovered) {
+          output.write('Provider remains unchanged.\n');
+        }
+      }
+      return true;
+    }
+
+    if (trimmed === '/model' || trimmed.startsWith('/model ')) {
+      const value = trimmed.slice('/model'.length).trim();
+      const model = value || await promptChoice(
+        `Select model for ${runtime.profile.provider}:`,
+        await withLoader(
+          `Loading models for ${runtime.profile.provider}`,
+          async () => await runtime.listSuggestedModels(runtime.profile.provider),
+        ),
+        runtime.profile.model,
+      );
+
+      if (!model) {
+        output.write('Model update cancelled.\n');
+        return true;
+      }
+
+      try {
+        const next = await withLoader('Updating model', async () => await runtime.setModel(model));
+        output.write(`Model updated: ${next.provider} / ${next.model}\n`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const recovered = await runStartupRecoveryWizard(message);
+        if (!recovered) {
+          output.write('Model remains unchanged.\n');
+        }
+      }
       return true;
     }
 
@@ -758,7 +1103,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     }
 
     if (trimmed === '/sessions') {
-      const sessions = await runtime.listSessions();
+      const sessions = await withLoader('Loading sessions', async () => await runtime.listSessions());
       for (const session of sessions) {
         output.write(`- ${session.sessionId} | ${session.updatedAt} | ${session.title}\n`);
       }
@@ -767,7 +1112,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
 
     if (trimmed.startsWith('/search ')) {
       const query = trimmed.slice('/search '.length).trim();
-      const results = await runtime.searchSessions(query);
+      const results = await withLoader('Searching sessions', async () => await runtime.searchSessions(query));
       for (const result of results) {
         output.write(`- ${result.sessionId} | ${result.updatedAt} | ${result.preview}\n`);
       }
@@ -776,14 +1121,14 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
 
     if (trimmed.startsWith('/resume ')) {
       const sessionId = trimmed.slice('/resume '.length).trim();
-      await runtime.resumeSession(sessionId);
+      await withLoader('Resuming session', async () => await runtime.resumeSession(sessionId));
       output.write(`Resumed session ${sessionId}.\n`);
       return true;
     }
 
     if (trimmed.startsWith('/branch ')) {
       const messageId = trimmed.slice('/branch '.length).trim();
-      const newSessionId = await runtime.branchFromMessage(messageId);
+      const newSessionId = await withLoader('Creating branch session', async () => await runtime.branchFromMessage(messageId));
       output.write(`Created branch session ${newSessionId}.\n`);
       return true;
     }
@@ -792,16 +1137,31 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     return true;
   };
 
-  const onSigint = (): void => {
+  const onSignal = (signalName: string): void => {
     const cancelled = runtime.cancelActiveRun();
-    output.write(cancelled ? '\nCancellation requested (SIGINT).\n' : '\nUse /exit to quit.\n');
+    output.write(cancelled ? `\nCancellation requested (${signalName}).\n` : '\nUse /exit to quit.\n');
   };
 
+  const onSigint = () => onSignal('SIGINT');
+  const onSigterm = () => onSignal('SIGTERM');
+  const onSighup = () => onSignal('SIGHUP');
+
   process.on('SIGINT', onSigint);
+  process.on('SIGTERM', onSigterm);
+  process.on('SIGHUP', onSighup);
 
   try {
     while (true) {
-      const inputLine = await ui.question('> ');
+      renderPromptContext();
+      let inputLine: string;
+      try {
+        inputLine = await ui.question('> ');
+      } catch (error) {
+        if (isReadlineClosedError(error)) {
+          break;
+        }
+        throw error;
+      }
       const shouldContinue = await handleCommand(inputLine);
       if (!shouldContinue) {
         break;
@@ -809,6 +1169,8 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     }
   } finally {
     process.off('SIGINT', onSigint);
+    process.off('SIGTERM', onSigterm);
+    process.off('SIGHUP', onSighup);
     teardown();
     ui.close();
   }
@@ -847,4 +1209,8 @@ function toProviderMessages(messages: ChatMessage[], currentAssistantMessageId: 
   };
   filtered[targetIndex] = withTools;
   return filtered;
+}
+
+function isReadlineClosedError(error: unknown): boolean {
+  return error instanceof Error && error.message === 'readline was closed';
 }

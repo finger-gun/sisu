@@ -244,6 +244,9 @@ pnpm run ex:openai:orchestration-adaptive
 # Ollama (local, no API key needed)
 ollama serve && ollama pull llama3.1
 pnpm run ex:ollama:hello
+
+# Desktop macOS app (starts local runtime + SwiftUI app)
+pnpm run ex:desktop:macos
 ```
 
 25+ examples covering streaming, vision, RAG, control flow, orchestration, guardrails, and more in [`/examples`](examples/).

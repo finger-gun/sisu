@@ -228,6 +228,78 @@ describe('chat coverage', () => {
     }
   });
 
+  test('runChatCli /new command starts a fresh session', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-cli-new-'));
+    tempDirs.push(root);
+
+    const profileDir = path.join(root, '.sisu');
+    await fs.mkdir(profileDir, { recursive: true });
+    await fs.writeFile(
+      path.join(profileDir, 'chat-profile.json'),
+      JSON.stringify({ provider: 'mock', model: 'sisu-mock-chat-v1', storageDir: path.join(root, 'sessions') }),
+      'utf8',
+    );
+
+    const output: string[] = [];
+    const outputStream = new PassThrough();
+    outputStream.on('data', (chunk: Buffer | string) => {
+      output.push(String(chunk));
+    });
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(root);
+    try {
+      await runChatCli([], { input: Readable.from(['/new\n', '/exit\n']), output: outputStream });
+    } finally {
+      cwdSpy.mockRestore();
+    }
+
+    const rendered = output.join('');
+    expect(rendered).toContain('Started new session session-');
+  });
+
+  test('runChatCli interactive provider picker works in non-tty mode', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-cli-pickers-'));
+    tempDirs.push(root);
+
+    const profileDir = path.join(root, '.sisu');
+    await fs.mkdir(profileDir, { recursive: true });
+    await fs.writeFile(
+      path.join(profileDir, 'chat-profile.json'),
+      JSON.stringify({ provider: 'mock', model: 'sisu-mock-chat-v1', storageDir: path.join(root, 'sessions') }),
+      'utf8',
+    );
+
+    const output: string[] = [];
+    const outputStream = new PassThrough();
+    outputStream.on('data', (chunk: Buffer | string) => {
+      output.push(String(chunk));
+    });
+
+    async function* inputLines(): AsyncGenerator<string> {
+      yield '/provider\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '4\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '/sessions\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '/search hello\n';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yield '/exit\n';
+    }
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(root);
+    try {
+      await runChatCli([], { input: Readable.from(inputLines()), output: outputStream });
+    } finally {
+      cwdSpy.mockRestore();
+    }
+
+    const rendered = output.join('');
+    expect(rendered).toContain('Select provider:');
+    expect(rendered).toContain('Provider updated: mock / sisu-mock-chat-v1');
+    expect(rendered).toContain('[mock/sisu-mock-chat-v1] [session');
+  });
+
   test('renderer covers all event branches', () => {
     const out: string[] = [];
     const output = {
@@ -289,5 +361,31 @@ describe('chat coverage', () => {
 
     expect(out.join('')).toContain('Assistant');
     expect(out.join('')).toContain('Run complete');
+  });
+
+  test('runtime provider/model update paths', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-switch-'));
+    tempDirs.push(root);
+    const runtime = await ChatRuntime.create({
+      cwd: root,
+      profile: {
+        name: 'switch',
+        provider: 'mock',
+        model: 'sisu-mock-chat-v1',
+        theme: 'plain',
+        storageDir: path.join(root, 'sessions'),
+        toolPolicy: mergeToolPolicy(),
+      },
+    });
+
+    const next = await runtime.setProvider('mock');
+    expect(next.provider).toBe('mock');
+    expect(next.model).toBe('sisu-mock-chat-v1');
+
+    const changedModel = await runtime.setModel('sisu-mock-chat-v2');
+    expect(changedModel.model).toBe('sisu-mock-chat-v2');
+
+    const suggestions = await runtime.listSuggestedModels('mock');
+    expect(suggestions).toContain('sisu-mock-chat-v1');
   });
 });

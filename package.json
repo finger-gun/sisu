@@ -91,6 +91,7 @@
     "ex:openai:orchestration": "TRACE_HTML=1 pnpm --filter=openai-orchestration dev",
     "ex:openai:orchestration-adaptive": "TRACE_HTML=1 pnpm --filter=openai-orchestration-adaptive dev",
     "ex:anthropic:skills": "TRACE_HTML=1 pnpm --filter=anthropic-skills dev",
+    "ex:desktop:macos": "sh -c 'set -e; pnpm --filter @sisu-ai/runtime-desktop build; RUNTIME_HOST=${RUNTIME_HOST:-127.0.0.1} RUNTIME_PORT=${RUNTIME_PORT:-8787} pnpm --filter @sisu-ai/runtime-desktop exec node dist/cli.js & RUNTIME_PID=$!; trap \"kill \\\"$RUNTIME_PID\\\" 2>/dev/null || true\" EXIT INT TERM; cd apps/desktop-macos && swift run SisuDesktopMacOS'",
     "ex:openai:agent-browser": "sh -c 'command -v agent-browser >/dev/null 2>&1 || npm install -g agent-browser; agent-browser install; npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser; TRACE_HTML=1 pnpm --filter=openai-agent-browser dev'"
   },
   "keywords": [

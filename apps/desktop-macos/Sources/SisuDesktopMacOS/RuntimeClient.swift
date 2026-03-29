@@ -42,11 +42,11 @@ final class RuntimeClient {
     }
 
     func listThreads(limit: Int = 30, cursor: String? = nil) async throws -> ThreadListResponse {
-        var path = "/threads?limit=\(limit)"
+        var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
         if let cursor {
-            path += "&cursor=\(cursor)"
+            queryItems.append(URLQueryItem(name: "cursor", value: cursor))
         }
-        return try await request(path: path, method: "GET", body: Optional<String>.none)
+        return try await request(path: "/threads", queryItems: queryItems, method: "GET", body: Optional<String>.none)
     }
 
     func getThread(threadId: String) async throws -> ThreadDetailResponse {
@@ -58,8 +58,15 @@ final class RuntimeClient {
     }
 
     func search(query: String, limit: Int = 30) async throws -> SearchResponse {
-        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        return try await request(path: "/search?query=\(encoded)&limit=\(limit)", method: "GET", body: Optional<String>.none)
+        return try await request(
+            path: "/search",
+            queryItems: [
+                URLQueryItem(name: "query", value: query),
+                URLQueryItem(name: "limit", value: String(limit))
+            ],
+            method: "GET",
+            body: Optional<String>.none
+        )
     }
 
     func branchThread(_ payload: BranchThreadRequest) async throws -> BranchThreadResponse {
@@ -142,10 +149,11 @@ final class RuntimeClient {
 
     private func request<T: Decodable, B: Encodable>(
         path: String,
+        queryItems: [URLQueryItem] = [],
         method: String,
         body: B?
     ) async throws -> T {
-        var request = URLRequest(url: baseURL.appending(path: path))
+        var request = URLRequest(url: try buildURL(path: path, queryItems: queryItems))
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let authToken {
@@ -172,6 +180,22 @@ final class RuntimeClient {
         } catch {
             throw RuntimeClientError.decodeFailed
         }
+    }
+
+    private func buildURL(path: String, queryItems: [URLQueryItem]) throws -> URL {
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw RuntimeClientError.invalidResponse
+        }
+        let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
+        let basePath = components.path == "/" ? "" : components.path
+        components.path = basePath + normalizedPath
+        if !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
+        guard let url = components.url else {
+            throw RuntimeClientError.transport("Failed to construct request URL")
+        }
+        return url
     }
 }
 
