@@ -300,7 +300,7 @@ test("traceViewer uses custom template when provided", async () => {
   }
 });
 
-test("trace viewer dashboard copies displayed full trace path", async () => {
+test("traceViewer dashboard copies displayed full trace path", async () => {
   const { ids, runList, clipboardWrites } = bootstrapViewer({
     runs: [
       {
