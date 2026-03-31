@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define requirements for the generic provider-agnostic embeddings client.
+
+## Requirements
 ### Requirement: Core Generic Embeddings Client
 `@sisu-ai/core` SHALL expose a provider-agnostic embeddings client factory that returns the normalized `EmbeddingsProvider` contract for explicit HTTP-based embeddings integrations.
 

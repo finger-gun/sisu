@@ -89,6 +89,9 @@ describe('chat cli', () => {
     expect(isInkNewlineKey('j', { ctrl: true })).toBe(true);
     expect(isInkNewlineKey('', { return: true, shift: true })).toBe(true);
     expect(isInkNewlineKey('', { return: true, meta: true })).toBe(true);
+    expect(isInkNewlineKey('\n', { return: true })).toBe(true);
+    expect(isInkNewlineKey('\u001b[13;2u', {})).toBe(true);
+    expect(isInkNewlineKey('\u001b[27;2;13~', {})).toBe(true);
     expect(isInkNewlineKey('', { return: true })).toBe(false);
   });
 

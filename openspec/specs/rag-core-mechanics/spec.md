@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define core RAG mechanics requirements for chunking, indexing, and retrieval flow.
+
+## Requirements
 ### Requirement: Reusable RAG Mechanics Package
 The repository SHALL provide a non-tool, non-middleware package named `@sisu-ai/rag-core` for reusable RAG mechanics.
 

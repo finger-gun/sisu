@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define CLI requirements for discovering and listing Sisu capability packages.
+
+## Requirements
 ### Requirement: CLI Lists Maintained Sisu Capabilities
 The `sisu` CLI SHALL list maintained Sisu packages and templates by category.
 

@@ -2,6 +2,34 @@
 
 Architecture design documents and technical specifications for Sisu features.
 
+> [!IMPORTANT]
+> `docs/design-topics` is now a historical archive only.
+> Canonical specifications live in `openspec/specs`.
+> New behavior and contract changes must be documented in OpenSpec.
+
+## OpenSpec Migration Map
+
+- **Reasoning Model Support** (`dt-20251119-0700-reasoning-model-support.md`) → `openspec/specs/reasoning-model-support/spec.md`
+- **Reasoning Production Readiness** (`dt-20251119-0800-reasoning-production-readiness.md`) → split across:
+  - `openspec/specs/reasoning-model-support/spec.md`
+  - `openspec/specs/provider-sdk-adapter-transports/spec.md`
+  - `openspec/specs/trace-viewer/spec.md`
+- **End-to-End Cancellation Propagation** (`dt-20260212-0920-cancellation-propagation.md`) → `openspec/specs/provider-sdk-adapter-transports/spec.md`
+- **Agent Skills Support** (`dt-20260212-1100-agent-skills-support.md`) → split across:
+  - `openspec/specs/skills-middleware/spec.md`
+  - `openspec/specs/skills-packages/spec.md`
+  - `openspec/specs/skills-examples/spec.md`
+  - `openspec/changes/add-configurable-cli-capabilities/specs/cli-skill-discovery-installation/spec.md`
+
+Topics currently retained as design proposals (not canonical behavior specs):
+
+- `dt-20260212-0900-tool-typing-schema-inference.md`
+- `dt-20260212-0910-llm-generate-overloads.md`
+- `dt-20260212-0930-typed-tool-errors.md`
+- `dt-20260212-0940-shared-schema-conversion.md`
+- `dt-20260212-0950-adapter-logger.md`
+- `dt-20260212-1000-tool-calling-limits.md`
+
 ---
 
 ## Active Design Topics

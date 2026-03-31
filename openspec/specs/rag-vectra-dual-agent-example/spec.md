@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define requirements for the dual-agent RAG example using Vectra storage.
+
+## Requirements
 ### Requirement: Vectra Example Mirrors Layered RAG Composition
 The `examples/openai-rag-vectra` example SHALL demonstrate the same layered RAG architecture as the Chroma example.
 

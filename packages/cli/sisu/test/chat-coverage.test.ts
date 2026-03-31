@@ -70,6 +70,8 @@ describe('chat coverage', () => {
   test('isInkNewlineKey covers multiline key paths', () => {
     expect(isInkNewlineKey('j', { ctrl: true })).toBe(true);
     expect(isInkNewlineKey('', { return: true, shift: true })).toBe(true);
+    expect(isInkNewlineKey('\n', { return: true })).toBe(true);
+    expect(isInkNewlineKey('\u001b[13;2u', {})).toBe(true);
     expect(isInkNewlineKey('x', {})).toBe(false);
   });
 
@@ -389,6 +391,14 @@ describe('chat coverage', () => {
       await pause();
       yield '/middleware\n';
       await pause();
+      yield '/tools setup\n';
+      await pause();
+      yield 'terminal\n';
+      await pause();
+      yield 'Show details\n';
+      await pause();
+      yield 'Done\n';
+      await pause();
       yield '/official wat\n';
       await pause();
       yield '/enable skills session\n';
@@ -459,6 +469,9 @@ describe('chat coverage', () => {
     expect(rendered).toContain('TOOLS:');
     expect(rendered).toContain('SKILLS:');
     expect(rendered).toContain('MIDDLEWARE:');
+    expect(rendered).toContain('Select tools capability:');
+    expect(rendered).toContain('Action for terminal:');
+    expect(rendered).toContain('terminal (enabled, source:core, inherited, locked-core)');
     expect(rendered).toContain('Usage: /official <middleware|tools|skills>');
     expect(rendered).toContain('Enabled skills (session).');
     expect(rendered).toContain('Disabled skills (session).');

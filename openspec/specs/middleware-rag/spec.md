@@ -1,5 +1,8 @@
-## MODIFIED Requirements
+## Purpose
 
+Define middleware requirements for retrieval-augmented generation context injection.
+
+## Requirements
 ### Requirement: Middleware RAG Uses VectorStore Contract
 The `@sisu-ai/mw-rag` package SHALL compose ingestion and retrieval against an injected `VectorStore` contract.
 

@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define requirements for the OpenAI orchestration reference example.
+
+## Requirements
 ### Requirement: OpenAI orchestration example demonstrates delegated execution
 The repository SHALL include an `examples/openai-orchestration` example that demonstrates orchestration middleware with delegated child execution using OpenAI-compatible adapters.
 

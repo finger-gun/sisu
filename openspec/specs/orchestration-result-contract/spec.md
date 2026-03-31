@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define the normalized result contract returned by orchestration child runs.
+
+## Requirements
 ### Requirement: Delegation results are structured and machine-consumable
 The system SHALL return delegation outcomes using a structured result contract that includes status, output, telemetry, trace linkage, and error details.
 

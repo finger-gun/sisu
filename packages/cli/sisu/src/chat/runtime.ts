@@ -397,6 +397,14 @@ interface ListedCapability {
   description?: string;
 }
 
+type CapabilityCategory = 'tools' | 'skills' | 'middleware';
+
+function capabilityTypeFromCategory(category: CapabilityCategory): ListedCapability['type'] {
+  if (category === 'tools') return 'tool';
+  if (category === 'skills') return 'skill';
+  return 'middleware';
+}
+
 function parseScopeTarget(value: string | undefined): CapabilityScopeTarget | undefined {
   if (value === 'session' || value === 'project' || value === 'global') {
     return value;
@@ -1644,6 +1652,14 @@ function formatCapabilityStateRow(capability: ListedCapability): string {
   return `${capability.id} (${flags.join(', ')})`;
 }
 
+function capabilityDisplayLabel(capability: ListedCapability): string {
+  const bits: string[] = [capability.id, capability.enabled ? 'enabled' : 'disabled'];
+  if (capability.lockedCore) {
+    bits.push('locked-core');
+  }
+  return bits.join(' · ');
+}
+
 export type InkLineTone = 'normal' | 'muted' | 'info' | 'success' | 'warning' | 'error';
 
 export interface InkTranscriptLine {
@@ -1837,6 +1853,14 @@ export function isInkNewlineKey(value: string, key: {
   shift?: boolean;
 }): boolean {
   if (key.return && (key.shift || key.meta)) {
+    return true;
+  }
+  // Some terminals report Shift+Enter as LF with return=true but without shift=true.
+  if (key.return && value === '\n') {
+    return true;
+  }
+  // CSI-u style Shift+Enter sequence used by some terminal emulators.
+  if (value === '\u001b[13;2u' || value === '\u001b[27;2;13~') {
     return true;
   }
   return Boolean(key.ctrl) && value.toLowerCase() === 'j';
@@ -2042,8 +2066,84 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
             const branchId = await runtime.branchFromMessage(message.id);
             appendLine(`Created branch session ${branchId}.`, 'success');
           },
-        }));
+      }));
       openMenu('Branch from message', items);
+    };
+
+    const openCapabilityActionMenu = (category: CapabilityCategory, capability: ListedCapability): void => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      const nextEnabled = !capability.enabled;
+      const verb = nextEnabled ? 'Enable' : 'Disable';
+      const items: InkMenuItem[] = [
+        {
+          label: `${verb} (session)`,
+          run: async () => {
+            const result = await runtime.setCapabilityEnabled(capability.id, nextEnabled, 'session');
+            appendLine(`${nextEnabled ? 'Enabled' : 'Disabled'} ${capability.id} (session).`, 'success');
+            if (result.targetPath) {
+              appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+            }
+          },
+        },
+        {
+          label: `${verb} (project)`,
+          run: async () => {
+            const result = await runtime.setCapabilityEnabled(capability.id, nextEnabled, 'project');
+            appendLine(`${nextEnabled ? 'Enabled' : 'Disabled'} ${capability.id} (project).`, 'success');
+            if (result.targetPath) {
+              appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+            }
+          },
+        },
+        {
+          label: `${verb} (global)`,
+          run: async () => {
+            const result = await runtime.setCapabilityEnabled(capability.id, nextEnabled, 'global');
+            appendLine(`${nextEnabled ? 'Enabled' : 'Disabled'} ${capability.id} (global).`, 'success');
+            if (result.targetPath) {
+              appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+            }
+          },
+        },
+        {
+          label: 'Show details',
+          run: async () => {
+            appendLine(formatCapabilityStateRow(runtime.listCapabilities(capability.type).find((entry) => entry.id === capability.id) || capability), 'muted');
+            if (capability.description) {
+              appendLine(`  ${capability.description}`, 'muted');
+            }
+          },
+        },
+        {
+          label: 'Back',
+          run: async () => {},
+        },
+      ];
+      openMenu(`${category} · ${capability.id}`, items);
+    };
+
+    const openCapabilitySetupMenu = (category: CapabilityCategory): void => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      const capabilities = runtime.listCapabilities(capabilityTypeFromCategory(category));
+      if (capabilities.length === 0) {
+        appendLine(`No ${category} capabilities found.`, 'muted');
+        return;
+      }
+      const items: InkMenuItem[] = capabilities.map((capability) => ({
+        label: capabilityDisplayLabel(capability),
+        run: async () => {
+          openCapabilityActionMenu(category, capability);
+        },
+      }));
+      openMenu(`Configure ${category}`, items);
     };
 
     const openSettingsMenu = async (): Promise<void> => {
@@ -2051,9 +2151,9 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         { label: 'Switch provider', run: openProviderMenu },
         { label: 'Switch model', run: openModelMenu },
         { label: 'Sessions (resume/delete)', run: openSessionListMenu },
-        { label: 'Capabilities: tools', run: async () => { await handleCommand('/tools'); } },
-        { label: 'Capabilities: skills', run: async () => { await handleCommand('/skills'); } },
-        { label: 'Capabilities: middleware', run: async () => { await handleCommand('/middleware'); } },
+        { label: 'Capabilities: tools', run: async () => { openCapabilitySetupMenu('tools'); } },
+        { label: 'Capabilities: skills', run: async () => { openCapabilitySetupMenu('skills'); } },
+        { label: 'Capabilities: middleware', run: async () => { openCapabilitySetupMenu('middleware'); } },
         { label: 'Open project config in editor', run: async () => { await handleCommand('/open-config project'); } },
         { label: 'Open global config in editor', run: async () => { await handleCommand('/open-config global'); } },
       ]);
@@ -2066,7 +2166,7 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         { label: 'Sessions (resume/delete)', run: openSessionListMenu },
         { label: 'Branch from message', run: openBranchMenu },
         { label: 'Cancel active run', run: async () => { const runtime = runtimeRef.current; if (runtime) { const cancelled = runtime.cancelActiveRun(); appendLine(cancelled ? 'Cancellation requested.' : 'No active run to cancel.', cancelled ? 'warning' : 'muted'); } } },
-        { label: 'Help', run: async () => { appendLine('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted'); } },
+        { label: 'Help', run: async () => { appendLine('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted'); } },
         { label: 'Exit', run: async () => { exit(); } },
       ]);
     };
@@ -2149,7 +2249,7 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
       }
 
       if (line === '/help') {
-        appendLine('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted');
+        appendLine('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted');
         appendLine('Shortcuts: Ctrl+O (options), Shift+S (settings), Shift+Enter newline (Ctrl+J fallback), Esc (close menu).', 'muted');
         return true;
       }
@@ -2224,8 +2324,8 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         return true;
       }
       if (line === '/tools' || line === '/skills' || line === '/middleware') {
-        const category = line.slice(1) as 'tools' | 'skills' | 'middleware';
-        const mapped = category === 'tools' ? 'tool' : category === 'skills' ? 'skill' : 'middleware';
+        const category = line.slice(1) as CapabilityCategory;
+        const mapped = capabilityTypeFromCategory(category);
         appendLine(`${category.toUpperCase()}:`, 'muted');
         const capabilities = runtime.listCapabilities(mapped);
         if (capabilities.length === 0) {
@@ -2238,6 +2338,15 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         if (category === 'middleware') {
           appendLine(runtime.getMiddlewareStartupSummary(), 'muted');
         }
+        return true;
+      }
+      if (line === '/tools setup' || line === '/skills setup') {
+        const category = line.slice(1, -' setup'.length) as CapabilityCategory;
+        openCapabilitySetupMenu(category);
+        return true;
+      }
+      if (line === '/middleware setup') {
+        appendLine('Use terminal mode for guided middleware setup.', 'muted');
         return true;
       }
       if (line.startsWith('/official ')) {
@@ -2285,10 +2394,6 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         if (result.targetPath) {
           appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
         }
-        return true;
-      }
-      if (line === '/middleware setup') {
-        appendLine('Use terminal mode for guided middleware setup.', 'muted');
         return true;
       }
       if (line === '/open-config' || line.startsWith('/open-config ')) {
@@ -2554,7 +2659,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
   });
   let ui: ReadlineInterface = createUi();
 
-    output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume <sessionId>, /delete-session <sessionId>, /search <query>, /branch <messageId>, /exit\n');
+    output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume <sessionId>, /delete-session <sessionId>, /search <query>, /branch <messageId>, /exit\n');
   output.write('Tip: /help for commands. Prompt shows active provider/model and session.\n');
 
   const renderPromptContext = (): void => {
@@ -2621,6 +2726,67 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     const values = includeSession ? ['session', 'project', 'global'] : ['project', 'global'];
     const picked = await promptChoice('Select scope:', values);
     return parseScopeTarget(picked);
+  };
+
+  const runCapabilitySetupMenu = async (category: CapabilityCategory): Promise<void> => {
+    const mapped = capabilityTypeFromCategory(category);
+    while (true) {
+      const capabilities = runtime.listCapabilities(mapped);
+      output.write(`${category.toUpperCase()}:\n`);
+      if (capabilities.length === 0) {
+        output.write('  (none)\n');
+        return;
+      }
+      for (const capability of capabilities) {
+        output.write(`- ${formatCapabilityStateRow(capability)}\n`);
+      }
+      if (category === 'middleware') {
+        output.write(`${runtime.getMiddlewareStartupSummary()}\n`);
+      }
+
+      const selected = await promptChoice(
+        `Select ${category} capability:`,
+        [...capabilities.map((capability) => capability.id), 'Done'],
+      );
+      if (!selected || selected === 'Done') {
+        return;
+      }
+      const target = capabilities.find((capability) => capability.id === selected);
+      if (!target) {
+        output.write('Invalid capability selection.\n');
+        continue;
+      }
+
+      const action = await promptChoice(
+        `Action for ${target.id}:`,
+        [target.enabled ? 'Disable' : 'Enable', 'Show details', 'Back'],
+      );
+      if (!action || action === 'Back') {
+        continue;
+      }
+      if (action === 'Show details') {
+        output.write(`${formatCapabilityStateRow(target)}\n`);
+        if (target.description) {
+          output.write(`  ${target.description}\n`);
+        }
+        continue;
+      }
+
+      const scope = await promptConfigScope(true);
+      if (!scope) {
+        output.write('Scope selection cancelled.\n');
+        continue;
+      }
+      const enable = action === 'Enable';
+      const result = await withLoader(
+        `${enable ? 'Enabling' : 'Disabling'} capability`,
+        async () => await runtime.setCapabilityEnabled(target.id, enable, scope),
+      );
+      output.write(`${enable ? 'Enabled' : 'Disabled'} ${target.id} (${scope}).\n`);
+      if (result.targetPath) {
+        output.write(`Wrote profile: ${result.targetPath}\n`);
+      }
+    }
   };
 
   const runMiddlewareSetupMenu = async (): Promise<void> => {
@@ -2841,7 +3007,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     }
 
     if (trimmed === '/help') {
-      output.write('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit\n');
+      output.write('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit\n');
       return true;
     }
 
@@ -2852,8 +3018,8 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
       }
 
       if (trimmed === '/tools' || trimmed === '/skills' || trimmed === '/middleware') {
-        const category = trimmed.slice(1) as 'tools' | 'skills' | 'middleware';
-        const mapped = category === 'tools' ? 'tool' : category === 'skills' ? 'skill' : 'middleware';
+        const category = trimmed.slice(1) as CapabilityCategory;
+        const mapped = capabilityTypeFromCategory(category);
         const capabilities = runtime.listCapabilities(mapped);
         output.write(`${category.toUpperCase()}:\n`);
         if (capabilities.length === 0) {
@@ -2866,6 +3032,17 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
         if (category === 'middleware') {
           output.write(`${runtime.getMiddlewareStartupSummary()}\n`);
         }
+        return true;
+      }
+
+      if (trimmed === '/tools setup' || trimmed === '/skills setup') {
+        const category = trimmed.slice(1, -' setup'.length) as CapabilityCategory;
+        await runCapabilitySetupMenu(category);
+        return true;
+      }
+
+      if (trimmed === '/middleware setup') {
+        await runMiddlewareSetupMenu();
         return true;
       }
 
@@ -2925,11 +3102,6 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
         if (result.targetPath) {
           output.write(`Wrote profile: ${result.targetPath}\n`);
         }
-        return true;
-      }
-
-      if (trimmed === '/middleware setup') {
-        await runMiddlewareSetupMenu();
         return true;
       }
 

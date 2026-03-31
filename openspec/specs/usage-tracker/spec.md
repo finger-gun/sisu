@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define usage tracking requirements for token, cost, and usage aggregation.
+
+## Requirements
 ### Requirement: Orchestration rolls up child usage
 The system SHALL aggregate child usage metrics into orchestration-level totals in `ctx.state.orchestration`.
 

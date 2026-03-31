@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define trace viewer output requirements for rendering run history and diagnostics.
+
+## Requirements
 ### Requirement: Orchestration emits explicit delegation trace events
 The tracing surface SHALL capture delegation lifecycle events at the parent run level.
 

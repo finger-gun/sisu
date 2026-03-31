@@ -2,8 +2,7 @@
 
 Capture compatibility expectations and migration safety requirements when adapter transports move to official provider SDKs.
 
-## ADDED Requirements
-
+## Requirements
 ### Requirement: Existing adapter initialization remains compatible
 SDK migration MUST preserve existing adapter constructor ergonomics for common usage paths.
 

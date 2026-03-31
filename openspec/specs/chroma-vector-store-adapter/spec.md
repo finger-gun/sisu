@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define requirements for the Chroma vector-store adapter integration.
+
+## Requirements
 ### Requirement: Chroma Adapter Implements Vector Store Contract
 `@sisu-ai/vector-chroma` SHALL provide a Chroma-backed implementation of the shared vector-store contract.
 

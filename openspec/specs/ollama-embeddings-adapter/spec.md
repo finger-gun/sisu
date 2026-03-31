@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define requirements for Ollama embeddings adapter behavior and compatibility.
+
+## Requirements
 ### Requirement: Ollama Embeddings Helper
 `@sisu-ai/adapter-ollama` SHALL expose `ollamaEmbeddings(...)` that conforms to the normalized `EmbeddingsProvider` contract.
 

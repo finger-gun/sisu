@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define orchestration runtime state requirements and lifecycle tracking.
+
+## Requirements
 ### Requirement: Orchestration runtime state is namespaced and explicit
 The system SHALL maintain orchestration runtime data under `ctx.state.orchestration` with stable top-level fields for run metadata, steps, child records, totals, and policy.
 

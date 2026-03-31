@@ -1,5 +1,8 @@
-## MODIFIED Requirements
+## Purpose
 
+Define retrieval tooling requirements for vector-backed agent memory workflows.
+
+## Requirements
 ### Requirement: Query-Text Retrieval Tool
 The `@sisu-ai/tool-rag` package SHALL expose a high-level retrieval tool that accepts plain query text and performs semantic retrieval without requiring callers to precompute embeddings.
 
