@@ -1,4 +1,5 @@
 import os from 'node:os';
+import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { discoverConfiguredSkills, getDefaultSkillDirectories } from '../src/chat/skills.js';
 import { discoverSkills } from '@sisu-ai/mw-skills';
@@ -20,13 +21,15 @@ describe('chat skills discovery', () => {
     expect(dirs).toEqual({
       globalDir: '/home/dev/.sisu/skills',
       projectDir: '/repo/.sisu/skills',
+      bundledInstallerDir: expect.stringContaining(path.join('assets', 'skills', 'installer')),
     });
   });
 
-  test('discoverConfiguredSkills returns empty result when no directories configured', async () => {
+  test('discoverConfiguredSkills returns empty result when no skills discovered', async () => {
+    discoverSkillsMock.mockResolvedValue({ skills: [], errors: [] } as any);
     const result = await discoverConfiguredSkills([]);
     expect(result).toEqual({ skills: [], diagnostics: [] });
-    expect(discoverSkillsMock).not.toHaveBeenCalled();
+    expect(discoverSkillsMock).toHaveBeenCalledTimes(1);
   });
 
   test('discoverConfiguredSkills maps source and prefers project skill over global duplicate', async () => {

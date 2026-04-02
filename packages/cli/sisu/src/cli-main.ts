@@ -9,8 +9,9 @@ import { Command } from 'commander';
 import prompts from 'prompts';
 import { categories, formatInfo, formatList, getTemplateIds, listCategory, resolveEntry, scaffoldTemplate } from './lib.js';
 import { runChatCli } from './chat/runtime.js';
-import { listOfficialPackages } from './chat/npm-discovery.js';
+import { getDiscoveryDiagnostics, listOfficialPackages } from './chat/npm-discovery.js';
 import { installSkill, resolveSkillTargetRoot } from './chat/skill-install.js';
+import { installCapabilityPackage } from './chat/capability-install.js';
 import type { CatalogCategory } from './catalog.js';
 
 const require = createRequire(import.meta.url);
@@ -53,6 +54,8 @@ Usage:
   sisu info <name>
   sisu create <template> <project-name>
   sisu list-official <middleware|tools|skills>
+  sisu install <tool|middleware> <name> [--global|--project]
+  sisu install recipe <rag-recommended|rag-advanced> [--global|--project] [--backend vectra|chroma|custom] [--package <name>]
   sisu install-skill <package-or-path> [--global|--project] [--dir <path>] [--official]
   sisu install skill [installer-options]
   sisu chat [--session <session-id>] [--prompt <text>]
@@ -69,6 +72,8 @@ Categories:
 Examples:
   sisu list tools
   sisu list-official tools
+  sisu install tool terminal --project
+  sisu install recipe rag-recommended --project
   sisu info vector-vectra
   sisu create chat-agent my-app
   sisu install-skill @sisu-ai/skill-debug --project
@@ -262,6 +267,10 @@ export async function runCli(argsInput: string[]): Promise<void> {
       });
     }
     const packages = await listOfficialPackages(category);
+    const diagnostics = getDiscoveryDiagnostics();
+    if (diagnostics.length > 0) {
+      console.log(`Discovery note: ${diagnostics[0]}`);
+    }
     if (options.json) {
       console.log(JSON.stringify(packages, null, 2));
       return;
@@ -277,24 +286,113 @@ export async function runCli(argsInput: string[]): Promise<void> {
   }
 
   if (command === 'install') {
-    if (arg1 !== 'skill') {
-      throw new CliError('E1101', 'Usage: sisu install skill [installer-options]', { exitCode: 2 });
-    }
-    const installerCliPath = getSkillInstallerCliPath();
+    if (arg1 === 'skill') {
+      const installerCliPath = getSkillInstallerCliPath();
 
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(process.execPath, [installerCliPath, arg2, ...rest].filter(Boolean), {
-        stdio: 'inherit',
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(process.execPath, [installerCliPath, arg2, ...rest].filter(Boolean), {
+          stdio: 'inherit',
+        });
+        child.on('exit', (code) => {
+          if (code && code !== 0) {
+            reject(new CliError('E1202', `@sisu-ai/skill-install exited with code ${code}`));
+            return;
+          }
+          resolve();
+        });
+        child.on('error', reject);
       });
-      child.on('exit', (code) => {
-        if (code && code !== 0) {
-          reject(new CliError('E1202', `@sisu-ai/skill-install exited with code ${code}`));
-          return;
+      return;
+    }
+
+    const type = arg1;
+    const name = arg2;
+    if (type === 'recipe') {
+      if (!name) {
+        throw new CliError('E1101', 'Usage: sisu install recipe <rag-recommended|rag-advanced> [--global|--project] [--backend vectra|chroma|custom] [--package <name>]', { exitCode: 2 });
+      }
+      let scope: 'project' | 'global' = 'project';
+      let backend: 'vectra' | 'chroma' | 'custom' = 'vectra';
+      let customPackage: string | undefined;
+      const optionTokens = rest.filter((token): token is string => typeof token === 'string');
+      for (let index = 0; index < optionTokens.length; index += 1) {
+        const token = optionTokens[index];
+        if (token === '--global') {
+          scope = 'global';
+          continue;
         }
-        resolve();
+        if (token === '--project') {
+          scope = 'project';
+          continue;
+        }
+        if (token === '--backend') {
+          const value = optionTokens[index + 1];
+          if (!value || (value !== 'vectra' && value !== 'chroma' && value !== 'custom')) {
+            throw new CliError('E1212', 'Invalid --backend value. Use vectra, chroma, or custom.', { exitCode: 2 });
+          }
+          backend = value;
+          index += 1;
+          continue;
+        }
+        if (token === '--package') {
+          const value = optionTokens[index + 1];
+          if (!value) {
+            throw new CliError('E1213', 'Missing value for --package.', { exitCode: 2 });
+          }
+          customPackage = value;
+          index += 1;
+          continue;
+        }
+        throw new CliError('E1211', `Unknown install recipe option: ${token}`, {
+          hint: 'Use --global, --project, --backend, --package.',
+          exitCode: 2,
+        });
+      }
+      if (backend === 'custom' && !customPackage) {
+        throw new CliError('E1214', 'Custom backend requires --package <name>.', { exitCode: 2 });
+      }
+      const runtime = await (await import('./chat/runtime.js')).ChatRuntime.create();
+      const result = await runtime.installRecipe(name, scope, {
+        resolveChoice: async () => ({
+          optionId: backend,
+          customPackageName: customPackage,
+        }),
       });
-      child.on('error', reject);
-    });
+      if (result.status === 'cancelled') {
+        console.log(`Recipe ${name} cancelled.`);
+        return;
+      }
+      if (result.status === 'failed') {
+        throw new CliError('E1215', `Recipe ${name} failed at ${result.failedStep || 'unknown step'}: ${result.error || 'unknown error'}`);
+      }
+      console.log(`Installed recipe ${name} (${scope}).`);
+      console.log(`Completed steps: ${result.completedSteps.length}`);
+      return;
+    }
+
+    if ((type !== 'tool' && type !== 'middleware') || !name) {
+      throw new CliError('E1101', 'Usage: sisu install <tool|middleware> <name> [--global|--project] OR sisu install recipe <id> [options] OR sisu install skill [installer-options]', { exitCode: 2 });
+    }
+    let scope: 'project' | 'global' = 'project';
+    const optionTokens = rest.filter((token): token is string => typeof token === 'string');
+    for (const token of optionTokens) {
+      if (token === '--global') {
+        scope = 'global';
+        continue;
+      }
+      if (token === '--project') {
+        scope = 'project';
+        continue;
+      }
+      throw new CliError('E1210', `Unknown install option: ${token}`, {
+        hint: 'Use --global or --project.',
+        exitCode: 2,
+      });
+    }
+    const result = await installCapabilityPackage({ type, name, scope });
+    console.log(`Installed ${result.record.packageName} as ${result.record.id} (${scope}).`);
+    console.log(`Install directory: ${result.record.installDir}`);
+    console.log(`Manifest: ${result.manifestPath}`);
     return;
   }
 

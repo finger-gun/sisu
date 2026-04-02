@@ -15,7 +15,9 @@ import {
   parseChatArgs,
   runChatCli,
   isInkEraseKey,
+  initialInkAgentStatus,
   isInkNewlineKey,
+  nextInkAgentStatus,
   toInkEventLines,
 } from '../src/lib.js';
 
@@ -397,7 +399,17 @@ describe('chat coverage', () => {
       await pause();
       yield 'Show details\n';
       await pause();
+      yield '/tool-config-options terminal\n';
+      await pause();
       yield 'Done\n';
+      await pause();
+      yield '/middleware-config-options tool-calling\n';
+      await pause();
+      yield '/middleware-config tool-calling {"maxRounds":22} session\n';
+      await pause();
+      yield '/system-prompt session Always be concise.\n';
+      await pause();
+      yield '/system-prompt\n';
       await pause();
       yield '/official wat\n';
       await pause();
@@ -472,7 +484,13 @@ describe('chat coverage', () => {
     expect(rendered).toContain('Select tools capability:');
     expect(rendered).toContain('Action for terminal:');
     expect(rendered).toContain('terminal (enabled, source:core, inherited, locked-core)');
+    expect(rendered).toContain('Terminal tool config: Shell permissions and command execution policy.');
+    expect(rendered).toContain('Tool-calling middleware config: Controls automatic tool-call loop behavior.');
+    expect(rendered).toContain('Updated tool-calling config (session).');
+    expect(rendered).toContain('Updated system prompt (session).');
+    expect(rendered).toContain('Current system prompt:');
     expect(rendered).toContain('Usage: /official <middleware|tools|skills>');
+    expect(rendered).toContain('/install <tool|middleware> <name> [project|global]');
     expect(rendered).toContain('Enabled skills (session).');
     expect(rendered).toContain('Disabled skills (session).');
     expect(rendered).toContain("Added allow prefix 'echo' (session).");
@@ -645,6 +663,62 @@ describe('chat coverage', () => {
       code: 'E',
       message: 'boom',
     })[0]?.text).toContain('Error [E]: boom');
+  });
+
+  test('agent status reducer maps key runtime events', () => {
+    const base = initialInkAgentStatus();
+    const pendingTool = {
+      id: 't1',
+      sessionId: 's1',
+      runId: 'r1',
+      toolName: 'webSearch',
+      requestPreview: 'q=test',
+      status: 'pending' as const,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const thinking = nextInkAgentStatus(base, {
+      type: 'assistant.message.started',
+      sessionId: 's1',
+      runId: 'r1',
+      message: {
+        id: 'm1',
+        sessionId: 's1',
+        role: 'assistant',
+        content: '',
+        status: 'streaming',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    expect(thinking.text).toContain('Thinking');
+
+    const runningTool = nextInkAgentStatus(thinking, {
+      type: 'tool.running',
+      sessionId: 's1',
+      runId: 'r1',
+      record: { ...pendingTool, status: 'running' },
+    });
+    expect(runningTool.text).toContain('Running tool: webSearch');
+
+    const failed = nextInkAgentStatus(runningTool, {
+      type: 'run.failed',
+      sessionId: 's1',
+      runId: 'r1',
+      summary: { runId: 'r1', requestMessageId: 'm0', status: 'failed', completedSteps: 1 },
+      errorCode: 'RUN_FAILED',
+      errorMessage: 'bad',
+    });
+    expect(failed.text).toContain('Failed');
+
+    const completed = nextInkAgentStatus(failed, {
+      type: 'run.completed',
+      sessionId: 's1',
+      runId: 'r1',
+      summary: { runId: 'r1', requestMessageId: 'm0', status: 'completed', completedSteps: 2 },
+    });
+    expect(completed.text).toBe('Idle');
   });
 
   test('runtime provider/model update paths', async () => {

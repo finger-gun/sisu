@@ -20,7 +20,7 @@ test('duckDuckGoWebSearch flattens groups, maps fields, deduplicates, and limits
     ok: true,
     status: 200,
     statusText: 'OK',
-    json: async () => json,
+    text: async () => JSON.stringify(json),
   } as any);
 
   const out = await duckDuckGoWebSearch.handler({ query: 'dogs' } as any, {} as any) as DuckDuckGoResultItem[];
@@ -37,3 +37,22 @@ test('duckDuckGoWebSearch throws on HTTP error', async () => {
   await expect(duckDuckGoWebSearch.handler({ query: 'x' } as any, {} as any)).rejects.toThrow(/DuckDuckGo search failed: 500/);
 });
 
+test('duckDuckGoWebSearch returns empty list on empty response body', async () => {
+  vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    text: async () => '',
+  } as any);
+  await expect(duckDuckGoWebSearch.handler({ query: 'x' } as any, {} as any)).resolves.toEqual([]);
+});
+
+test('duckDuckGoWebSearch throws a clear error on invalid JSON response', async () => {
+  vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    text: async () => '{',
+  } as any);
+  await expect(duckDuckGoWebSearch.handler({ query: 'x' } as any, {} as any)).rejects.toThrow(/DuckDuckGo returned invalid JSON/);
+});

@@ -7,6 +7,7 @@ import {
   CORE_MIDDLEWARE_ORDER,
   isLockedCoreMiddleware,
 } from './middleware/catalog.js';
+import { validateToolConfig } from './tool-config.js';
 
 export type CapabilityType = 'tool' | 'skill' | 'middleware';
 
@@ -16,6 +17,7 @@ export interface ChatProfile {
   name: string;
   provider: ChatProviderId;
   model: string;
+  systemPrompt?: string;
   theme: 'auto' | 'color' | 'plain';
   toolPolicy: ToolPolicy;
   storageDir: string;
@@ -25,6 +27,10 @@ export interface ChatProfile {
 export interface CapabilityScopeConfig {
   enabled: string[];
   disabled: string[];
+}
+
+export interface ToolsScopeConfig extends CapabilityScopeConfig {
+  config: Record<string, Record<string, unknown>>;
 }
 
 export interface MiddlewarePipelineEntry {
@@ -42,13 +48,13 @@ export interface SkillsScopeConfig extends CapabilityScopeConfig {
 }
 
 export interface ChatCapabilityConfig {
-  tools: CapabilityScopeConfig;
+  tools: ToolsScopeConfig;
   skills: SkillsScopeConfig;
   middleware: MiddlewareScopeConfig;
 }
 
 export interface CapabilityOverrideInput {
-  tools?: Partial<CapabilityScopeConfig>;
+  tools?: Partial<ToolsScopeConfig>;
   skills?: Partial<SkillsScopeConfig>;
   middleware?: Partial<MiddlewareScopeConfig>;
 }
@@ -102,6 +108,7 @@ export function defaultChatProfile(options?: { cwd?: string; homeDir?: string })
     name: 'default',
     provider: 'mock',
     model: DEFAULT_MODEL_BY_PROVIDER.mock,
+    systemPrompt: '',
     theme: 'auto',
     toolPolicy: mergeToolPolicy(),
     storageDir: path.join(homeDir, '.sisu', 'chat-sessions', path.basename(cwd)),
@@ -109,6 +116,7 @@ export function defaultChatProfile(options?: { cwd?: string; homeDir?: string })
       tools: {
         enabled: ['terminal'],
         disabled: [],
+        config: {},
       },
       skills: {
         enabled: [],
@@ -134,6 +142,19 @@ export function defaultChatProfile(options?: { cwd?: string; homeDir?: string })
   };
 }
 
+function cloneToolConfigMap(
+  config: Record<string, Record<string, unknown>> | undefined,
+): Record<string, Record<string, unknown>> {
+  if (!config) {
+    return {};
+  }
+  const clone: Record<string, Record<string, unknown>> = {};
+  for (const [toolId, toolConfig] of Object.entries(config)) {
+    clone[toolId] = { ...toolConfig };
+  }
+  return clone;
+}
+
 export function ensureCapabilityDefaults(
   profile: ChatProfile,
   options?: { cwd?: string; homeDir?: string },
@@ -147,6 +168,7 @@ export function ensureCapabilityDefaults(
     tools: {
       enabled: capabilities.tools?.enabled || defaults.tools.enabled,
       disabled: capabilities.tools?.disabled || [],
+      config: cloneToolConfigMap(capabilities.tools?.config || defaults.tools.config),
     },
     skills: {
       enabled: capabilities.skills?.enabled || [],
@@ -279,6 +301,40 @@ function normalizeIdList(value: unknown): string[] {
     .filter((item) => item.length > 0);
 }
 
+function expandHomeDirectory(input: string, homeDir: string): string {
+  if (input === '~') {
+    return homeDir;
+  }
+  if (input.startsWith('~/')) {
+    return path.join(homeDir, input.slice(2));
+  }
+  return input;
+}
+
+function normalizeDirectoryList(value: unknown, cwd: string, homeDir: string): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const directories: string[] = [];
+  for (const item of value) {
+    const raw = String(item).trim();
+    if (!raw) {
+      continue;
+    }
+    const expanded = expandHomeDirectory(raw, homeDir);
+    const normalized = path.isAbsolute(expanded)
+      ? path.normalize(expanded)
+      : path.resolve(cwd, expanded);
+    if (seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    directories.push(normalized);
+  }
+  return directories;
+}
+
 function parseCapabilityScope(input: Record<string, unknown> | undefined): CapabilityScopeConfig {
   if (!input) {
     return { enabled: [], disabled: [] };
@@ -287,6 +343,60 @@ function parseCapabilityScope(input: Record<string, unknown> | undefined): Capab
     enabled: normalizeIdList(input.enabled),
     disabled: normalizeIdList(input.disabled),
   };
+}
+
+function parseToolConfigMap(
+  value: unknown,
+): Record<string, Record<string, unknown>> {
+  const input = asRecord(value);
+  if (!input) {
+    return {};
+  }
+  const parsed: Record<string, Record<string, unknown>> = {};
+  for (const [toolId, rawConfig] of Object.entries(input)) {
+    const id = toolId.trim();
+    if (!id) {
+      continue;
+    }
+    const config = asRecord(rawConfig);
+    if (!config) {
+      continue;
+    }
+    parsed[id] = { ...config };
+  }
+  return parsed;
+}
+
+function parseToolsScope(input: Record<string, unknown> | undefined): ToolsScopeConfig {
+  const base = parseCapabilityScope(input);
+  return {
+    ...base,
+    config: parseToolConfigMap(input?.config),
+  };
+}
+
+function validateToolConfigs(
+  tools: ToolsScopeConfig,
+  knownCapabilityIds: string[] | undefined,
+  issues: ProfileValidationIssue[],
+): void {
+  const knownTools = knownCapabilityIds ? new Set(knownCapabilityIds) : undefined;
+  for (const [toolId, toolConfig] of Object.entries(tools.config)) {
+    if (knownTools && !knownTools.has(toolId)) {
+      issues.push({
+        field: `capabilities.tools.config.${toolId}`,
+        message: `Unknown capability id '${toolId}'.`,
+      });
+      continue;
+    }
+    const toolIssues = validateToolConfig(toolId, toolConfig || {});
+    for (const issue of toolIssues) {
+      issues.push({
+        field: `capabilities.tools.config.${toolId}`,
+        message: issue,
+      });
+    }
+  }
 }
 
 function parseMiddlewarePipeline(value: unknown): MiddlewarePipelineEntry[] {
@@ -303,14 +413,18 @@ function parseMiddlewarePipeline(value: unknown): MiddlewarePipelineEntry[] {
     .filter((item) => item.id.length > 0);
 }
 
-function parseSkillsScope(input: Record<string, unknown> | undefined): SkillsScopeConfig {
+function parseSkillsScope(
+  input: Record<string, unknown> | undefined,
+  cwd: string,
+  homeDir: string,
+): SkillsScopeConfig {
   if (!input) {
     return { enabled: [], disabled: [], directories: [] };
   }
   return {
     enabled: normalizeIdList(input.enabled),
     disabled: normalizeIdList(input.disabled),
-    directories: normalizeIdList(input.directories),
+    directories: normalizeDirectoryList(input.directories, cwd, homeDir),
   };
 }
 
@@ -426,7 +540,20 @@ function mergeRecords(base: Record<string, unknown>, overlay?: Record<string, un
   const mergeScope = (key: 'tools' | 'skills' | 'middleware') => {
     const baseScope = asRecord(baseCapabilities[key]) || {};
     const overlayScope = asRecord(overlayCapabilities[key]) || {};
-    mergedCapabilities[key] = { ...baseScope, ...overlayScope };
+    const mergedScope: Record<string, unknown> = { ...baseScope, ...overlayScope };
+    if (key === 'tools') {
+      const baseConfig = parseToolConfigMap(baseScope.config);
+      const overlayConfig = parseToolConfigMap(overlayScope.config);
+      const mergedConfig: Record<string, Record<string, unknown>> = { ...baseConfig };
+      for (const [toolId, toolConfig] of Object.entries(overlayConfig)) {
+        mergedConfig[toolId] = {
+          ...(baseConfig[toolId] || {}),
+          ...toolConfig,
+        };
+      }
+      mergedScope.config = mergedConfig;
+    }
+    mergedCapabilities[key] = mergedScope;
   };
 
   mergeScope('tools');
@@ -457,10 +584,12 @@ export function suggestedModelForProvider(provider: ChatProviderId, installedOll
 export function validateAndNormalizeProfile(
   input: Record<string, unknown>,
   defaults: ChatProfile,
-  options?: { knownCapabilityIds?: string[] },
+  options?: { knownCapabilityIds?: string[]; cwd?: string; homeDir?: string },
 ): ChatProfile {
   const issues: ProfileValidationIssue[] = [];
   const defaultCapabilities = ensureCapabilityDefaults(defaults);
+  const cwd = options?.cwd || process.cwd();
+  const homeDir = options?.homeDir || os.homedir();
 
   const provider = input.provider === undefined ? defaults.provider : asProvider(input.provider);
   if (!provider) {
@@ -489,6 +618,8 @@ export function validateAndNormalizeProfile(
     issues.push({ field: 'name', message: 'Name must be a non-empty string.' });
   }
 
+  const systemPrompt = input.systemPrompt === undefined ? (defaults.systemPrompt || '') : String(input.systemPrompt);
+
   const toolPolicyInput = asRecord(input.toolPolicy) || {};
   const policy = mergeToolPolicy({
     mode: typeof toolPolicyInput.mode === 'string' ? (toolPolicyInput.mode as ToolPolicy['mode']) : defaults.toolPolicy.mode,
@@ -516,8 +647,8 @@ export function validateAndNormalizeProfile(
   }
 
   const capabilitiesInput = asRecord(input.capabilities);
-  const toolsScope = parseCapabilityScope(asRecord(capabilitiesInput?.tools));
-  const skillsScope = parseSkillsScope(asRecord(capabilitiesInput?.skills));
+  const toolsScope = parseToolsScope(asRecord(capabilitiesInput?.tools));
+  const skillsScope = parseSkillsScope(asRecord(capabilitiesInput?.skills), cwd, homeDir);
   const middlewareScope = parseMiddlewareScope(asRecord(capabilitiesInput?.middleware));
 
   checkEnableDisableConflicts(toolsScope, 'capabilities.tools', issues);
@@ -548,6 +679,7 @@ export function validateAndNormalizeProfile(
   );
 
   validateLockedCore(middlewareScope, issues);
+  validateToolConfigs(toolsScope, options?.knownCapabilityIds, issues);
 
   if (issues.length > 0) {
     throw new ProfileValidationError(issues);
@@ -557,6 +689,7 @@ export function validateAndNormalizeProfile(
     name,
     provider: provider!,
     model: model.trim(),
+    systemPrompt,
     theme: theme as ChatProfile['theme'],
     toolPolicy: policy,
     storageDir: path.resolve(storageDir),
@@ -564,6 +697,9 @@ export function validateAndNormalizeProfile(
       tools: {
         enabled: toolsScope.enabled.length > 0 ? toolsScope.enabled : defaultCapabilities.tools.enabled,
         disabled: toolsScope.disabled,
+        config: Object.keys(toolsScope.config).length > 0
+          ? cloneToolConfigMap(toolsScope.config)
+          : cloneToolConfigMap(defaultCapabilities.tools.config),
       },
       skills: {
         enabled: skillsScope.enabled,
@@ -593,7 +729,11 @@ export async function loadResolvedProfile(options?: ProfileLoadOptions): Promise
   const hasExplicitModel = globalProfile?.model !== undefined || projectProfile?.model !== undefined;
 
   const mergedRecord = mergeRecords(mergeRecords(defaults as unknown as Record<string, unknown>, globalProfile), projectProfile);
-  const resolved = validateAndNormalizeProfile(mergedRecord, defaults, { knownCapabilityIds: options?.knownCapabilityIds });
+  const resolved = validateAndNormalizeProfile(mergedRecord, defaults, {
+    knownCapabilityIds: options?.knownCapabilityIds,
+    cwd,
+    homeDir,
+  });
   let installedCache: string[] | undefined;
   const loadInstalled = async (): Promise<string[]> => {
     if (installedCache) {
@@ -624,7 +764,7 @@ export async function loadResolvedProfile(options?: ProfileLoadOptions): Promise
 }
 
 export async function updateProjectProfile(
-  updates: Partial<Pick<ChatProfile, 'provider' | 'model'>>,
+  updates: Partial<Pick<ChatProfile, 'provider' | 'model' | 'systemPrompt'>>,
   options?: ProfileLoadOptions,
 ): Promise<ChatProfile> {
   const cwd = options?.cwd || process.cwd();
@@ -640,11 +780,42 @@ export async function updateProjectProfile(
   if (updates.model !== undefined) {
     nextProject.model = updates.model;
   }
+  if (updates.systemPrompt !== undefined) {
+    nextProject.systemPrompt = updates.systemPrompt;
+  }
 
   await fs.mkdir(path.dirname(projectPath), { recursive: true });
   await fs.writeFile(projectPath, `${JSON.stringify(nextProject, null, 2)}\n`, 'utf8');
 
   return await loadResolvedProfile({ cwd, homeDir, globalPath, projectPath, knownCapabilityIds: options?.knownCapabilityIds });
+}
+
+export async function persistSystemPrompt(
+  systemPrompt: string,
+  scope: 'project' | 'global',
+  options?: ProfileLoadOptions,
+): Promise<ChatProfile> {
+  const cwd = options?.cwd || process.cwd();
+  const homeDir = options?.homeDir || os.homedir();
+  const targetPath = scope === 'global'
+    ? (options?.globalPath || getGlobalProfilePath(homeDir))
+    : (options?.projectPath || getProjectProfilePath(cwd));
+
+  const existing = (await readOptionalProfile(targetPath)) || {};
+  const nextRecord: Record<string, unknown> = {
+    ...existing,
+    systemPrompt,
+  };
+
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.writeFile(targetPath, `${JSON.stringify(nextRecord, null, 2)}\n`, 'utf8');
+  return await loadResolvedProfile({
+    cwd,
+    homeDir,
+    globalPath: options?.globalPath,
+    projectPath: options?.projectPath,
+    knownCapabilityIds: options?.knownCapabilityIds,
+  });
 }
 
 export async function persistCapabilityOverride(
@@ -668,10 +839,39 @@ export async function persistCapabilityOverride(
     if (!incoming) {
       return;
     }
-    nextCapabilities[key] = {
+    const mergedScope: Record<string, unknown> = {
       ...current,
       ...incoming,
     };
+    if ('enabled' in incoming || 'disabled' in incoming) {
+      const currentEnabled = new Set(normalizeIdList(current.enabled));
+      const currentDisabled = new Set(normalizeIdList(current.disabled));
+      const incomingEnabled = normalizeIdList((incoming as { enabled?: unknown }).enabled);
+      const incomingDisabled = normalizeIdList((incoming as { disabled?: unknown }).disabled);
+      for (const id of incomingEnabled) {
+        currentEnabled.add(id);
+        currentDisabled.delete(id);
+      }
+      for (const id of incomingDisabled) {
+        currentDisabled.add(id);
+        currentEnabled.delete(id);
+      }
+      mergedScope.enabled = [...currentEnabled];
+      mergedScope.disabled = [...currentDisabled];
+    }
+    if (key === 'tools') {
+      const currentConfig = parseToolConfigMap(current.config);
+      const incomingConfig = parseToolConfigMap((incoming as Partial<ToolsScopeConfig>).config);
+      const mergedConfig: Record<string, Record<string, unknown>> = { ...currentConfig };
+      for (const [toolId, toolConfig] of Object.entries(incomingConfig)) {
+        mergedConfig[toolId] = {
+          ...(currentConfig[toolId] || {}),
+          ...toolConfig,
+        };
+      }
+      mergedScope.config = mergedConfig;
+    }
+    nextCapabilities[key] = mergedScope;
   };
 
   assignScope('tools');

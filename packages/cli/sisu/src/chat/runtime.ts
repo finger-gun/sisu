@@ -1,17 +1,35 @@
 import { spawn } from 'node:child_process';
-import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import type { Interface as ReadlineInterface } from 'node:readline/promises';
 import { createInterface as createPromisesInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Writable } from 'node:stream';
 import type { Readable } from 'node:stream';
-import type { LLM, Message, ModelEvent, ModelResponse, Tool, ToolChoice, ToolCall } from '@sisu-ai/core';
-import { openAIAdapter } from '@sisu-ai/adapter-openai';
-import { anthropicAdapter } from '@sisu-ai/adapter-anthropic';
-import { ollamaAdapter } from '@sisu-ai/adapter-ollama';
+import { InMemoryKV, SimpleTools, compose, createRedactingLogger } from '@sisu-ai/core';
+import type {
+  Ctx as MiddlewareCtx,
+  GenerateOptions,
+  LLM,
+  Logger,
+  Memory,
+  Message,
+  Middleware as RuntimeMiddleware,
+  ModelEvent,
+  ModelResponse,
+  Tool,
+  ToolCall,
+  ToolChoice,
+  ToolContext,
+} from '@sisu-ai/core';
+import { openAIAdapter, openAIEmbeddings } from '@sisu-ai/adapter-openai';
+import { anthropicAdapter, anthropicEmbeddings } from '@sisu-ai/adapter-anthropic';
+import { ollamaAdapter, ollamaEmbeddings } from '@sisu-ai/adapter-ollama';
 import { createTerminalTool } from '@sisu-ai/tool-terminal';
+import type { TerminalToolConfig } from '@sisu-ai/tool-terminal';
 import ora from 'ora';
 import prompts from 'prompts';
 import {
@@ -35,6 +53,7 @@ import {
   loadResolvedProfile,
   persistAllowCommandPrefix,
   persistCapabilityOverride,
+  persistSystemPrompt,
   type SkillsScopeConfig,
   suggestedModelForProvider,
   updateProjectProfile,
@@ -48,18 +67,26 @@ import {
   buildCapabilityRegistry,
   describeCapabilitySource,
   enforceLockedCoreMiddleware,
-  isMiddlewareCapability,
   isLockedMiddlewareCapability,
   resolveCapabilityState,
   type CapabilityConfig,
   type CapabilityEntry,
   type MiddlewarePipelineEntry,
 } from './capabilities.js';
-import { validateMiddlewareConfig } from './middleware/catalog.js';
+import { getMiddlewareConfigDescriptor, validateMiddlewareConfig } from './middleware/catalog.js';
+import { getToolConfigDescriptor, validateToolConfig } from './tool-config.js';
 import {
   listOfficialPackages,
+  getDiscoveryDiagnostics,
   type OfficialCapabilityCategory,
 } from './npm-discovery.js';
+import {
+  installCapabilityPackage,
+  runInstallRecipe,
+  type CapabilityInstallType,
+  type CapabilityInstallScope,
+  type InstallRecipeExecutionOptions,
+} from './capability-install.js';
 
 interface ProviderStreamInput {
   messages: Message[];
@@ -335,6 +362,42 @@ function stringifyToolResult(value: unknown): string {
   }
 }
 
+function shellQuoteArg(value: string): string {
+  if (process.platform === 'win32') {
+    return `"${value.replace(/"/g, '\\"')}"`;
+  }
+  return `'${value.replace(/'/g, '\'\\\'\'')}'`;
+}
+
+function configuredEditorCommand(): string | undefined {
+  const editor = (process.env.VISUAL || process.env.EDITOR || '').trim();
+  return editor.length > 0 ? editor : undefined;
+}
+
+function isTerminalEditorCommand(command: string): boolean {
+  const tokenMatch = command.match(/^\s*(?:"([^"]+)"|'([^']+)'|(\S+))/);
+  const executable = tokenMatch?.[1] || tokenMatch?.[2] || tokenMatch?.[3] || command;
+  const base = path.basename(executable).toLowerCase();
+  const knownTerminalEditors = new Set([
+    'hx',
+    'helix',
+    'vim',
+    'nvim',
+    'vi',
+    'nano',
+    'emacs',
+    'kak',
+    'kakoune',
+    'micro',
+    'pico',
+    'joe',
+  ]);
+  if (knownTerminalEditors.has(base)) {
+    return true;
+  }
+  return /\s-(?:nw|tty)\b/.test(command);
+}
+
 async function runShellCommand(command: string, signal: AbortSignal, cwd: string): Promise<{ exitCode: number; output: string }> {
   return await new Promise((resolve, reject) => {
     const child = spawn(command, { cwd, shell: true, signal, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -386,6 +449,7 @@ export interface ChatRuntimeOptions {
 }
 
 type CapabilityScopeTarget = 'session' | 'project' | 'global';
+const DEFAULT_TOOL_CALLING_MAX_ROUNDS = 16;
 
 interface ListedCapability {
   id: string;
@@ -395,6 +459,8 @@ interface ListedCapability {
   overridden: boolean;
   lockedCore: boolean;
   description?: string;
+  packageName?: string;
+  packageVersion?: string;
 }
 
 type CapabilityCategory = 'tools' | 'skills' | 'middleware';
@@ -410,6 +476,244 @@ function parseScopeTarget(value: string | undefined): CapabilityScopeTarget | un
     return value;
   }
   return undefined;
+}
+
+function parseToolConfigCommandPayload(payload: string): {
+  toolId: string;
+  config: Record<string, unknown>;
+  scope: CapabilityScopeTarget;
+} {
+  const trimmed = payload.trim();
+  if (!trimmed) {
+    throw new Error('Usage: /tool-config <tool-id> <json-object> [session|project|global]');
+  }
+
+  let scope: CapabilityScopeTarget = 'session';
+  let body = trimmed;
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length >= 2) {
+    const maybeScope = parseScopeTarget(tokens[tokens.length - 1]);
+    if (maybeScope) {
+      scope = maybeScope;
+      body = trimmed.slice(0, trimmed.lastIndexOf(tokens[tokens.length - 1])).trim();
+    }
+  }
+
+  const firstSpace = body.indexOf(' ');
+  if (firstSpace <= 0) {
+    throw new Error('Usage: /tool-config <tool-id> <json-object> [session|project|global]');
+  }
+  const toolId = body.slice(0, firstSpace).trim();
+  const configText = body.slice(firstSpace + 1).trim();
+  if (!toolId || !configText) {
+    throw new Error('Usage: /tool-config <tool-id> <json-object> [session|project|global]');
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(configText);
+  } catch (error) {
+    throw new Error(`Invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Tool config must be a JSON object.');
+  }
+
+  return {
+    toolId,
+    config: parsed as Record<string, unknown>,
+    scope,
+  };
+}
+
+function parseMiddlewareConfigCommandPayload(payload: string): {
+  middlewareId: string;
+  config: Record<string, unknown>;
+  scope: CapabilityScopeTarget;
+} {
+  const trimmed = payload.trim();
+  if (!trimmed) {
+    throw new Error('Usage: /middleware-config <middleware-id> <json-object> [session|project|global]');
+  }
+
+  let scope: CapabilityScopeTarget = 'session';
+  let body = trimmed;
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length >= 2) {
+    const maybeScope = parseScopeTarget(tokens[tokens.length - 1]);
+    if (maybeScope) {
+      scope = maybeScope;
+      body = trimmed.slice(0, trimmed.lastIndexOf(tokens[tokens.length - 1])).trim();
+    }
+  }
+
+  const firstSpace = body.indexOf(' ');
+  if (firstSpace <= 0) {
+    throw new Error('Usage: /middleware-config <middleware-id> <json-object> [session|project|global]');
+  }
+  const middlewareId = body.slice(0, firstSpace).trim();
+  const configText = body.slice(firstSpace + 1).trim();
+  if (!middlewareId || !configText) {
+    throw new Error('Usage: /middleware-config <middleware-id> <json-object> [session|project|global]');
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(configText);
+  } catch (error) {
+    throw new Error(`Invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Middleware config must be a JSON object.');
+  }
+
+  return {
+    middlewareId,
+    config: parsed as Record<string, unknown>,
+    scope,
+  };
+}
+
+function parseSessionSystemPromptInput(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (trimmed === 'none' || trimmed === 'default' || trimmed === 'clear') {
+    return '';
+  }
+  return input;
+}
+
+function kebabToCamel(value: string): string {
+  return value.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
+function asRuntimeMiddleware(
+  candidate: unknown,
+  config: Record<string, unknown>,
+): RuntimeMiddleware | undefined {
+  if (typeof candidate !== 'function') {
+    return undefined;
+  }
+
+  if (candidate.length >= 2) {
+    return candidate as RuntimeMiddleware;
+  }
+
+  try {
+    const built = (candidate as (opts: Record<string, unknown>) => unknown)(config);
+    if (typeof built === 'function') {
+      return built as RuntimeMiddleware;
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => String(item).trim())
+    .filter((item) => item.length > 0);
+  return items.length > 0 ? items : [];
+}
+
+function boolAt(record: Record<string, unknown> | undefined, key: string): boolean | undefined {
+  if (!record) {
+    return undefined;
+  }
+  const value = record[key];
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function parseTerminalConfigInput(value: unknown): Partial<TerminalToolConfig> {
+  const raw = asRecord(value);
+  if (!raw) {
+    return {};
+  }
+
+  const parsed: Partial<TerminalToolConfig> = {};
+  const capabilities = asRecord(raw.capabilities);
+  if (capabilities) {
+    const next: Partial<TerminalToolConfig['capabilities']> = {};
+    if (typeof capabilities.read === 'boolean') next.read = capabilities.read;
+    if (typeof capabilities.write === 'boolean') next.write = capabilities.write;
+    if (typeof capabilities.delete === 'boolean') next.delete = capabilities.delete;
+    if (typeof capabilities.exec === 'boolean') next.exec = capabilities.exec;
+    if (Object.keys(next).length > 0) parsed.capabilities = next as TerminalToolConfig['capabilities'];
+  }
+
+  const commands = asRecord(raw.commands);
+  if (commands) {
+    const allow = normalizeStringArray(commands.allow);
+    if (allow) {
+      parsed.commands = { allow };
+    }
+  }
+
+  const execution = asRecord(raw.execution);
+  if (execution) {
+    const next: Partial<TerminalToolConfig['execution']> = {};
+    if (typeof execution.timeoutMs === 'number' && Number.isFinite(execution.timeoutMs) && execution.timeoutMs > 0) {
+      next.timeoutMs = Math.floor(execution.timeoutMs);
+    }
+    if (typeof execution.maxStdoutBytes === 'number' && Number.isFinite(execution.maxStdoutBytes) && execution.maxStdoutBytes > 0) {
+      next.maxStdoutBytes = Math.floor(execution.maxStdoutBytes);
+    }
+    if (typeof execution.maxStderrBytes === 'number' && Number.isFinite(execution.maxStderrBytes) && execution.maxStderrBytes > 0) {
+      next.maxStderrBytes = Math.floor(execution.maxStderrBytes);
+    }
+    const pathDirs = normalizeStringArray(execution.pathDirs);
+    if (pathDirs) {
+      next.pathDirs = pathDirs;
+    }
+    if (Object.keys(next).length > 0) parsed.execution = next as TerminalToolConfig['execution'];
+  }
+
+  if (typeof raw.allowPipe === 'boolean') {
+    parsed.allowPipe = raw.allowPipe;
+  }
+  if (typeof raw.allowSequence === 'boolean') {
+    parsed.allowSequence = raw.allowSequence;
+  }
+
+  const sessions = asRecord(raw.sessions);
+  if (sessions) {
+    const next: Partial<TerminalToolConfig['sessions']> = {};
+    if (typeof sessions.enabled === 'boolean') next.enabled = sessions.enabled;
+    if (typeof sessions.ttlMs === 'number' && Number.isFinite(sessions.ttlMs) && sessions.ttlMs > 0) {
+      next.ttlMs = Math.floor(sessions.ttlMs);
+    }
+    if (typeof sessions.maxPerAgent === 'number' && Number.isFinite(sessions.maxPerAgent) && sessions.maxPerAgent > 0) {
+      next.maxPerAgent = Math.floor(sessions.maxPerAgent);
+    }
+    if (Object.keys(next).length > 0) parsed.sessions = next as TerminalToolConfig['sessions'];
+  }
+
+  return parsed;
+}
+
+function resolveTerminalToolConfig(profile: ChatProfile, cwd: string): Partial<TerminalToolConfig> {
+  const toolConfig = profile.capabilities?.tools?.config || {};
+  const fromProfile = parseTerminalConfigInput(toolConfig.terminal);
+  return {
+    roots: [cwd],
+    allowPipe: true,
+    allowSequence: true,
+    ...fromProfile,
+  };
 }
 
 export class ChatRuntime {
@@ -447,7 +751,13 @@ export class ChatRuntime {
 
   private readonly projectProfilePath: string;
 
-  private readonly terminalTool: ReturnType<typeof createTerminalTool>;
+  private terminalTool: ReturnType<typeof createTerminalTool>;
+
+  private externalToolBundles: LoadedExternalToolBundle[];
+
+  private readonly toolMemory: Memory;
+
+  private readonly toolLogger: Logger;
 
   private sessionCapabilityOverrides: CapabilityConfig = {};
 
@@ -456,14 +766,22 @@ export class ChatRuntime {
     context: 'startup' | 'update',
   ): void {
     const unknown = pipeline
-      .map((entry) => entry.id)
-      .filter((id) => !this.capabilityRegistry.has(id) || !isMiddlewareCapability(id));
+      .filter((entry) => this.capabilityRegistry.get(entry.id)?.type !== 'middleware')
+      .map((entry) => entry.id);
     if (unknown.length > 0) {
       const code = context === 'startup' ? 'E6512' : 'E6509';
       throw new Error(`${code}: Unknown middleware pipeline entries: ${unknown.join(', ')}`);
     }
 
     for (const entry of pipeline) {
+      const capability = this.capabilityRegistry.get(entry.id);
+      const isInstalledCustom = capability?.source === 'project'
+        || capability?.source === 'global'
+        || capability?.source === 'session'
+        || capability?.source === 'custom';
+      if (isInstalledCustom) {
+        continue;
+      }
       const issues = validateMiddlewareConfig(entry.id, entry.config || {});
       if (issues.length > 0) {
         const code = context === 'startup' ? 'E6513' : 'E6514';
@@ -488,6 +806,7 @@ export class ChatRuntime {
     globalProfilePath: string;
     projectProfilePath: string;
     terminalTool: ReturnType<typeof createTerminalTool>;
+    externalToolBundles: LoadedExternalToolBundle[];
   }) {
     this.profile = options.profile;
     this.sessionStore = options.sessionStore;
@@ -504,6 +823,13 @@ export class ChatRuntime {
     this.globalProfilePath = options.globalProfilePath;
     this.projectProfilePath = options.projectProfilePath;
     this.terminalTool = options.terminalTool;
+    this.externalToolBundles = options.externalToolBundles;
+    this.toolMemory = new InMemoryKV();
+    this.toolLogger = createRedactingLogger(console as unknown as Logger);
+  }
+
+  private refreshTerminalTool(): void {
+    this.terminalTool = createTerminalTool(resolveTerminalToolConfig(this.profile, this.cwd));
   }
 
   static async create(options?: ChatRuntimeOptions): Promise<ChatRuntime> {
@@ -546,6 +872,7 @@ export class ChatRuntime {
     }
 
     const diagnostics = registryBuild.skillDiagnostics.map((entry) => `${entry.path}: ${entry.error}`);
+    const externalToolBundles = await loadInstalledExternalTools(cwd);
     const runtime = new ChatRuntime({
       profile,
       state,
@@ -561,12 +888,16 @@ export class ChatRuntime {
       capabilityDiagnostics: diagnostics,
       globalProfilePath: getGlobalProfilePath(),
       projectProfilePath: getProjectProfilePath(cwd),
-      terminalTool: createTerminalTool({
-        roots: [cwd],
-        allowPipe: true,
-        allowSequence: true,
-      }),
+      terminalTool: createTerminalTool(resolveTerminalToolConfig(profile, cwd)),
+      externalToolBundles,
     });
+    if (options?.sessionId) {
+      try {
+        await runtime.resumeSession(options.sessionId);
+      } catch {
+        // keep requested id as fresh session if snapshot does not exist
+      }
+    }
     runtime.validateMiddlewarePipelineOrThrow(runtime.listMiddlewarePipeline(), 'startup');
     return runtime;
   }
@@ -608,6 +939,8 @@ export class ChatRuntime {
           !== (defaultState.enabled.has(entry.id) && !defaultState.disabled.has(entry.id)),
         lockedCore: Boolean(entry.lockedCore),
         description: entry.description,
+        packageName: entry.packageName,
+        packageVersion: entry.packageVersion,
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
   }
@@ -686,6 +1019,7 @@ export class ChatRuntime {
     );
     profile.capabilities = ensureCapabilityDefaults(profile, { cwd: this.cwd });
     this.profile = profile;
+    this.refreshTerminalTool();
     return {
       profile,
       targetPath: scope === 'global' ? this.globalProfilePath : this.projectProfilePath,
@@ -697,13 +1031,14 @@ export class ChatRuntime {
   }
 
   getMiddlewareStartupSummary(): string {
-    const pipeline = this.listMiddlewarePipeline();
+    const effective = this.effectiveCapabilities();
+    const pipeline = this.listMiddlewarePipeline()
+      .filter((entry) => entry.enabled !== false)
+      .filter((entry) => effective.enabled.has(entry.id) && !effective.disabled.has(entry.id));
     if (pipeline.length === 0) {
       return 'No middleware configured.';
     }
-    const enabled = pipeline
-      .filter((entry) => entry.enabled !== false)
-      .map((entry) => entry.id);
+    const enabled = pipeline.map((entry) => entry.id);
     return `Middleware pipeline: ${enabled.join(' -> ')}`;
   }
 
@@ -732,6 +1067,7 @@ export class ChatRuntime {
     );
     profile.capabilities = ensureCapabilityDefaults(profile, { cwd: this.cwd });
     this.profile = profile;
+    this.refreshTerminalTool();
     return { targetPath: scope === 'global' ? this.globalProfilePath : this.projectProfilePath };
   }
 
@@ -776,7 +1112,70 @@ export class ChatRuntime {
   }
 
   async listOfficialCapabilityPackages(category: OfficialCapabilityCategory): Promise<Awaited<ReturnType<typeof listOfficialPackages>>> {
-    return await listOfficialPackages(category);
+    return await listOfficialPackages(category, { allowNpmFallback: true });
+  }
+
+  getDiscoveryDiagnostics(): string[] {
+    return getDiscoveryDiagnostics();
+  }
+
+  async installCapability(
+    type: CapabilityInstallType,
+    name: string,
+    scope: CapabilityInstallScope,
+  ): Promise<{ capabilityId: string; packageName: string; installDir: string; manifestPath: string }> {
+    const installed = await installCapabilityPackage({
+      type,
+      name,
+      scope,
+      cwd: this.cwd,
+    });
+    await this.rebuildCapabilityRegistry();
+    return {
+      capabilityId: installed.record.id,
+      packageName: installed.record.packageName,
+      installDir: installed.record.installDir,
+      manifestPath: installed.manifestPath,
+    };
+  }
+
+  async installRecipe(
+    recipeId: string,
+    scope: CapabilityInstallScope,
+    options?: InstallRecipeExecutionOptions,
+  ): Promise<Awaited<ReturnType<typeof runInstallRecipe>>> {
+    const result = await runInstallRecipe(
+      {
+        recipeId,
+        scope,
+        cwd: this.cwd,
+      },
+      options,
+    );
+    if (result.status === 'completed') {
+      await this.rebuildCapabilityRegistry();
+      for (const action of result.completedSteps) {
+        if (action.kind === 'enable') {
+          await this.setCapabilityEnabled(action.capabilityId, true, scope);
+        } else if (action.kind === 'set-tool-config') {
+          await this.setToolConfig(action.id, action.config, scope);
+        } else if (action.kind === 'set-middleware-config') {
+          await this.setMiddlewareConfig(action.id, action.config, scope);
+        }
+      }
+    }
+    return result;
+  }
+
+  private async rebuildCapabilityRegistry(): Promise<void> {
+    const capabilities = ensureCapabilityDefaults(this.profile, { cwd: this.cwd });
+    const rebuilt = await buildCapabilityRegistry({
+      cwd: this.cwd,
+      skillDirectories: capabilities.skills.directories,
+    });
+    this.capabilityRegistry = rebuilt.registry;
+    this.capabilityDiagnostics = rebuilt.skillDiagnostics.map((entry) => `${entry.path}: ${entry.error}`);
+    this.externalToolBundles = await loadInstalledExternalTools(this.cwd);
   }
 
   async addAllowCommandPrefix(
@@ -801,10 +1200,156 @@ export class ChatRuntime {
     });
     profile.capabilities = ensureCapabilityDefaults(profile, { cwd: this.cwd });
     this.profile = profile;
+    this.refreshTerminalTool();
     return {
       profile,
       targetPath: scope === 'global' ? this.globalProfilePath : this.projectProfilePath,
     };
+  }
+
+  async setToolConfig(
+    toolId: string,
+    config: Record<string, unknown>,
+    scope: CapabilityScopeTarget,
+  ): Promise<{ targetPath?: string; profile?: ChatProfile }> {
+    const capability = this.ensureCapabilityExists(toolId);
+    if (capability.type !== 'tool') {
+      throw new Error(`E6516: Capability '${toolId}' is not a tool.`);
+    }
+    const issues = validateToolConfig(toolId, config);
+    if (issues.length > 0) {
+      throw new Error(`E6517: ${issues.join(' ')}`);
+    }
+    const current = this.profile.capabilities?.tools?.config || {};
+    const mergedForTool = {
+      ...(asRecord(current[toolId]) || {}),
+      ...config,
+    };
+
+    const mergedConfig = {
+      ...current,
+      [toolId]: mergedForTool,
+    };
+
+    if (scope === 'session') {
+      const capabilities = ensureCapabilityDefaults(this.profile, { cwd: this.cwd });
+      this.profile = {
+        ...this.profile,
+        capabilities: {
+          ...capabilities,
+          tools: {
+            ...capabilities.tools,
+            config: mergedConfig,
+          },
+        },
+      };
+      this.refreshTerminalTool();
+      return { profile: this.profile };
+    }
+
+    const profile = await persistCapabilityOverride(
+      { tools: { config: mergedConfig } },
+      scope,
+      { cwd: this.cwd, knownCapabilityIds: [...this.capabilityRegistry.keys()] },
+    );
+    profile.capabilities = ensureCapabilityDefaults(profile, { cwd: this.cwd });
+    this.profile = profile;
+    this.refreshTerminalTool();
+    return {
+      profile,
+      targetPath: scope === 'global' ? this.globalProfilePath : this.projectProfilePath,
+    };
+  }
+
+  getToolConfig(toolId: string): Record<string, unknown> {
+    const capability = this.ensureCapabilityExists(toolId);
+    if (capability.type !== 'tool') {
+      throw new Error(`E6516: Capability '${toolId}' is not a tool.`);
+    }
+    const cfg = this.profile.capabilities?.tools?.config?.[toolId];
+    return asRecord(cfg) ? { ...cfg } : {};
+  }
+
+  describeToolConfig(toolId: string): string {
+    const capability = this.capabilityRegistry.get(toolId);
+    const descriptor = capability?.configMetadata || getToolConfigDescriptor(toolId);
+    if (!descriptor) {
+      throw new Error(`E6518: No config schema available for tool '${toolId}'.`);
+    }
+    const current = this.profile.capabilities?.tools?.config?.[toolId];
+    const lines = [
+      `${descriptor.title}: ${descriptor.description}`,
+      'Available options:',
+      ...descriptor.options.map((option) => `- ${option.path} (${option.type}) — ${option.description}`),
+      'Presets:',
+      ...descriptor.presets.map((preset) => `- ${preset.label}: ${preset.description} (${JSON.stringify(preset.config)})`),
+      `Current override: ${JSON.stringify(current || {}, null, 2)}`,
+    ];
+    return lines.join('\n');
+  }
+
+  getToolConfigPresets(toolId: string): Array<{ id: string; label: string; description: string; config: Record<string, unknown> }> {
+    const capability = this.capabilityRegistry.get(toolId);
+    const descriptor = capability?.configMetadata || getToolConfigDescriptor(toolId);
+    if (!descriptor) {
+      return [];
+    }
+    return descriptor.presets.map((preset) => ({
+      id: preset.id,
+      label: preset.label,
+      description: preset.description,
+      config: { ...preset.config },
+    }));
+  }
+
+  getMiddlewareConfig(middlewareId: string): Record<string, unknown> {
+    const pipelineEntry = this.listMiddlewarePipeline().find((entry) => entry.id === middlewareId);
+    return pipelineEntry?.config ? { ...pipelineEntry.config } : {};
+  }
+
+  describeMiddlewareConfig(middlewareId: string): string {
+    const descriptor = getMiddlewareConfigDescriptor(middlewareId);
+    if (!descriptor) {
+      throw new Error(`E6519: No config schema available for middleware '${middlewareId}'.`);
+    }
+    const current = this.getMiddlewareConfig(middlewareId);
+    const lines = [
+      `${descriptor.title}: ${descriptor.description}`,
+      'Available options:',
+      ...descriptor.options.map((option) => `- ${option.path} (${option.type}) — ${option.description}`),
+      'Presets:',
+      ...descriptor.presets.map((preset) => `- ${preset.label}: ${preset.description} (${JSON.stringify(preset.config)})`),
+      `Current override: ${JSON.stringify(current || {}, null, 2)}`,
+    ];
+    return lines.join('\n');
+  }
+
+  getMiddlewareConfigPresets(
+    middlewareId: string,
+  ): Array<{ id: string; label: string; description: string; config: Record<string, unknown> }> {
+    const descriptor = getMiddlewareConfigDescriptor(middlewareId);
+    if (!descriptor) {
+      return [];
+    }
+    return descriptor.presets.map((preset) => ({
+      id: preset.id,
+      label: preset.label,
+      description: preset.description,
+      config: { ...preset.config },
+    }));
+  }
+
+  getToolCallingMaxRounds(): number {
+    const config = this.listMiddlewarePipeline().find((entry) => entry.id === 'tool-calling')?.config || {};
+    const candidate = config.maxRounds;
+    if (typeof candidate === 'number' && Number.isInteger(candidate) && candidate > 0) {
+      return candidate;
+    }
+    return DEFAULT_TOOL_CALLING_MAX_ROUNDS;
+  }
+
+  getConfigPath(scope: Exclude<CapabilityScopeTarget, 'session'>): string {
+    return scope === 'global' ? this.globalProfilePath : this.projectProfilePath;
   }
 
   async openConfigInEditor(scope: Exclude<CapabilityScopeTarget, 'session'>): Promise<string> {
@@ -816,20 +1361,45 @@ export class ChatRuntime {
       await fs.writeFile(target, '{}\n', 'utf8');
     }
 
-    const editor = process.env.VISUAL || process.env.EDITOR;
+    const editor = configuredEditorCommand();
     if (!editor) {
       throw new Error('E6510: Set $EDITOR or $VISUAL to open config in editor.');
     }
 
-    await new Promise<void>((resolve, reject) => {
-      execFile(editor, [target], (error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
+    const ttyInput = process.stdin as Readable & {
+      isTTY?: boolean;
+      isRaw?: boolean;
+      setRawMode?: (mode: boolean) => void;
+    };
+    const setRawMode = typeof ttyInput.setRawMode === 'function' ? ttyInput.setRawMode.bind(ttyInput) : undefined;
+    const shouldRestoreRawMode = Boolean(ttyInput.isTTY && ttyInput.isRaw && setRawMode);
+    if (shouldRestoreRawMode && setRawMode) {
+      setRawMode(false);
+    }
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(`${editor} ${shellQuoteArg(target)}`, {
+          cwd: this.cwd,
+          shell: true,
+          stdio: 'inherit',
+        });
+        child.once('error', reject);
+        child.once('close', (code, signal) => {
+          if (code === 0) {
+            resolve();
+            return;
+          }
+          reject(new Error(
+            `E6511: Editor exited unsuccessfully (${code !== null ? `code ${code}` : 'unknown code'}${signal ? `, signal ${signal}` : ''}).`,
+          ));
+        });
       });
-    });
+    } finally {
+      if (shouldRestoreRawMode && setRawMode) {
+        setRawMode(true);
+      }
+    }
     return target;
   }
 
@@ -874,6 +1444,31 @@ export class ChatRuntime {
     this.provider = candidateProvider;
     this.providerStartupError = undefined;
     return nextProfile;
+  }
+
+  async setSystemPrompt(
+    systemPrompt: string,
+    scope: CapabilityScopeTarget,
+  ): Promise<{ profile: ChatProfile; targetPath?: string }> {
+    const normalized = systemPrompt.trim().length > 0 ? systemPrompt : '';
+    if (scope === 'session') {
+      this.profile = {
+        ...this.profile,
+        systemPrompt: normalized,
+      };
+      return { profile: this.profile };
+    }
+    const profile = await persistSystemPrompt(
+      normalized,
+      scope === 'global' ? 'global' : 'project',
+      { cwd: this.cwd, knownCapabilityIds: [...this.capabilityRegistry.keys()] },
+    );
+    profile.capabilities = ensureCapabilityDefaults(profile, { cwd: this.cwd });
+    this.profile = profile;
+    return {
+      profile,
+      targetPath: scope === 'global' ? this.globalProfilePath : this.projectProfilePath,
+    };
   }
 
   async listSuggestedModels(provider = this.profile.provider): Promise<string[]> {
@@ -1015,10 +1610,236 @@ export class ChatRuntime {
   private getTerminalTools(): Tool[] {
     const effective = this.effectiveCapabilities();
     const enabled = effective.enabled.has('terminal') && !effective.disabled.has('terminal');
-    if (!enabled) {
-      return [];
+    const tools: Tool[] = enabled ? [...this.terminalTool.tools] : [];
+    for (const bundle of this.externalToolBundles) {
+      if (!effective.enabled.has(bundle.id) || effective.disabled.has(bundle.id)) {
+        continue;
+      }
+      tools.push(...bundle.tools);
     }
-    return [...this.terminalTool.tools];
+    return tools;
+  }
+
+  private createMiddlewareModel(signal: AbortSignal): LLM {
+    return {
+      name: `${this.provider.id}-chat-runtime`,
+      capabilities: { functionCall: true, streaming: false },
+      generate: ((messages: Message[], opts?: GenerateOptions) => this.generateAssistantResponse({
+        messages,
+        signal: opts?.signal || signal,
+        tools: opts?.tools,
+        toolChoice: opts?.toolChoice,
+      })) as LLM['generate'],
+    };
+  }
+
+  private activeMiddlewarePipeline(): MiddlewarePipelineEntry[] {
+    const effective = this.effectiveCapabilities();
+    const configured = this.listMiddlewarePipeline().filter((entry) => (
+      entry.enabled !== false
+      && effective.enabled.has(entry.id)
+      && !effective.disabled.has(entry.id)
+      && this.capabilityRegistry.get(entry.id)?.type === 'middleware'
+    ));
+    const seen = new Set(configured.map((entry) => entry.id));
+    const appended: MiddlewarePipelineEntry[] = [];
+    for (const capabilityId of effective.enabled) {
+      if (seen.has(capabilityId) || effective.disabled.has(capabilityId)) {
+        continue;
+      }
+      if (this.capabilityRegistry.get(capabilityId)?.type !== 'middleware') {
+        continue;
+      }
+      appended.push({ id: capabilityId, enabled: true, config: {} });
+    }
+    return [...configured, ...appended];
+  }
+
+  private async importInstalledCapabilityModule(packageName: string): Promise<Record<string, unknown> | undefined> {
+    const entrypoint = await resolveInstalledPackageEntrypoint(this.cwd, packageName);
+    if (!entrypoint) {
+      return undefined;
+    }
+    const loaded = await import(pathToFileURL(entrypoint).href);
+    return loaded as Record<string, unknown>;
+  }
+
+  private async resolveMiddlewareById(
+    middlewareId: string,
+    config: Record<string, unknown>,
+  ): Promise<RuntimeMiddleware> {
+    if (
+      middlewareId === 'error-boundary'
+      || middlewareId === 'invariants'
+      || middlewareId === 'register-tools'
+      || middlewareId === 'tool-calling'
+      || middlewareId === 'rag'
+    ) {
+      return async (_ctx, next) => {
+        await next();
+      };
+    }
+
+    if (middlewareId === 'conversation-buffer') {
+      const maxMessages = typeof config.maxMessages === 'number' && Number.isInteger(config.maxMessages) && config.maxMessages > 0
+        ? config.maxMessages
+        : 60;
+      return async (ctx, next) => {
+        if (ctx.messages.length > maxMessages) {
+          const firstSystem = ctx.messages[0]?.role === 'system' ? ctx.messages.slice(0, 1) : [];
+          const tail = ctx.messages.slice(-maxMessages);
+          ctx.messages = firstSystem.concat(tail);
+        }
+        await next();
+      };
+    }
+
+    if (middlewareId === 'skills') {
+      const entry = this.capabilityRegistry.get('skills');
+      const packageName = entry?.packageName || '@sisu-ai/mw-skills';
+      const mod = await this.importInstalledCapabilityModule(packageName);
+      if (!mod) {
+        throw new Error(`E6520: Enabled middleware '${middlewareId}' could not be loaded from '${packageName}'.`);
+      }
+      const configuredDirectories = Array.isArray(config.directories)
+        ? config.directories.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        : ensureCapabilityDefaults(this.profile, { cwd: this.cwd }).skills.directories;
+      const directories = await filterExistingDirectories(configuredDirectories);
+      if (typeof mod.skillsMiddleware === 'function') {
+        const built = (mod.skillsMiddleware as (opts: Record<string, unknown>) => unknown)({ directories });
+        if (typeof built === 'function') {
+          return built as RuntimeMiddleware;
+        }
+      }
+      const fallback = asRuntimeMiddleware(mod.default, { directories });
+      if (fallback) {
+        return fallback;
+      }
+      throw new Error(`E6520: Middleware module '${packageName}' does not export a valid middleware.`);
+    }
+
+    if (middlewareId === 'trace-viewer') {
+      const entry = this.capabilityRegistry.get('trace-viewer');
+      const packageName = entry?.packageName || '@sisu-ai/mw-trace-viewer';
+      const mod = await this.importInstalledCapabilityModule(packageName);
+      if (!mod) {
+        throw new Error(`E6520: Enabled middleware '${middlewareId}' could not be loaded from '${packageName}'.`);
+      }
+      if (typeof mod.traceViewer === 'function') {
+        const built = (mod.traceViewer as (opts: Record<string, unknown>) => unknown)(config);
+        if (typeof built === 'function') {
+          return built as RuntimeMiddleware;
+        }
+      }
+      const fallback = asRuntimeMiddleware(mod.default, config);
+      if (fallback) {
+        return fallback;
+      }
+      throw new Error(`E6520: Middleware module '${packageName}' does not export a valid middleware.`);
+    }
+
+    const entry = this.capabilityRegistry.get(middlewareId);
+    const packageName = entry?.packageName || `@sisu-ai/mw-${middlewareId}`;
+    const mod = await this.importInstalledCapabilityModule(packageName);
+    if (!mod) {
+      throw new Error(`E6520: Enabled middleware '${middlewareId}' could not be loaded from '${packageName}'.`);
+    }
+    const candidates: unknown[] = [
+      mod.default,
+      mod.middleware,
+      mod.createMiddleware,
+      mod[middlewareId],
+      mod[kebabToCamel(middlewareId)],
+    ];
+    for (const candidate of candidates) {
+      const middleware = asRuntimeMiddleware(candidate, config);
+      if (middleware) {
+        return middleware;
+      }
+    }
+    throw new Error(`E6520: Middleware module '${packageName}' does not export a valid middleware.`);
+  }
+
+  private async executeWithConfiguredMiddleware<T>(input: {
+    prompt: string;
+    conversation: Message[];
+    signal: AbortSignal;
+    runCore: (ctx: {
+      messages: Message[];
+      tools: Tool[];
+      state: Record<string, unknown>;
+      log: Logger;
+    }) => Promise<T>;
+  }): Promise<T> {
+    const pipeline = this.activeMiddlewarePipeline();
+    if (pipeline.length === 0) {
+      return await input.runCore({
+        messages: input.conversation,
+        tools: this.getTerminalTools(),
+        state: {},
+        log: this.toolLogger,
+      });
+    }
+
+    const tools = new SimpleTools();
+    for (const tool of this.getTerminalTools()) {
+      tools.register(tool);
+    }
+
+    const ctx: MiddlewareCtx = {
+      input: input.prompt,
+      messages: [...input.conversation],
+      model: this.createMiddlewareModel(input.signal),
+      tools,
+      memory: this.toolMemory,
+      stream: { write: () => {}, end: () => {} },
+      state: {},
+      signal: input.signal,
+      log: this.toolLogger,
+    };
+
+    const middlewares: RuntimeMiddleware[] = [];
+    for (const entry of pipeline) {
+      try {
+        middlewares.push(await this.resolveMiddlewareById(entry.id, entry.config || {}));
+      } catch (error) {
+        const capability = this.capabilityRegistry.get(entry.id);
+        const locked = Boolean(capability?.lockedCore || isLockedMiddlewareCapability(entry.id));
+        if (locked) {
+          throw error;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        ctx.log.warn?.(
+          `[chat-runtime] Skipping middleware '${entry.id}' due to load failure`,
+          { middleware: entry.id, error: message },
+        );
+      }
+    }
+
+    let executedCore = false;
+    let output: T | undefined;
+    const handler = compose<MiddlewareCtx>(middlewares);
+    await handler(ctx, async () => {
+      executedCore = true;
+      output = await input.runCore({
+        messages: ctx.messages,
+        tools: ctx.tools.list(),
+        state: ctx.state,
+        log: ctx.log,
+      });
+    });
+
+    if (!executedCore || output === undefined) {
+      const shortCircuitAssistant = [...ctx.messages].reverse().find((message) => message.role === 'assistant');
+      if (shortCircuitAssistant && typeof shortCircuitAssistant.content === 'string') {
+        return {
+          toolLoopExceeded: false,
+          streamedContent: shortCircuitAssistant.content,
+        } as T;
+      }
+      throw new Error('E6521: Middleware pipeline interrupted chat execution before response synthesis.');
+    }
+    return output;
   }
 
   private async executeTerminalToolCall(
@@ -1188,6 +2009,175 @@ export class ChatRuntime {
       name: call.name,
       content: resultText,
     };
+  }
+
+  private async maybeLoadRagDeps(): Promise<Record<string, unknown> | undefined> {
+    const enabled = this.isCapabilityEnabled('tool-rag') || this.isCapabilityEnabled('rag');
+    if (!enabled) {
+      return undefined;
+    }
+    if (!this.capabilityRegistry.has('tool-rag')) {
+      return undefined;
+    }
+    const ragToolConfig = this.getToolConfig('tool-rag');
+    const ragPipelineConfig = this.listMiddlewarePipeline().find((entry) => entry.id === 'rag')?.config || {};
+    const mergedConfig = {
+      ...ragPipelineConfig,
+      ...ragToolConfig,
+    };
+    const backend = selectBackendFromConfig(mergedConfig);
+    const vectorPackage = resolveRagVectorPackage(mergedConfig, backend);
+    const vectorEntrypoint = await resolveInstalledPackageEntrypoint(this.cwd, vectorPackage);
+    if (!vectorEntrypoint) {
+      return undefined;
+    }
+    const vectorModule = await import(pathToFileURL(vectorEntrypoint).href);
+    const createVectra = (vectorModule as { createVectraVectorStore?: (opts?: Record<string, unknown>) => unknown }).createVectraVectorStore;
+    const createChroma = (vectorModule as { createChromaVectorStore?: (opts?: Record<string, unknown>) => unknown }).createChromaVectorStore;
+    const vectorStoreFactory = backend === 'chroma' ? createChroma : createVectra || createChroma;
+    if (typeof vectorStoreFactory !== 'function') {
+      return undefined;
+    }
+    const vectorStore = vectorStoreFactory({
+      ...(backend === 'vectra'
+        ? {
+          folderPath: process.env.VECTRA_PATH || path.join(this.cwd, '.sisu-vectra'),
+        }
+        : {}),
+      ...(backend === 'chroma'
+        ? {
+          chromaUrl: process.env.CHROMA_URL,
+        }
+        : {}),
+      namespace: process.env.VECTOR_NAMESPACE || 'sisu',
+    });
+    if (!vectorStore || typeof vectorStore !== 'object') {
+      return undefined;
+    }
+
+    let embeddings: unknown;
+    try {
+      if (this.profile.provider === 'openai') {
+        embeddings = openAIEmbeddings({
+          model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+        });
+      } else if (this.profile.provider === 'ollama') {
+        embeddings = ollamaEmbeddings({
+          model: process.env.EMBEDDING_MODEL || 'embeddinggemma',
+        });
+      } else if (this.profile.provider === 'anthropic') {
+        const baseUrl = process.env.BASE_URL || process.env.OPENAI_BASE_URL;
+        if (baseUrl) {
+          embeddings = anthropicEmbeddings({
+            baseUrl,
+            model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+            apiKey: process.env.API_KEY || process.env.OPENAI_API_KEY,
+          });
+        }
+      }
+    } catch {
+      embeddings = undefined;
+    }
+    if (!embeddings || typeof embeddings !== 'object' || !('embed' in (embeddings as object))) {
+      return { vectorStore };
+    }
+    return { vectorStore, embeddings };
+  }
+
+  private async executeGenericToolCall(
+    run: ChatRun,
+    call: ToolCall,
+    signal: AbortSignal,
+    toolStepIndex: number,
+    availableTools?: Tool[],
+    runtimeLog?: Logger,
+    runtimeState?: Record<string, unknown>,
+  ): Promise<Message> {
+    const callId = call.id || createId('toolcall');
+    const step = `Execute tool step ${toolStepIndex}`;
+    this.emit({ type: 'run.step.started', sessionId: this.state.sessionId, runId: run.id, step });
+
+    const pendingRecord: ToolExecutionRecord = {
+      id: callId,
+      sessionId: this.state.sessionId,
+      runId: run.id,
+      toolName: call.name,
+      requestPreview: JSON.stringify(call.arguments).slice(0, 140),
+      status: 'pending',
+      createdAt: isoNow(this.now),
+      updatedAt: isoNow(this.now),
+    };
+    this.emit({ type: 'tool.pending', sessionId: this.state.sessionId, runId: run.id, record: pendingRecord });
+
+    const runningRecord: ToolExecutionRecord = {
+      ...pendingRecord,
+      status: 'running',
+      startedAt: isoNow(this.now),
+      updatedAt: isoNow(this.now),
+    };
+    this.emit({ type: 'tool.running', sessionId: this.state.sessionId, runId: run.id, record: runningRecord });
+
+    try {
+      const tools = availableTools || this.getTerminalTools();
+      const tool = tools.find((entry) => entry.name === call.name);
+      if (!tool) {
+        throw new Error(`Unsupported tool '${call.name}'.`);
+      }
+      const stateDeps = asRecord(runtimeState?.toolDeps);
+      const deps = stateDeps || await this.maybeLoadRagDeps();
+      const ctx: ToolContext = {
+        memory: this.toolMemory,
+        signal,
+        log: runtimeLog || this.toolLogger,
+        model: TOOL_CONTEXT_MODEL,
+        ...(deps ? { deps } : {}),
+      };
+      const result = await tool.handler(toObjectArgs(call.arguments), ctx);
+      const text = stringifyToolResult(result);
+      const completedRecord: ToolExecutionRecord = {
+        ...runningRecord,
+        status: 'completed',
+        updatedAt: isoNow(this.now),
+        completedAt: isoNow(this.now),
+        exitCode: 0,
+        outputPreview: text.slice(0, 4000),
+      };
+      this.emit({ type: 'tool.completed', sessionId: this.state.sessionId, runId: run.id, record: completedRecord });
+      run.stepSummaries.push(step);
+      this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+      return {
+        role: 'tool',
+        tool_call_id: callId,
+        name: call.name,
+        content: text,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const failedRecord: ToolExecutionRecord = {
+        ...runningRecord,
+        status: 'failed',
+        updatedAt: isoNow(this.now),
+        completedAt: isoNow(this.now),
+        exitCode: -1,
+        outputPreview: message,
+      };
+      this.emit({
+        type: 'tool.failed',
+        sessionId: this.state.sessionId,
+        runId: run.id,
+        record: failedRecord,
+        errorCode: 'TOOL_EXECUTION_FAILED',
+        errorMessage: message,
+      });
+      run.stepSummaries.push(`${step} (failed)`);
+      this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step });
+      return {
+        role: 'tool',
+        tool_call_id: callId,
+        name: call.name,
+        content: stringifyToolResult({ error: message }),
+      };
+    }
   }
 
   private async generateAssistantResponse(input: {
@@ -1415,7 +2405,7 @@ export class ChatRuntime {
       if (toolRequests.length > 0) {
         const toolOutputs = await this.runExplicitToolRequests(run, toolRequests, signal);
         this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step: synthesizeStep });
-        const providerMessages = toProviderMessages(this.state.messages, assistantMessage.id, toolOutputs);
+        const providerMessages = toProviderMessages(this.state.messages, assistantMessage.id, toolOutputs, this.profile.systemPrompt);
         for await (const event of this.provider.streamResponse({ messages: providerMessages, signal })) {
           if (signal.aborted) {
             throw new Error('RUN_CANCELLED');
@@ -1436,51 +2426,78 @@ export class ChatRuntime {
           }
         }
       } else {
-        const tools = this.getTerminalTools();
-        let conversation = toProviderMessages(this.state.messages, assistantMessage.id, []);
-        let finalResponse: ModelResponse | undefined;
-        let stepCounter = 1;
+        const middlewareResult = await this.executeWithConfiguredMiddleware({
+          prompt,
+          conversation: toProviderMessages(this.state.messages, assistantMessage.id, [], this.profile.systemPrompt),
+          signal,
+          runCore: async ({ messages: conversation, tools, state, log }) => {
+            let finalResponse: ModelResponse | undefined;
+            let stepCounter = 1;
+            const maxToolCallingRounds = this.getToolCallingMaxRounds();
+            let toolLoopExceeded = false;
 
-        for (let round = 0; round < 8; round += 1) {
-          const response = await this.generateAssistantResponse({
-            messages: conversation,
-            signal,
-            tools,
-            toolChoice: tools.length > 0 ? 'auto' : 'none',
-          });
-          const assistantOut = response.message;
-          const toolCalls = assistantOut.tool_calls || [];
-          if (toolCalls.length === 0) {
-            finalResponse = response;
-            break;
-          }
+            for (let round = 0; round < maxToolCallingRounds; round += 1) {
+              const response = await this.generateAssistantResponse({
+                messages: conversation,
+                signal,
+                tools,
+                toolChoice: tools.length > 0 ? 'auto' : 'none',
+              });
+              const assistantOut = response.message;
+              const toolCalls = assistantOut.tool_calls || [];
+              if (toolCalls.length === 0) {
+                finalResponse = response;
+                break;
+              }
 
-          conversation = [
-            ...conversation,
-            {
-              role: 'assistant',
-              content: assistantOut.content || '',
-              ...(assistantOut.tool_calls ? { tool_calls: assistantOut.tool_calls } : {}),
-              ...(assistantOut.reasoning_details !== undefined ? { reasoning_details: assistantOut.reasoning_details } : {}),
-            },
-          ];
+              conversation.push({
+                role: 'assistant',
+                content: assistantOut.content || '',
+                ...(assistantOut.tool_calls ? { tool_calls: assistantOut.tool_calls } : {}),
+                ...(assistantOut.reasoning_details !== undefined ? { reasoning_details: assistantOut.reasoning_details } : {}),
+              });
 
-          for (const call of toolCalls) {
-            if (signal.aborted) {
-              throw new Error('RUN_CANCELLED');
+              for (const call of toolCalls) {
+                if (signal.aborted) {
+                  throw new Error('RUN_CANCELLED');
+                }
+                const toolMessage = call.name === 'terminalRun' || call.name === 'terminalCd' || call.name === 'terminalReadFile'
+                  ? await this.executeTerminalToolCall(run, call, signal, stepCounter)
+                  : await this.executeGenericToolCall(run, call, signal, stepCounter, tools, log, state);
+                stepCounter += 1;
+                conversation.push(toolMessage);
+              }
             }
-            const toolMessage = await this.executeTerminalToolCall(run, call, signal, stepCounter);
-            stepCounter += 1;
-            conversation = [...conversation, toolMessage];
-          }
-        }
 
-        if (!finalResponse) {
-          throw new Error('E6515: Maximum tool-calling rounds exceeded.');
-        }
+            if (!finalResponse) {
+              toolLoopExceeded = true;
+              return {
+                toolLoopExceeded,
+                streamedContent: [
+                  'I hit the maximum tool-calling rounds before reaching a final answer.',
+                  'Please refine the request or provide more specific constraints so I can complete it in fewer tool steps.',
+                ].join(' '),
+              };
+            }
+
+            const streamed = finalResponse.message.content || '';
+            conversation.push({
+              role: 'assistant',
+              content: streamed,
+              ...(finalResponse.message.reasoning_details !== undefined
+                ? { reasoning_details: finalResponse.message.reasoning_details }
+                : {}),
+            });
+            return {
+              toolLoopExceeded,
+              streamedContent: streamed,
+            };
+          },
+        });
+
         this.emit({ type: 'run.step.completed', sessionId: this.state.sessionId, runId: run.id, step: synthesizeStep });
-        streamedContent = finalResponse.message.content || '';
-        if (streamedContent) {
+        streamedContent = middlewareResult.streamedContent;
+        if (streamedContent && !middlewareResult.toolLoopExceeded) {
           this.emit({
             type: 'assistant.token.delta',
             sessionId: this.state.sessionId,
@@ -1649,7 +2666,10 @@ function formatCapabilityStateRow(capability: ListedCapability): string {
   if (capability.lockedCore) {
     flags.push('locked-core');
   }
-  return `${capability.id} (${flags.join(', ')})`;
+  const pkg = capability.packageName
+    ? ` ${capability.packageName}${capability.packageVersion ? `@${capability.packageVersion}` : ''}`
+    : '';
+  return `${capability.id}${pkg} (${flags.join(', ')})`;
 }
 
 function capabilityDisplayLabel(capability: ListedCapability): string {
@@ -1665,6 +2685,53 @@ export type InkLineTone = 'normal' | 'muted' | 'info' | 'success' | 'warning' | 
 export interface InkTranscriptLine {
   text: string;
   tone: InkLineTone;
+}
+
+export interface InkAgentStatus {
+  text: string;
+  tone: InkLineTone;
+}
+
+export function initialInkAgentStatus(): InkAgentStatus {
+  return { text: 'Idle', tone: 'muted' };
+}
+
+export function nextInkAgentStatus(current: InkAgentStatus, event: ChatEvent): InkAgentStatus {
+  switch (event.type) {
+    case 'assistant.message.started':
+      return { text: 'Thinking…', tone: 'info' };
+    case 'assistant.token.delta':
+      return { text: 'Generating response…', tone: 'info' };
+    case 'run.step.started':
+      return { text: event.step || 'Working…', tone: 'info' };
+    case 'tool.pending':
+      return { text: `Preparing tool: ${event.record.toolName}`, tone: 'warning' };
+    case 'tool.running':
+      return { text: `Running tool: ${event.record.toolName}`, tone: 'warning' };
+    case 'tool.completed':
+      return { text: 'Thinking…', tone: 'info' };
+    case 'tool.denied':
+      return { text: `Tool denied: ${event.record.toolName}`, tone: 'warning' };
+    case 'tool.cancelled':
+      return { text: `Tool cancelled: ${event.record.toolName}`, tone: 'warning' };
+    case 'tool.failed':
+      return { text: `Tool failed: ${event.record.toolName}`, tone: 'error' };
+    case 'assistant.message.failed':
+      return { text: `Failed: ${event.errorCode}`, tone: 'error' };
+    case 'assistant.message.cancelled':
+      return { text: 'Cancelled', tone: 'warning' };
+    case 'run.failed':
+      return { text: `Failed: ${event.errorCode}`, tone: 'error' };
+    case 'error.raised':
+      return { text: `Error: ${event.code}`, tone: 'error' };
+    case 'assistant.message.completed':
+    case 'run.completed':
+      return initialInkAgentStatus();
+    case 'run.cancelled':
+      return { text: 'Cancelled', tone: 'warning' };
+    default:
+      return current;
+  }
 }
 
 function toInkHistoryLines(messages: ChatMessage[]): InkTranscriptLine[] {
@@ -1871,12 +2938,307 @@ interface InkMenuItem {
   run: () => Promise<void>;
 }
 
+interface InkInlinePrompt {
+  prompt: string;
+  cancelMessage: string;
+  resolve: (value: string | undefined) => void;
+}
+
+type LoadedExternalToolBundle = {
+  id: string;
+  tools: Tool[];
+};
+
+const TOOL_CONTEXT_MODEL: LLM = {
+  name: 'sisu-cli-tool-context-model',
+  capabilities: {},
+  generate: (() => {
+    throw new Error('Tool context model is not available in CLI runtime.');
+  }) as LLM['generate'],
+};
+
+function resolveScopeRoot(scope: CapabilityInstallScope, cwd: string): string {
+  return scope === 'project'
+    ? path.join(cwd, '.sisu')
+    : path.join(os.homedir(), '.sisu');
+}
+
+async function loadCapabilityManifest(scopeRoot: string): Promise<{
+  version: number;
+  entries: Array<{ id: string; type: 'tool' | 'middleware'; packageName: string; installDir: string; installedAt: string }>;
+} | undefined> {
+  const manifestPath = path.join(scopeRoot, 'capabilities', 'manifest.json');
+  try {
+    const raw = await fs.readFile(manifestPath, 'utf8');
+    const parsed = JSON.parse(raw) as {
+      version?: number;
+      entries?: Array<{ id: string; type: 'tool' | 'middleware'; packageName: string; installDir: string; installedAt: string }>;
+    };
+    if (parsed.version !== 1 || !Array.isArray(parsed.entries)) {
+      return undefined;
+    }
+    return {
+      version: 1,
+      entries: parsed.entries,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function resolvePackageEntrypoint(installDir: string, packageName: string): string | undefined {
+  const require = createRequire(import.meta.url);
+  try {
+    return require.resolve(packageName, { paths: [installDir] });
+  } catch {
+    return undefined;
+  }
+}
+
+function toToolArray(candidate: unknown): Tool[] {
+  if (Array.isArray(candidate)) {
+    return candidate.filter((entry): entry is Tool => Boolean(entry) && typeof entry === 'object' && typeof (entry as Tool).name === 'string' && typeof (entry as Tool).handler === 'function');
+  }
+  if (candidate && typeof candidate === 'object' && typeof (candidate as Tool).name === 'string' && typeof (candidate as Tool).handler === 'function') {
+    return [candidate as Tool];
+  }
+  return [];
+}
+
+async function loadInstalledExternalTools(
+  cwd: string,
+): Promise<LoadedExternalToolBundle[]> {
+  const manifests = await Promise.all([
+    loadCapabilityManifest(resolveScopeRoot('project', cwd)),
+    loadCapabilityManifest(resolveScopeRoot('global', cwd)),
+  ]);
+  const entries = manifests
+    .flatMap((manifest) => manifest?.entries || [])
+    .filter((entry) => entry.type === 'tool');
+
+  const unique = new Map<string, { packageName: string; installDir: string }>();
+  for (const entry of entries) {
+    if (!unique.has(entry.packageName)) {
+      unique.set(entry.packageName, { packageName: entry.packageName, installDir: entry.installDir });
+    }
+  }
+
+  const bundles: LoadedExternalToolBundle[] = [];
+  for (const { packageName, installDir } of unique.values()) {
+    const entrypoint = resolvePackageEntrypoint(installDir, packageName);
+    if (!entrypoint) {
+      continue;
+    }
+    try {
+      const mod = await import(pathToFileURL(entrypoint).href);
+      const tools = toToolArray((mod as Record<string, unknown>).default);
+      if (tools.length > 0) {
+        bundles.push({
+          id: packageName.replace(/^@sisu-ai\//, ''),
+          tools,
+        });
+      }
+    } catch {
+      // Ignore broken external tool packages at runtime; they remain visible in capabilities.
+    }
+  }
+  return bundles;
+}
+
+async function filterExistingDirectories(directories: string[]): Promise<string[]> {
+  const existing: string[] = [];
+  for (const directory of directories) {
+    try {
+      const stat = await fs.stat(directory);
+      if (stat.isDirectory()) {
+        existing.push(directory);
+      }
+    } catch {
+      // Ignore missing directories at runtime.
+    }
+  }
+  return existing;
+}
+
+async function resolveInstalledPackageEntrypoint(cwd: string, packageName: string): Promise<string | undefined> {
+  const require = createRequire(import.meta.url);
+  const cliDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const searchPaths: string[] = [
+    path.join(resolveScopeRoot('project', cwd), 'capabilities', 'packages'),
+    path.join(resolveScopeRoot('global', cwd), 'capabilities', 'packages'),
+    cliDir,
+    path.join(cliDir, 'node_modules'),
+  ];
+  const manifests = await Promise.all([
+    loadCapabilityManifest(resolveScopeRoot('project', cwd)),
+    loadCapabilityManifest(resolveScopeRoot('global', cwd)),
+  ]);
+  for (const manifest of manifests) {
+    for (const entry of manifest?.entries || []) {
+      searchPaths.push(entry.installDir);
+    }
+  }
+  try {
+    return require.resolve(packageName, { paths: searchPaths });
+  } catch {
+    const workspaceEntrypoint = await resolveWorkspacePackageEntrypoint(cwd, packageName);
+    if (workspaceEntrypoint) {
+      return workspaceEntrypoint;
+    }
+    const workspaceFromCliEntrypoint = await resolveWorkspacePackageEntrypoint(cliDir, packageName);
+    if (workspaceFromCliEntrypoint) {
+      return workspaceFromCliEntrypoint;
+    }
+    try {
+      return require.resolve(packageName);
+    } catch {
+      return undefined;
+    }
+  }
+}
+
+async function resolveWorkspacePackageEntrypoint(cwd: string, packageName: string): Promise<string | undefined> {
+  const workspaceRoot = await findWorkspaceRoot(cwd);
+  if (!workspaceRoot) {
+    return undefined;
+  }
+  const packageDir = await findWorkspacePackageDirectory(workspaceRoot, packageName);
+  if (!packageDir) {
+    return undefined;
+  }
+  const packageJsonPath = path.join(packageDir, 'package.json');
+  try {
+    const raw = await fs.readFile(packageJsonPath, 'utf8');
+    const parsed = JSON.parse(raw) as { main?: unknown; module?: unknown };
+    const candidates = [
+      typeof parsed.main === 'string' ? parsed.main : undefined,
+      typeof parsed.module === 'string' ? parsed.module : undefined,
+      'dist/index.js',
+      'index.js',
+    ].filter((value): value is string => Boolean(value && value.trim().length > 0));
+    for (const relativePath of candidates) {
+      const entrypoint = path.resolve(packageDir, relativePath);
+      try {
+        const stat = await fs.stat(entrypoint);
+        if (stat.isFile()) {
+          return entrypoint;
+        }
+      } catch {
+        // Continue to next candidate.
+      }
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+async function findWorkspaceRoot(startDir: string): Promise<string | undefined> {
+  let current = path.resolve(startDir);
+  while (true) {
+    const marker = path.join(current, 'pnpm-workspace.yaml');
+    try {
+      const stat = await fs.stat(marker);
+      if (stat.isFile()) {
+        return current;
+      }
+    } catch {
+      // Keep walking up.
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return undefined;
+    }
+    current = parent;
+  }
+}
+
+async function findWorkspacePackageDirectory(
+  workspaceRoot: string,
+  packageName: string,
+): Promise<string | undefined> {
+  const roots = ['packages', 'apps', 'tools', 'examples'];
+  for (const rootName of roots) {
+    const rootPath = path.join(workspaceRoot, rootName);
+    const match = await scanDirectoryForWorkspacePackage(rootPath, packageName, 3);
+    if (match) {
+      return match;
+    }
+  }
+  return undefined;
+}
+
+async function scanDirectoryForWorkspacePackage(
+  directory: string,
+  packageName: string,
+  depth: number,
+): Promise<string | undefined> {
+  if (depth < 0) {
+    return undefined;
+  }
+  const packageJsonPath = path.join(directory, 'package.json');
+  try {
+    const raw = await fs.readFile(packageJsonPath, 'utf8');
+    const parsed = JSON.parse(raw) as { name?: unknown };
+    if (parsed.name === packageName) {
+      return directory;
+    }
+  } catch {
+    // Directory is not a package or unreadable; continue.
+  }
+  if (depth === 0) {
+    return undefined;
+  }
+  let entries: import('node:fs').Dirent[] = [];
+  try {
+    entries = await fs.readdir(directory, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') {
+      continue;
+    }
+    const match = await scanDirectoryForWorkspacePackage(
+      path.join(directory, entry.name),
+      packageName,
+      depth - 1,
+    );
+    if (match) {
+      return match;
+    }
+  }
+  return undefined;
+}
+
+function selectBackendFromConfig(config: Record<string, unknown>): 'vectra' | 'chroma' | 'custom' {
+  const backend = config.backend;
+  if (backend === 'vectra' || backend === 'chroma' || backend === 'custom') {
+    return backend;
+  }
+  return 'vectra';
+}
+
+function resolveRagVectorPackage(config: Record<string, unknown>, backend: 'vectra' | 'chroma' | 'custom'): string {
+  if (typeof config.vectorPackage === 'string' && config.vectorPackage.trim().length > 0) {
+    return config.vectorPackage.trim();
+  }
+  if (backend === 'chroma') {
+    return '@sisu-ai/vector-chroma';
+  }
+  return '@sisu-ai/vector-vectra';
+}
+
 async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output: Writable }): Promise<void> {
   const React = await import('react');
   const ink = await import('ink');
   const { render, Box, Text, Static, useInput, useApp } = ink;
   const { createElement, useEffect, useRef, useState } = React;
   const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
+  const statusPulseFrames = ['●', '◉', '○', '◉'] as const;
 
   const App = (): ReturnType<typeof createElement> => {
     const { exit } = useApp();
@@ -1892,6 +3254,9 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
     const [menuTitle, setMenuTitle] = useState('Options');
     const [menuItems, setMenuItems] = useState<InkMenuItem[]>([]);
     const [menuIndex, setMenuIndex] = useState(0);
+    const [externalTaskActive, setExternalTaskActive] = useState(false);
+    const [inlinePrompt, setInlinePrompt] = useState<InkInlinePrompt | undefined>(undefined);
+    const [agentStatus, setAgentStatus] = useState<InkAgentStatus>(initialInkAgentStatus());
     const runtimeRef = useRef<ChatRuntime | undefined>(undefined);
 
     const appendLine = (text: string, tone: InkLineTone = 'normal') => {
@@ -1906,6 +3271,10 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         ...previous,
         ...lines.map((line) => ({ id: createId('ink-line'), ...line })),
       ].slice(-250));
+    };
+
+    const appendMultiline = (text: string, tone: InkLineTone = 'muted') => {
+      appendLines(text.split('\n').map((line) => ({ text: line, tone })));
     };
 
     const renderInputText = (prefix: string, value: string, cursor: string): string => {
@@ -1937,6 +3306,18 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
       setMenuOpen(false);
       setMenuItems([]);
       setMenuIndex(0);
+    };
+
+    const promptInlineInput = (
+      prompt: string,
+      cancelMessage: string,
+      initialValue = '',
+    ): Promise<string | undefined> => {
+      setBusy(false);
+      setInputValue(initialValue);
+      return new Promise((resolve) => {
+        setInlinePrompt({ prompt, cancelMessage, resolve });
+      });
     };
 
     const probeProviderInBackground = (runtime: ChatRuntime) => {
@@ -2070,6 +3451,312 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
       openMenu('Branch from message', items);
     };
 
+    const openToolPresetScopeMenu = (
+      toolId: string,
+      presetLabel: string,
+      presetConfig: Record<string, unknown>,
+    ): void => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      openMenu(`${toolId} · ${presetLabel}`, [
+        {
+          label: 'Apply (session)',
+          run: async () => {
+            const result = await runtime.setToolConfig(toolId, presetConfig, 'session');
+            appendLine(`Applied ${presetLabel} preset to ${toolId} (session).`, 'success');
+            if (result.targetPath) {
+              appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+            }
+          },
+        },
+        {
+          label: 'Apply (project)',
+          run: async () => {
+            const result = await runtime.setToolConfig(toolId, presetConfig, 'project');
+            appendLine(`Applied ${presetLabel} preset to ${toolId} (project).`, 'success');
+            if (result.targetPath) {
+              appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+            }
+          },
+        },
+        {
+          label: 'Apply (global)',
+          run: async () => {
+            const result = await runtime.setToolConfig(toolId, presetConfig, 'global');
+            appendLine(`Applied ${presetLabel} preset to ${toolId} (global).`, 'success');
+            if (result.targetPath) {
+              appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+            }
+          },
+        },
+        { label: 'Back', run: async () => {} },
+      ]);
+    };
+
+    const openMiddlewarePresetScopeMenu = (
+      middlewareId: string,
+      presetLabel: string,
+      presetConfig: Record<string, unknown>,
+    ): void => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      openMenu(`${middlewareId} · ${presetLabel}`, [
+        {
+          label: 'Apply (session)',
+          run: async () => {
+            const result = await runtime.setMiddlewareConfig(middlewareId, presetConfig, 'session');
+            appendLine(`Applied ${presetLabel} preset to ${middlewareId} (session).`, 'success');
+            if (result.targetPath) {
+              appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+            }
+          },
+        },
+        {
+          label: 'Apply (project)',
+          run: async () => {
+            const result = await runtime.setMiddlewareConfig(middlewareId, presetConfig, 'project');
+            appendLine(`Applied ${presetLabel} preset to ${middlewareId} (project).`, 'success');
+            if (result.targetPath) {
+              appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+            }
+          },
+        },
+        {
+          label: 'Apply (global)',
+          run: async () => {
+            const result = await runtime.setMiddlewareConfig(middlewareId, presetConfig, 'global');
+            appendLine(`Applied ${presetLabel} preset to ${middlewareId} (global).`, 'success');
+            if (result.targetPath) {
+              appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+            }
+          },
+        },
+        { label: 'Back', run: async () => {} },
+      ]);
+    };
+
+    const openToolConfigMenu = (toolId: string): void => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      const currentConfig = runtime.getToolConfig(toolId);
+      const currentCommands = asRecord(currentConfig.commands);
+      const commandsAllow = normalizeStringArray(currentCommands?.allow) || [];
+      const allowPipe = boolAt(currentConfig, 'allowPipe') ?? true;
+      const allowSequence = boolAt(currentConfig, 'allowSequence') ?? true;
+
+      const updateToolConfigByScope = (
+        toolIdForUpdate: string,
+        config: Record<string, unknown>,
+      ): void => {
+        openMenu(`${toolIdForUpdate} · apply config`, [
+          {
+            label: 'Apply (session)',
+            run: async () => {
+              const result = await runtime.setToolConfig(toolIdForUpdate, config, 'session');
+              appendLine(`Updated ${toolIdForUpdate} config (session).`, 'success');
+              if (result.targetPath) {
+                appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+              }
+            },
+          },
+          {
+            label: 'Apply (project)',
+            run: async () => {
+              const result = await runtime.setToolConfig(toolIdForUpdate, config, 'project');
+              appendLine(`Updated ${toolIdForUpdate} config (project).`, 'success');
+              if (result.targetPath) {
+                appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+              }
+            },
+          },
+          {
+            label: 'Apply (global)',
+            run: async () => {
+              const result = await runtime.setToolConfig(toolIdForUpdate, config, 'global');
+              appendLine(`Updated ${toolIdForUpdate} config (global).`, 'success');
+              if (result.targetPath) {
+                appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+              }
+            },
+          },
+          { label: 'Back', run: async () => {} },
+        ]);
+      };
+
+      const presets = runtime.getToolConfigPresets(toolId);
+      const items: InkMenuItem[] = [
+        ...presets.map((preset) => ({
+          label: `Apply preset: ${preset.label}`,
+          run: async () => {
+            openToolPresetScopeMenu(toolId, preset.label, preset.config);
+          },
+        })),
+        {
+          label: `Edit commands.allow (${commandsAllow.length} entries)`,
+          run: async () => {
+            const value = await promptInlineInput(
+              `commands.allow as CSV for ${toolId} (e.g. ls,cat,grep,touch,mkdir,cp,mv,rm):`,
+              'commands.allow update cancelled.',
+              commandsAllow.join(','),
+            );
+            if (!value) {
+              return;
+            }
+            const parsed = value
+              .split(',')
+              .map((item) => item.trim())
+              .filter((item) => item.length > 0);
+            if (parsed.length === 0) {
+              appendLine('commands.allow update cancelled.', 'muted');
+              return;
+            }
+            updateToolConfigByScope(toolId, { commands: { allow: parsed } });
+          },
+        },
+        {
+          label: `Toggle allowPipe (current: ${allowPipe ? 'on' : 'off'})`,
+          run: async () => {
+            updateToolConfigByScope(toolId, { allowPipe: !allowPipe });
+          },
+        },
+        {
+          label: `Toggle allowSequence (current: ${allowSequence ? 'on' : 'off'})`,
+          run: async () => {
+            updateToolConfigByScope(toolId, { allowSequence: !allowSequence });
+          },
+        },
+        {
+          label: 'Show available options',
+          run: async () => {
+            appendMultiline(runtime.describeToolConfig(toolId), 'muted');
+          },
+        },
+        { label: 'Back', run: async () => {} },
+      ];
+      openMenu(`Configure ${toolId}`, items);
+    };
+
+    const openMiddlewareConfigMenu = (middlewareId: string): void => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+
+      const updateMiddlewareConfigByScope = (
+        middlewareIdForUpdate: string,
+        config: Record<string, unknown>,
+      ): void => {
+        openMenu(`${middlewareIdForUpdate} · apply config`, [
+          {
+            label: 'Apply (session)',
+            run: async () => {
+              const result = await runtime.setMiddlewareConfig(middlewareIdForUpdate, config, 'session');
+              appendLine(`Updated ${middlewareIdForUpdate} config (session).`, 'success');
+              if (result.targetPath) {
+                appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+              }
+            },
+          },
+          {
+            label: 'Apply (project)',
+            run: async () => {
+              const result = await runtime.setMiddlewareConfig(middlewareIdForUpdate, config, 'project');
+              appendLine(`Updated ${middlewareIdForUpdate} config (project).`, 'success');
+              if (result.targetPath) {
+                appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+              }
+            },
+          },
+          {
+            label: 'Apply (global)',
+            run: async () => {
+              const result = await runtime.setMiddlewareConfig(middlewareIdForUpdate, config, 'global');
+              appendLine(`Updated ${middlewareIdForUpdate} config (global).`, 'success');
+              if (result.targetPath) {
+                appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+              }
+            },
+          },
+          { label: 'Back', run: async () => {} },
+        ]);
+      };
+
+      const presets = runtime.getMiddlewareConfigPresets(middlewareId);
+      const items: InkMenuItem[] = [
+        ...presets.map((preset) => ({
+          label: `Apply preset: ${preset.label}`,
+          run: async () => {
+            openMiddlewarePresetScopeMenu(middlewareId, preset.label, preset.config);
+          },
+        })),
+        {
+          label: 'Edit config JSON',
+          run: async () => {
+            const current = runtime.getMiddlewareConfig(middlewareId);
+            const value = await promptInlineInput(
+              `JSON config for ${middlewareId} (object):`,
+              `${middlewareId} config update cancelled.`,
+              JSON.stringify(current, null, 2),
+            );
+            if (!value) {
+              return;
+            }
+            let parsed: unknown;
+            try {
+              parsed = JSON.parse(value);
+            } catch (error) {
+              appendLine(`Invalid JSON: ${formatError(error)}`, 'error');
+              return;
+            }
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+              appendLine('Config must be a JSON object.', 'warning');
+              return;
+            }
+            updateMiddlewareConfigByScope(middlewareId, parsed as Record<string, unknown>);
+          },
+        },
+        {
+          label: 'Show available options',
+          run: async () => {
+            appendMultiline(runtime.describeMiddlewareConfig(middlewareId), 'muted');
+          },
+        },
+        ...(middlewareId === 'tool-calling'
+          ? [{
+            label: `Set maxRounds (current: ${runtime.getToolCallingMaxRounds()})`,
+            run: async () => {
+              const picked = await promptInlineInput(
+                'maxRounds value (8, 16, 24, 32, or custom positive integer):',
+                'maxRounds update cancelled.',
+                String(runtime.getToolCallingMaxRounds()),
+              );
+              if (!picked) {
+                return;
+              }
+              const parsed = Number.parseInt(picked.trim(), 10);
+              if (!Number.isInteger(parsed) || parsed <= 0) {
+                appendLine('Invalid maxRounds value.', 'warning');
+                return;
+              }
+              updateMiddlewareConfigByScope(middlewareId, { maxRounds: parsed });
+            },
+          } satisfies InkMenuItem]
+          : []),
+        { label: 'Back', run: async () => {} },
+      ];
+      openMenu(`Configure ${middlewareId}`, items);
+    };
+
     const openCapabilityActionMenu = (category: CapabilityCategory, capability: ListedCapability): void => {
       const runtime = runtimeRef.current;
       if (!runtime) {
@@ -2109,12 +3796,41 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
             }
           },
         },
+        ...(capability.type === 'tool'
+          ? [{
+            label: 'Configure tool',
+            run: async () => {
+              openToolConfigMenu(capability.id);
+            },
+          } satisfies InkMenuItem]
+          : []),
+        ...(capability.type === 'middleware'
+          ? [{
+            label: 'Configure middleware',
+            run: async () => {
+              openMiddlewareConfigMenu(capability.id);
+            },
+          } satisfies InkMenuItem]
+          : []),
         {
           label: 'Show details',
           run: async () => {
             appendLine(formatCapabilityStateRow(runtime.listCapabilities(capability.type).find((entry) => entry.id === capability.id) || capability), 'muted');
             if (capability.description) {
               appendLine(`  ${capability.description}`, 'muted');
+            }
+            if (capability.packageName) {
+              appendLine(`  package: ${capability.packageName}${capability.packageVersion ? `@${capability.packageVersion}` : ''}`, 'muted');
+            }
+            if (capability.type === 'tool') {
+              appendMultiline(runtime.describeToolConfig(capability.id), 'muted');
+            }
+            if (capability.type === 'middleware') {
+              try {
+                appendMultiline(runtime.describeMiddlewareConfig(capability.id), 'muted');
+              } catch {
+                // middleware without metadata can still be displayed
+              }
             }
           },
         },
@@ -2124,6 +3840,231 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         },
       ];
       openMenu(`${category} · ${capability.id}`, items);
+    };
+
+    const openCapabilityInstallScopeMenu = (type: CapabilityInstallType, packageName: string): void => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      openMenu(`Install ${packageName}`, [
+        {
+          label: 'Install (project)',
+          run: async () => {
+            const result = await runtime.installCapability(type, packageName, 'project');
+            appendLine(`Installed ${result.packageName} as ${result.capabilityId} (project).`, 'success');
+            appendLine(`Install directory: ${result.installDir}`, 'muted');
+          },
+        },
+        {
+          label: 'Install (global)',
+          run: async () => {
+            const result = await runtime.installCapability(type, packageName, 'global');
+            appendLine(`Installed ${result.packageName} as ${result.capabilityId} (global).`, 'success');
+            appendLine(`Install directory: ${result.installDir}`, 'muted');
+          },
+        },
+        { label: 'Back', run: async () => {} },
+      ]);
+    };
+
+    const openCapabilityInstallMenu = async (category: Extract<CapabilityCategory, 'tools' | 'middleware'>): Promise<void> => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+
+      const type: CapabilityInstallType = category === 'tools' ? 'tool' : 'middleware';
+      const officialCategory: OfficialCapabilityCategory = category === 'tools' ? 'tools' : 'middleware';
+      const officialPackages = (await runtime.listOfficialCapabilityPackages(officialCategory))
+        .slice()
+        .sort((left, right) => left.name.localeCompare(right.name));
+      const diagnostics = runtime.getDiscoveryDiagnostics();
+      if (diagnostics.length > 0) {
+        appendLine(`Discovery note: ${diagnostics[0]}`, 'warning');
+      }
+      if (officialPackages.length === 0) {
+        appendLine('Official catalog unavailable or empty. You can still install by custom package name.', 'muted');
+      }
+
+      const items: InkMenuItem[] = officialPackages.length > 0
+        ? officialPackages.map((pkg) => ({
+          label: `${pkg.name}@${pkg.version}${pkg.description ? ` — ${pkg.description}` : ''}`,
+          run: async () => {
+            openCapabilityInstallScopeMenu(type, pkg.name);
+          },
+        }))
+        : [{
+          label: 'No official packages found',
+          run: async () => {
+            appendLine(`No official ${officialCategory} packages found right now.`, 'muted');
+          },
+        }];
+
+      items.push({
+        label: 'RAG recommended bundle',
+        run: async () => {
+          openMenu('Install rag-recommended', [
+            {
+              label: 'Install (project)',
+              run: async () => {
+                const result = await runtime.installRecipe('rag-recommended', 'project');
+                if (result.status !== 'completed') {
+                  appendLine(`Recipe failed: ${result.failedStep || result.error || result.status}`, 'error');
+                  return;
+                }
+                appendLine('Installed RAG recommended stack (project).', 'success');
+              },
+            },
+            {
+              label: 'Install (global)',
+              run: async () => {
+                const result = await runtime.installRecipe('rag-recommended', 'global');
+                if (result.status !== 'completed') {
+                  appendLine(`Recipe failed: ${result.failedStep || result.error || result.status}`, 'error');
+                  return;
+                }
+                appendLine('Installed RAG recommended stack (global).', 'success');
+              },
+            },
+            { label: 'Back', run: async () => {} },
+          ]);
+        },
+      });
+
+      items.push({
+        label: 'RAG advanced bundle…',
+        run: async () => {
+          const backend = await promptInlineInput(
+            'Backend for rag-advanced (vectra|chroma|custom):',
+            'RAG advanced install cancelled.',
+            'vectra',
+          );
+          if (!backend) {
+            return;
+          }
+          const normalized = backend.trim().toLowerCase();
+          let customPackage: string | undefined;
+          if (normalized === 'custom') {
+            customPackage = await promptInlineInput(
+              'Custom vector package (e.g. @sisu-ai/vector-vectra):',
+              'RAG advanced install cancelled.',
+            );
+            if (!customPackage) {
+              return;
+            }
+          } else if (normalized !== 'vectra' && normalized !== 'chroma') {
+            appendLine('Invalid backend. Use vectra, chroma, or custom.', 'warning');
+            return;
+          }
+          openMenu('Install rag-advanced', [
+            {
+              label: 'Install (project)',
+              run: async () => {
+                const result = await runtime.installRecipe('rag-advanced', 'project', {
+                  resolveChoice: async () => ({
+                    optionId: normalized,
+                    customPackageName: customPackage,
+                  }),
+                });
+                if (result.status !== 'completed') {
+                  appendLine(`Recipe failed: ${result.failedStep || result.error || result.status}`, 'error');
+                  return;
+                }
+                appendLine(`Installed RAG advanced stack with ${normalized} backend (project).`, 'success');
+              },
+            },
+            {
+              label: 'Install (global)',
+              run: async () => {
+                const result = await runtime.installRecipe('rag-advanced', 'global', {
+                  resolveChoice: async () => ({
+                    optionId: normalized,
+                    customPackageName: customPackage,
+                  }),
+                });
+                if (result.status !== 'completed') {
+                  appendLine(`Recipe failed: ${result.failedStep || result.error || result.status}`, 'error');
+                  return;
+                }
+                appendLine(`Installed RAG advanced stack with ${normalized} backend (global).`, 'success');
+              },
+            },
+            { label: 'Back', run: async () => {} },
+          ]);
+        },
+      });
+
+      items.push({
+        label: 'Custom package name…',
+        run: async () => {
+          const packageName = await promptInlineInput(
+            `Package name for ${type} (e.g. ${type === 'tool' ? 'azure-blob' : 'trace'} or @sisu-ai/${type === 'tool' ? 'tool' : 'mw'}-...):`,
+            `${type} install cancelled.`,
+          );
+          if (!packageName) {
+            return;
+          }
+          openCapabilityInstallScopeMenu(type, packageName);
+        },
+      });
+      items.push({ label: 'Back', run: async () => {} });
+
+      openMenu(`Install ${type} package`, items);
+    };
+
+    const runRecipeWithScopeMenu = (
+      recipeId: 'rag-recommended' | 'rag-advanced',
+      options?: { optionId?: string; customPackageName?: string },
+    ): void => {
+      const runtime = runtimeRef.current;
+      if (!runtime) {
+        appendLine('Runtime is not ready yet.', 'warning');
+        return;
+      }
+      openMenu(`Install ${recipeId}`, [
+        {
+          label: 'Install (project)',
+          run: async () => {
+            const result = await runtime.installRecipe(recipeId, 'project', {
+              resolveChoice: async () => ({
+                optionId: options?.optionId || 'vectra',
+                customPackageName: options?.customPackageName,
+              }),
+            });
+            if (result.status !== 'completed') {
+              appendLine(`Recipe failed: ${result.failedStep || result.error || result.status}`, 'error');
+              if (result.completedSteps.length > 0) {
+                appendLine(`Completed steps: ${result.completedSteps.length}`, 'muted');
+              }
+              return;
+            }
+            appendLine(`Installed recipe ${recipeId} (project).`, 'success');
+          },
+        },
+        {
+          label: 'Install (global)',
+          run: async () => {
+            const result = await runtime.installRecipe(recipeId, 'global', {
+              resolveChoice: async () => ({
+                optionId: options?.optionId || 'vectra',
+                customPackageName: options?.customPackageName,
+              }),
+            });
+            if (result.status !== 'completed') {
+              appendLine(`Recipe failed: ${result.failedStep || result.error || result.status}`, 'error');
+              if (result.completedSteps.length > 0) {
+                appendLine(`Completed steps: ${result.completedSteps.length}`, 'muted');
+              }
+              return;
+            }
+            appendLine(`Installed recipe ${recipeId} (global).`, 'success');
+          },
+        },
+        { label: 'Back', run: async () => {} },
+      ]);
     };
 
     const openCapabilitySetupMenu = (category: CapabilityCategory): void => {
@@ -2137,12 +4078,63 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         appendLine(`No ${category} capabilities found.`, 'muted');
         return;
       }
-      const items: InkMenuItem[] = capabilities.map((capability) => ({
-        label: capabilityDisplayLabel(capability),
-        run: async () => {
-          openCapabilityActionMenu(category, capability);
-        },
-      }));
+      const items: InkMenuItem[] = [
+        ...((category === 'tools' || category === 'middleware')
+          ? [{
+            label: `Install ${category === 'tools' ? 'tool' : 'middleware'} package`,
+            run: async () => {
+              await openCapabilityInstallMenu(category);
+            },
+          } satisfies InkMenuItem]
+          : []),
+        ...(category === 'middleware'
+          ? [
+            {
+              label: 'Install recipe: RAG recommended',
+              run: async () => {
+                runRecipeWithScopeMenu('rag-recommended');
+              },
+            },
+            {
+              label: 'Install recipe: RAG advanced',
+              run: async () => {
+                const backend = await promptInlineInput(
+                  'Backend for rag-advanced (vectra|chroma|custom):',
+                  'RAG advanced install cancelled.',
+                  'vectra',
+                );
+                if (!backend) {
+                  return;
+                }
+                const normalized = backend.trim().toLowerCase();
+                let customPackageName: string | undefined;
+                if (normalized === 'custom') {
+                  customPackageName = await promptInlineInput(
+                    'Custom vector package (e.g. @sisu-ai/vector-vectra):',
+                    'RAG advanced install cancelled.',
+                  );
+                  if (!customPackageName) {
+                    return;
+                  }
+                } else if (normalized !== 'vectra' && normalized !== 'chroma') {
+                  appendLine('Invalid backend. Use vectra, chroma, or custom.', 'warning');
+                  return;
+                }
+                runRecipeWithScopeMenu('rag-advanced', {
+                  optionId: normalized,
+                  customPackageName,
+                });
+              },
+            },
+          ]
+          : []),
+        ...capabilities.map((capability) => ({
+          label: capabilityDisplayLabel(capability),
+          run: async () => {
+            openCapabilityActionMenu(category, capability);
+          },
+        })),
+      ];
       openMenu(`Configure ${category}`, items);
     };
 
@@ -2150,6 +4142,49 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
       openMenu('Settings', [
         { label: 'Switch provider', run: openProviderMenu },
         { label: 'Switch model', run: openModelMenu },
+        {
+          label: 'Set system prompt',
+          run: async () => {
+            const runtime = runtimeRef.current;
+            if (!runtime) return;
+            const value = await promptInlineInput(
+              'System prompt text (or "clear" to remove):',
+              'System prompt update cancelled.',
+              runtime.profile.systemPrompt || '',
+            );
+            if (value === undefined) {
+              return;
+            }
+            const normalized = parseSessionSystemPromptInput(value);
+            openMenu('Apply system prompt', [
+              {
+                label: 'Apply (session)',
+                run: async () => {
+                  const result = await runtime.setSystemPrompt(normalized, 'session');
+                  appendLine('Updated system prompt (session).', 'success');
+                  if (result.targetPath) appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+                },
+              },
+              {
+                label: 'Apply (project)',
+                run: async () => {
+                  const result = await runtime.setSystemPrompt(normalized, 'project');
+                  appendLine('Updated system prompt (project).', 'success');
+                  if (result.targetPath) appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+                },
+              },
+              {
+                label: 'Apply (global)',
+                run: async () => {
+                  const result = await runtime.setSystemPrompt(normalized, 'global');
+                  appendLine('Updated system prompt (global).', 'success');
+                  if (result.targetPath) appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+                },
+              },
+              { label: 'Back', run: async () => {} },
+            ]);
+          },
+        },
         { label: 'Sessions (resume/delete)', run: openSessionListMenu },
         { label: 'Capabilities: tools', run: async () => { openCapabilitySetupMenu('tools'); } },
         { label: 'Capabilities: skills', run: async () => { openCapabilitySetupMenu('skills'); } },
@@ -2166,23 +4201,23 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         { label: 'Sessions (resume/delete)', run: openSessionListMenu },
         { label: 'Branch from message', run: openBranchMenu },
         { label: 'Cancel active run', run: async () => { const runtime = runtimeRef.current; if (runtime) { const cancelled = runtime.cancelActiveRun(); appendLine(cancelled ? 'Cancellation requested.' : 'No active run to cancel.', cancelled ? 'warning' : 'muted'); } } },
-        { label: 'Help', run: async () => { appendLine('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted'); } },
+        { label: 'Help', run: async () => { appendLine('Commands: /help, /new, /provider [id], /model [name], /system-prompt [scope] [text], /tool-rounds [scope] [value], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /tool-config <tool-id> <json> [scope], /tool-config-options <tool-id>, /middleware-config <middleware-id> <json> [scope], /middleware-config-options <middleware-id>, /official <category>, /install <tool|middleware> <name> [project|global], /install recipe <id> [project|global] [option], /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted'); } },
         { label: 'Exit', run: async () => { exit(); } },
       ]);
     };
 
     useEffect(() => {
-      if (!busy) {
+      if (!busy || externalTaskActive) {
         return () => {};
       }
       const timer = setInterval(() => {
         setSpinnerFrame((value: number) => (value + 1) % spinnerFrames.length);
       }, 90);
       return () => clearInterval(timer);
-    }, [busy]);
+    }, [busy, externalTaskActive]);
 
     useEffect(() => {
-      if (!ready || busy) {
+      if (!ready || busy || externalTaskActive) {
         setCursorVisible(true);
         return () => {};
       }
@@ -2190,7 +4225,7 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         setCursorVisible((value: boolean) => !value);
       }, 500);
       return () => clearInterval(timer);
-    }, [ready, busy]);
+    }, [ready, busy, externalTaskActive]);
 
     useEffect(() => {
       let disposed = false;
@@ -2206,6 +4241,7 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
           }
           runtimeRef.current = runtime;
           teardown = runtime.onEvent((event) => {
+            setAgentStatus((current) => nextInkAgentStatus(current, event));
             const lines = toInkEventLines(event);
             if (lines.length === 0) {
               return;
@@ -2249,7 +4285,7 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
       }
 
       if (line === '/help') {
-        appendLine('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted');
+        appendLine('Commands: /help, /new, /provider [id], /model [name], /system-prompt [scope] [text], /tool-rounds [scope] [value], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /tool-config <tool-id> <json> [scope], /tool-config-options <tool-id>, /middleware-config <middleware-id> <json> [scope], /middleware-config-options <middleware-id>, /official <category>, /install <tool|middleware> <name> [project|global], /install recipe <id> [project|global] [option], /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit', 'muted');
         appendLine('Shortcuts: Ctrl+O (options), Shift+S (settings), Shift+Enter newline (Ctrl+J fallback), Esc (close menu).', 'muted');
         return true;
       }
@@ -2323,6 +4359,29 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         await openProviderMenu();
         return true;
       }
+      if (line === '/system-prompt') {
+        const current = runtime.profile.systemPrompt?.trim() || '<none>';
+        appendLine(`Current system prompt: ${current}`, 'muted');
+        return true;
+      }
+      if (line.startsWith('/system-prompt ')) {
+        const payload = line.slice('/system-prompt '.length).trim();
+        const [scopeToken, ...rest] = payload.split(/\s+/);
+        let scope: CapabilityScopeTarget = 'session';
+        let promptText = payload;
+        const maybeScope = parseScopeTarget(scopeToken);
+        if (maybeScope) {
+          scope = maybeScope;
+          promptText = rest.join(' ');
+        }
+        const normalized = parseSessionSystemPromptInput(promptText);
+        const result = await runtime.setSystemPrompt(normalized, scope);
+        appendLine(`Updated system prompt (${scope}).`, 'success');
+        if (result.targetPath) {
+          appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+        }
+        return true;
+      }
       if (line === '/tools' || line === '/skills' || line === '/middleware') {
         const category = line.slice(1) as CapabilityCategory;
         const mapped = capabilityTypeFromCategory(category);
@@ -2346,7 +4405,101 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         return true;
       }
       if (line === '/middleware setup') {
-        appendLine('Use terminal mode for guided middleware setup.', 'muted');
+        openMenu('Middleware setup', [
+          {
+            label: 'Configure pipeline (terminal mode)',
+            run: async () => {
+              appendLine('Use terminal mode for guided middleware pipeline setup.', 'muted');
+            },
+          },
+          {
+            label: `Set maxRounds (current: ${runtime.getToolCallingMaxRounds()})`,
+            run: async () => {
+              const value = await promptInlineInput(
+                'maxRounds value (8, 16, 24, 32, or custom positive integer):',
+                'maxRounds update cancelled.',
+                String(runtime.getToolCallingMaxRounds()),
+              );
+              if (!value) {
+                return;
+              }
+              const parsed = Number.parseInt(value.trim(), 10);
+              if (!Number.isInteger(parsed) || parsed <= 0) {
+                appendLine('Invalid maxRounds value.', 'warning');
+                return;
+              }
+              openMenu('Apply maxRounds', [
+                {
+                  label: 'Apply (session)',
+                  run: async () => {
+                    const result = await runtime.setMiddlewareConfig('tool-calling', { maxRounds: parsed }, 'session');
+                    appendLine(`Updated tool-calling.maxRounds to ${parsed} (session).`, 'success');
+                    if (result.targetPath) appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+                  },
+                },
+                {
+                  label: 'Apply (project)',
+                  run: async () => {
+                    const result = await runtime.setMiddlewareConfig('tool-calling', { maxRounds: parsed }, 'project');
+                    appendLine(`Updated tool-calling.maxRounds to ${parsed} (project).`, 'success');
+                    if (result.targetPath) appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+                  },
+                },
+                {
+                  label: 'Apply (global)',
+                  run: async () => {
+                    const result = await runtime.setMiddlewareConfig('tool-calling', { maxRounds: parsed }, 'global');
+                    appendLine(`Updated tool-calling.maxRounds to ${parsed} (global).`, 'success');
+                    if (result.targetPath) appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+                  },
+                },
+                { label: 'Back', run: async () => {} },
+              ]);
+            },
+          },
+          {
+            label: 'Set system prompt',
+            run: async () => {
+              const value = await promptInlineInput(
+                'System prompt text (or "clear" to remove):',
+                'System prompt update cancelled.',
+                runtime.profile.systemPrompt || '',
+              );
+              if (value === undefined) {
+                return;
+              }
+              const normalized = parseSessionSystemPromptInput(value);
+              openMenu('Apply system prompt', [
+                {
+                  label: 'Apply (session)',
+                  run: async () => {
+                    const result = await runtime.setSystemPrompt(normalized, 'session');
+                    appendLine('Updated system prompt (session).', 'success');
+                    if (result.targetPath) appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+                  },
+                },
+                {
+                  label: 'Apply (project)',
+                  run: async () => {
+                    const result = await runtime.setSystemPrompt(normalized, 'project');
+                    appendLine('Updated system prompt (project).', 'success');
+                    if (result.targetPath) appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+                  },
+                },
+                {
+                  label: 'Apply (global)',
+                  run: async () => {
+                    const result = await runtime.setSystemPrompt(normalized, 'global');
+                    appendLine('Updated system prompt (global).', 'success');
+                    if (result.targetPath) appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+                  },
+                },
+                { label: 'Back', run: async () => {} },
+              ]);
+            },
+          },
+          { label: 'Back', run: async () => {} },
+        ]);
         return true;
       }
       if (line.startsWith('/official ')) {
@@ -2356,6 +4509,10 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
           return true;
         }
         const packages = await runtime.listOfficialCapabilityPackages(category);
+        const diagnostics = runtime.getDiscoveryDiagnostics();
+        if (diagnostics.length > 0) {
+          appendLine(`Discovery note: ${diagnostics[0]}`, 'warning');
+        }
         if (packages.length === 0) {
           appendLine(`No official ${category} packages found.`, 'muted');
           return true;
@@ -2363,6 +4520,52 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         for (const pkg of packages) {
           appendLine(`- ${pkg.name}@${pkg.version} ${pkg.description}`, 'muted');
         }
+        return true;
+      }
+      if (line.startsWith('/install ')) {
+        const payload = line.slice('/install '.length).trim();
+        const [typeRaw, nameRaw, scopeRaw, extraRaw] = payload.split(/\s+/, 4);
+        if (typeRaw === 'recipe') {
+          if (!nameRaw) {
+            appendLine('Usage: /install recipe <rag-recommended|rag-advanced> [project|global] [vectra|chroma|custom[:package]]', 'warning');
+            return true;
+          }
+          const scope: CapabilityInstallScope = scopeRaw === 'global' ? 'global' : 'project';
+          let optionId = 'vectra';
+          let customPackageName: string | undefined;
+          if (extraRaw) {
+            if (extraRaw.startsWith('custom:')) {
+              optionId = 'custom';
+              customPackageName = extraRaw.slice('custom:'.length).trim();
+            } else {
+              optionId = extraRaw;
+            }
+          }
+          const result = await runtime.installRecipe(nameRaw, scope, {
+            resolveChoice: async () => ({ optionId, customPackageName }),
+          });
+          if (result.status === 'cancelled') {
+            appendLine(`Recipe ${nameRaw} cancelled.`, 'warning');
+            return true;
+          }
+          if (result.status === 'failed') {
+            appendLine(`Recipe ${nameRaw} failed at ${result.failedStep || 'unknown step'}: ${result.error || 'unknown error'}`, 'error');
+            if (result.completedSteps.length > 0) {
+              appendLine(`Completed steps: ${result.completedSteps.length}`, 'muted');
+            }
+            return true;
+          }
+          appendLine(`Installed recipe ${nameRaw} (${scope}).`, 'success');
+          return true;
+        }
+        if (!nameRaw || (typeRaw !== 'tool' && typeRaw !== 'middleware')) {
+          appendLine('Usage: /install <tool|middleware> <name> [project|global] OR /install recipe <id> [project|global] [option]', 'warning');
+          return true;
+        }
+        const scope: CapabilityInstallScope = scopeRaw === 'global' ? 'global' : 'project';
+        const installed = await runtime.installCapability(typeRaw, nameRaw, scope);
+        appendLine(`Installed ${installed.packageName} as ${installed.capabilityId} (${scope}).`, 'success');
+        appendLine(`Install directory: ${installed.installDir}`, 'muted');
         return true;
       }
       if (line.startsWith('/enable ') || line.startsWith('/disable ')) {
@@ -2396,11 +4599,103 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         }
         return true;
       }
+      if (line.startsWith('/tool-config ')) {
+        const payload = line.slice('/tool-config '.length);
+        let command: ReturnType<typeof parseToolConfigCommandPayload>;
+        try {
+          command = parseToolConfigCommandPayload(payload);
+        } catch (error) {
+          appendLine(error instanceof Error ? error.message : String(error), 'warning');
+          return true;
+        }
+        const result = await runtime.setToolConfig(command.toolId, command.config, command.scope);
+        appendLine(`Updated ${command.toolId} config (${command.scope}).`, 'success');
+        if (result.targetPath) {
+          appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+        }
+        return true;
+      }
+      if (line.startsWith('/tool-config-options ')) {
+        const toolId = line.slice('/tool-config-options '.length).trim();
+        if (!toolId) {
+          appendLine('Usage: /tool-config-options <tool-id>', 'warning');
+          return true;
+        }
+        appendMultiline(runtime.describeToolConfig(toolId), 'muted');
+        return true;
+      }
+      if (line.startsWith('/middleware-config ')) {
+        const payload = line.slice('/middleware-config '.length);
+        let command: ReturnType<typeof parseMiddlewareConfigCommandPayload>;
+        try {
+          command = parseMiddlewareConfigCommandPayload(payload);
+        } catch (error) {
+          appendLine(error instanceof Error ? error.message : String(error), 'warning');
+          return true;
+        }
+        const result = await runtime.setMiddlewareConfig(command.middlewareId, command.config, command.scope);
+        appendLine(`Updated ${command.middlewareId} config (${command.scope}).`, 'success');
+        if (result.targetPath) {
+          appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+        }
+        return true;
+      }
+      if (line.startsWith('/middleware-config-options ')) {
+        const middlewareId = line.slice('/middleware-config-options '.length).trim();
+        if (!middlewareId) {
+          appendLine('Usage: /middleware-config-options <middleware-id>', 'warning');
+          return true;
+        }
+        appendMultiline(runtime.describeMiddlewareConfig(middlewareId), 'muted');
+        return true;
+      }
+      if (line === '/tool-rounds') {
+        appendLine(`Current maxRounds: ${runtime.getToolCallingMaxRounds()}`, 'muted');
+        return true;
+      }
+      if (line.startsWith('/tool-rounds ')) {
+        const payload = line.slice('/tool-rounds '.length).trim();
+        const [scopeToken, valueToken] = payload.split(/\s+/, 2);
+        let scope: CapabilityScopeTarget = 'session';
+        let valueRaw = payload;
+        const maybeScope = parseScopeTarget(scopeToken);
+        if (maybeScope) {
+          scope = maybeScope;
+          valueRaw = valueToken || '';
+        }
+        const parsed = Number.parseInt(valueRaw, 10);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          appendLine('Usage: /tool-rounds [session|project|global] <positive-integer>', 'warning');
+          return true;
+        }
+        const result = await runtime.setMiddlewareConfig('tool-calling', { maxRounds: parsed }, scope);
+        appendLine(`Updated tool-calling.maxRounds to ${parsed} (${scope}).`, 'success');
+        if (result.targetPath) {
+          appendLine(`Wrote profile: ${result.targetPath}`, 'muted');
+        }
+        return true;
+      }
       if (line === '/open-config' || line.startsWith('/open-config ')) {
         const rawScope = line.slice('/open-config'.length).trim();
         const scope = (rawScope === 'global' || rawScope === 'project') ? rawScope : 'project';
-        const opened = await runtime.openConfigInEditor(scope);
-        appendLine(`Opened config: ${opened}`, 'success');
+        const editor = configuredEditorCommand();
+        const targetPath = runtime.getConfigPath(scope);
+        if (!editor) {
+          appendLine('E6510: Set $EDITOR or $VISUAL to open config in editor.', 'warning');
+          return true;
+        }
+        if (isTerminalEditorCommand(editor)) {
+          appendLine('Terminal editor detected. To avoid TUI conflicts, run this in your shell:', 'warning');
+          appendLine(`${editor} ${targetPath}`, 'muted');
+          return true;
+        }
+        setExternalTaskActive(true);
+        try {
+          const opened = await runtime.openConfigInEditor(scope);
+          appendLine(`Opened config: ${opened}`, 'success');
+        } finally {
+          setExternalTaskActive(false);
+        }
         return true;
       }
       if (line.startsWith('/provider ')) {
@@ -2435,11 +4730,13 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
       if (!trimmed) {
         return;
       }
+      setAgentStatus({ text: 'Thinking…', tone: 'info' });
       if (!trimmed.startsWith('/')) {
         appendLine(`You: ${trimmed}`, 'info');
       }
       if (!runtime) {
         appendLine('Runtime is not ready yet.', 'warning');
+        setAgentStatus(initialInkAgentStatus());
         return;
       }
 
@@ -2455,7 +4752,9 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         }
       } catch (error) {
         appendLine(formatError(error), 'error');
+        setAgentStatus({ text: 'Error', tone: 'error' });
       } finally {
+        setAgentStatus((current) => (current.tone === 'error' ? current : initialInkAgentStatus()));
         setBusy(false);
       }
     };
@@ -2466,6 +4765,40 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
         return;
       }
       if (!ready) {
+        return;
+      }
+      if (externalTaskActive) {
+        return;
+      }
+      if (inlinePrompt) {
+        if (key.escape) {
+          const current = inlinePrompt;
+          setInlinePrompt(undefined);
+          setInputValue('');
+          current.resolve(undefined);
+          appendLine(current.cancelMessage, 'muted');
+          return;
+        }
+        if (key.return) {
+          const current = inlinePrompt;
+          const submitted = inputValue.trim();
+          setInlinePrompt(undefined);
+          setInputValue('');
+          if (!submitted) {
+            current.resolve(undefined);
+            appendLine(current.cancelMessage, 'muted');
+            return;
+          }
+          current.resolve(submitted);
+          return;
+        }
+        if (isInkEraseKey(value, key)) {
+          setInputValue((previous: string) => previous.slice(0, -1));
+          return;
+        }
+        if (!key.ctrl && !key.meta && value.length > 0) {
+          setInputValue((previous: string) => `${previous}${value}`);
+        }
         return;
       }
       if (menuOpen) {
@@ -2541,6 +4874,9 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
     const cursorGlyph = cursorVisible ? '▋' : ' ';
     const renderedInput = renderInputText(promptPrefix, inputValue, cursorGlyph);
     const providerHealthColor = providerHealth === 'error' ? 'red' : providerHealth === 'ready' ? 'green' : 'yellow';
+    const statusIndicator = agentStatus.tone === 'muted'
+      ? '○'
+      : statusPulseFrames[spinnerFrame % statusPulseFrames.length];
 
     return createElement(
       Box,
@@ -2570,6 +4906,37 @@ async function runInkChatCli(parsed: ChatCliArgs, io: { input: Readable; output:
           )),
         )
         : undefined,
+      inlinePrompt
+        ? createElement(
+          Box,
+          { marginTop: 1, borderStyle: 'round', borderColor: 'cyan', paddingX: 1, flexDirection: 'column' },
+          createElement(Text, { color: 'cyan' }, inlinePrompt.prompt),
+          createElement(Text, { dimColor: true }, 'Enter submit · Esc cancel'),
+        )
+        : undefined,
+      externalTaskActive
+        ? createElement(
+          Box,
+          { marginTop: 1, borderStyle: 'round', borderColor: 'yellow', paddingX: 1 },
+          createElement(Text, { color: 'yellow' }, 'Opening editor...'),
+        )
+        : undefined,
+      createElement(
+        Text,
+        {
+          dimColor: agentStatus.tone === 'muted',
+          color: agentStatus.tone === 'error'
+            ? 'red'
+            : agentStatus.tone === 'warning'
+              ? 'yellow'
+              : agentStatus.tone === 'success'
+                ? 'green'
+                : agentStatus.tone === 'info'
+                  ? 'cyan'
+                  : undefined,
+        },
+        `${statusIndicator} ${agentStatus.text}`,
+      ),
       createElement(
         Box,
         { marginTop: 1, borderStyle: 'round', borderColor: busy ? 'yellow' : 'cyan', paddingX: 1 },
@@ -2659,7 +5026,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
   });
   let ui: ReadlineInterface = createUi();
 
-    output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume <sessionId>, /delete-session <sessionId>, /search <query>, /branch <messageId>, /exit\n');
+  output.write('Sisu Chat started. Commands: /help, /new, /provider [id], /model [name], /system-prompt [scope] [text], /tool-rounds [scope] [value], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /tool-config <tool-id> <json> [scope], /tool-config-options <tool-id>, /middleware-config <middleware-id> <json> [scope], /middleware-config-options <middleware-id>, /official <category>, /install <tool|middleware> <name> [project|global], /install recipe <id> [project|global] [option], /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume <sessionId>, /delete-session <sessionId>, /search <query>, /branch <messageId>, /exit\n');
   output.write('Tip: /help for commands. Prompt shows active provider/model and session.\n');
 
   const renderPromptContext = (): void => {
@@ -2769,7 +5136,84 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
         if (target.description) {
           output.write(`  ${target.description}\n`);
         }
+        if (target.packageName) {
+          output.write(`  package: ${target.packageName}${target.packageVersion ? `@${target.packageVersion}` : ''}\n`);
+        }
+        if (target.type === 'tool') {
+          output.write(`${runtime.describeToolConfig(target.id)}\n`);
+        }
+        if (target.type === 'middleware') {
+          try {
+            output.write(`${runtime.describeMiddlewareConfig(target.id)}\n`);
+          } catch {
+            // middleware without metadata still supports pipeline editing
+          }
+        }
         continue;
+      }
+
+      if (category === 'tools') {
+        const configureAction = await promptChoice(
+          `Configure ${target.id}?`,
+          ['Apply preset', 'Skip'],
+        );
+        if (configureAction === 'Apply preset') {
+          const presets = runtime.getToolConfigPresets(target.id);
+          if (presets.length === 0) {
+            output.write(`No presets available for ${target.id}.\n`);
+          } else {
+            const chosenPresetLabel = await promptChoice(
+              `Select preset for ${target.id}:`,
+              presets.map((preset) => preset.label),
+            );
+            const chosenPreset = presets.find((preset) => preset.label === chosenPresetLabel);
+            if (chosenPreset) {
+              const presetScope = await promptConfigScope(true);
+              if (presetScope) {
+                const presetResult = await withLoader(
+                  `Applying ${chosenPreset.label}`,
+                  async () => await runtime.setToolConfig(target.id, chosenPreset.config, presetScope),
+                );
+                output.write(`Applied ${chosenPreset.label} preset to ${target.id} (${presetScope}).\n`);
+                if (presetResult.targetPath) {
+                  output.write(`Wrote profile: ${presetResult.targetPath}\n`);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (category === 'middleware') {
+        const configureAction = await promptChoice(
+          `Configure ${target.id}?`,
+          ['Apply preset', 'Skip'],
+        );
+        if (configureAction === 'Apply preset') {
+          const presets = runtime.getMiddlewareConfigPresets(target.id);
+          if (presets.length === 0) {
+            output.write(`No presets available for ${target.id}.\n`);
+          } else {
+            const chosenPresetLabel = await promptChoice(
+              `Select preset for ${target.id}:`,
+              presets.map((preset) => preset.label),
+            );
+            const chosenPreset = presets.find((preset) => preset.label === chosenPresetLabel);
+            if (chosenPreset) {
+              const presetScope = await promptConfigScope(true);
+              if (presetScope) {
+                const presetResult = await withLoader(
+                  `Applying ${chosenPreset.label}`,
+                  async () => await runtime.setMiddlewareConfig(target.id, chosenPreset.config, presetScope),
+                );
+                output.write(`Applied ${chosenPreset.label} preset to ${target.id} (${presetScope}).\n`);
+                if (presetResult.targetPath) {
+                  output.write(`Wrote profile: ${presetResult.targetPath}\n`);
+                }
+              }
+            }
+          }
+        }
       }
 
       const scope = await promptConfigScope(true);
@@ -2826,10 +5270,10 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
         continue;
       }
       const selected = pipeline[selectedIndex];
-      const action = await promptChoice(
-        `Action for ${selected.id}:`,
-        ['Toggle enabled', 'Move up', 'Move down', 'Edit config JSON', 'Back'],
-      );
+        const action = await promptChoice(
+          `Action for ${selected.id}:`,
+          ['Toggle enabled', 'Move up', 'Move down', 'Apply preset', 'Edit config JSON', 'Show options', 'Back'],
+        );
       if (!action || action === 'Back') {
         continue;
       }
@@ -2915,7 +5359,125 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
         if (result.targetPath) {
           output.write(`Wrote profile: ${result.targetPath}\n`);
         }
+        continue;
       }
+
+      if (action === 'Apply preset') {
+        const presets = runtime.getMiddlewareConfigPresets(selected.id);
+        if (presets.length === 0) {
+          output.write(`No presets available for ${selected.id}.\n`);
+          continue;
+        }
+        const pickedPreset = await promptChoice(
+          `Select preset for ${selected.id}:`,
+          presets.map((preset) => preset.label),
+        );
+        if (!pickedPreset) {
+          output.write('Preset selection cancelled.\n');
+          continue;
+        }
+        const chosen = presets.find((preset) => preset.label === pickedPreset);
+        if (!chosen) {
+          output.write('Invalid preset selection.\n');
+          continue;
+        }
+        const result = await runtime.setMiddlewareConfig(selected.id, chosen.config, scope);
+        output.write(`Applied ${chosen.label} to ${selected.id} (${scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+        continue;
+      }
+
+      if (action === 'Show options') {
+        output.write(`${runtime.describeMiddlewareConfig(selected.id)}\n`);
+        const edit = await promptChoice(
+          `Set ${selected.id} option:`,
+          selected.id === 'tool-calling' ? ['Set maxRounds', 'Back'] : ['Back'],
+        );
+        if (edit === 'Set maxRounds') {
+          const picked = await promptChoice('maxRounds value:', ['8', '16', '24', '32', 'Custom'], '16');
+          if (!picked) {
+            output.write('maxRounds update cancelled.\n');
+            continue;
+          }
+          let maxRoundsValue: number | undefined;
+          if (picked === 'Custom') {
+            let raw = '';
+            try {
+              raw = (await ui.question('Custom maxRounds (positive integer): ')).trim();
+            } catch (error) {
+              if (!isReadlineClosedError(error)) {
+                throw error;
+              }
+              ui = createUi();
+              raw = (await ui.question('Custom maxRounds (positive integer): ')).trim();
+            }
+            const parsed = Number.parseInt(raw, 10);
+            if (!Number.isInteger(parsed) || parsed <= 0) {
+              output.write('Invalid maxRounds value.\n');
+              continue;
+            }
+            maxRoundsValue = parsed;
+          } else {
+            maxRoundsValue = Number.parseInt(picked, 10);
+          }
+          const result = await runtime.setMiddlewareConfig(selected.id, { maxRounds: maxRoundsValue }, scope);
+          output.write(`Updated ${selected.id}.maxRounds to ${maxRoundsValue} (${scope}).\n`);
+          if (result.targetPath) {
+            output.write(`Wrote profile: ${result.targetPath}\n`);
+          }
+        }
+        continue;
+      }
+    }
+  };
+
+  const runSystemPromptSetup = async (): Promise<void> => {
+    const current = runtime.profile.systemPrompt?.trim() || '';
+    output.write(`Current system prompt: ${current || '<none>'}\n`);
+    const next = await promptChoice(
+      'Set system prompt:',
+      ['Keep current', 'Edit text', 'Clear'],
+      'Keep current',
+    );
+    if (!next || next === 'Keep current') {
+      output.write('System prompt unchanged.\n');
+      return;
+    }
+    if (next === 'Clear') {
+      const scope = await promptConfigScope(true);
+      if (!scope) {
+        output.write('Scope selection cancelled.\n');
+        return;
+      }
+      const result = await runtime.setSystemPrompt('', scope);
+      output.write(`Cleared system prompt (${scope}).\n`);
+      if (result.targetPath) {
+        output.write(`Wrote profile: ${result.targetPath}\n`);
+      }
+      return;
+    }
+    let promptText = '';
+    try {
+      promptText = await ui.question('System prompt text (single line, use "clear" to remove): ');
+    } catch (error) {
+      if (!isReadlineClosedError(error)) {
+        throw error;
+      }
+      ui = createUi();
+      promptText = await ui.question('System prompt text (single line, use "clear" to remove): ');
+    }
+    const scope = await promptConfigScope(true);
+    if (!scope) {
+      output.write('Scope selection cancelled.\n');
+      return;
+    }
+    const normalized = parseSessionSystemPromptInput(promptText);
+    const result = await runtime.setSystemPrompt(normalized, scope);
+    output.write(`Updated system prompt (${scope}).\n`);
+    if (result.targetPath) {
+      output.write(`Wrote profile: ${result.targetPath}\n`);
     }
   };
 
@@ -3007,7 +5569,7 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
     }
 
     if (trimmed === '/help') {
-      output.write('Commands: /help, /new, /provider [id], /model [name], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /official <category>, /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit\n');
+      output.write('Commands: /help, /new, /provider [id], /model [name], /system-prompt [scope] [text], /tool-rounds [scope] [value], /tools, /skills, /middleware, /tools setup, /skills setup, /middleware setup, /enable <id> [scope], /disable <id> [scope], /tool-config <tool-id> <json> [scope], /tool-config-options <tool-id>, /middleware-config <middleware-id> <json> [scope], /middleware-config-options <middleware-id>, /official <category>, /install <tool|middleware> <name> [project|global], /install recipe <id> [project|global] [option], /allow-command <prefix> [scope], /open-config [project|global], /cancel, /sessions, /resume [sessionId], /delete-session <sessionId>, /search <query>, /branch [messageId], /exit\n');
       return true;
     }
 
@@ -3042,7 +5604,95 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
       }
 
       if (trimmed === '/middleware setup') {
-        await runMiddlewareSetupMenu();
+        const action = await promptChoice(
+          'Middleware setup:',
+          ['Configure pipeline', 'Set system prompt', 'Install RAG recommended recipe', 'Install RAG advanced recipe', 'Back'],
+        );
+        if (!action || action === 'Back') {
+          return true;
+        }
+        if (action === 'Configure pipeline') {
+          await runMiddlewareSetupMenu();
+          return true;
+        }
+        if (action === 'Set system prompt') {
+          await runSystemPromptSetup();
+          return true;
+        }
+        if (action === 'Install RAG recommended recipe') {
+          const scope = await promptChoice('Select install scope:', ['project', 'global'], 'project');
+          if (!scope || (scope !== 'project' && scope !== 'global')) {
+            output.write('Recipe install cancelled.\n');
+            return true;
+          }
+          const result = await withLoader(
+            'Installing rag-recommended',
+            async () => await runtime.installRecipe('rag-recommended', scope),
+          );
+          if (result.status !== 'completed') {
+            output.write(`Recipe failed at ${result.failedStep || 'unknown'}: ${result.error || 'unknown error'}\n`);
+            return true;
+          }
+          output.write(`Installed recipe rag-recommended (${scope}).\n`);
+          return true;
+        }
+        const backend = await promptChoice('Select backend for rag-advanced:', ['vectra', 'chroma', 'custom'], 'vectra');
+        if (!backend) {
+          output.write('Recipe install cancelled.\n');
+          return true;
+        }
+        let customPackageName: string | undefined;
+        if (backend === 'custom') {
+          customPackageName = await promptChoice('Custom vector package:', ['@sisu-ai/vector-vectra'], '@sisu-ai/vector-vectra');
+          if (!customPackageName) {
+            output.write('Recipe install cancelled.\n');
+            return true;
+          }
+        }
+        const scope = await promptChoice('Select install scope:', ['project', 'global'], 'project');
+        if (!scope || (scope !== 'project' && scope !== 'global')) {
+          output.write('Recipe install cancelled.\n');
+          return true;
+        }
+        const result = await withLoader(
+          'Installing rag-advanced',
+          async () => await runtime.installRecipe('rag-advanced', scope, {
+            resolveChoice: async () => ({
+              optionId: backend,
+              customPackageName,
+            }),
+          }),
+        );
+        if (result.status !== 'completed') {
+          output.write(`Recipe failed at ${result.failedStep || 'unknown'}: ${result.error || 'unknown error'}\n`);
+          return true;
+        }
+        output.write(`Installed recipe rag-advanced (${scope}).\n`);
+        return true;
+      }
+      if (trimmed === '/system-prompt') {
+        output.write(`Current system prompt: ${runtime.profile.systemPrompt?.trim() || '<none>'}\n`);
+        return true;
+      }
+      if (trimmed.startsWith('/system-prompt ')) {
+        const payload = trimmed.slice('/system-prompt '.length).trim();
+        const [scopeToken, ...rest] = payload.split(/\s+/);
+        let scope: CapabilityScopeTarget = 'session';
+        let promptText = payload;
+        const maybeScope = parseScopeTarget(scopeToken);
+        if (maybeScope) {
+          scope = maybeScope;
+          promptText = rest.join(' ');
+        }
+        const normalized = parseSessionSystemPromptInput(promptText);
+        const result = await withLoader(
+          'Updating system prompt',
+          async () => await runtime.setSystemPrompt(normalized, scope),
+        );
+        output.write(`Updated system prompt (${scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
         return true;
       }
 
@@ -3056,6 +5706,10 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
           `Listing official ${category}`,
           async () => await runtime.listOfficialCapabilityPackages(category),
         );
+        const diagnostics = runtime.getDiscoveryDiagnostics();
+        if (diagnostics.length > 0) {
+          output.write(`Discovery note: ${diagnostics[0]}\n`);
+        }
         if (packages.length === 0) {
           output.write(`No official ${category} packages found.\n`);
           return true;
@@ -3063,6 +5717,57 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
         for (const pkg of packages) {
           output.write(`- ${pkg.name}@${pkg.version} ${pkg.description}\n`);
         }
+        return true;
+      }
+      if (trimmed.startsWith('/install ')) {
+        const payload = trimmed.slice('/install '.length).trim();
+        const [typeRaw, nameRaw, scopeRaw, extraRaw] = payload.split(/\s+/, 4);
+        if (typeRaw === 'recipe') {
+          if (!nameRaw) {
+            output.write('Usage: /install recipe <rag-recommended|rag-advanced> [project|global] [vectra|chroma|custom[:package]]\n');
+            return true;
+          }
+          const scope: CapabilityInstallScope = scopeRaw === 'global' ? 'global' : 'project';
+          let optionId = 'vectra';
+          let customPackageName: string | undefined;
+          if (extraRaw) {
+            if (extraRaw.startsWith('custom:')) {
+              optionId = 'custom';
+              customPackageName = extraRaw.slice('custom:'.length).trim();
+            } else {
+              optionId = extraRaw;
+            }
+          }
+          const result = await withLoader(
+            `Installing recipe ${nameRaw}`,
+            async () => await runtime.installRecipe(nameRaw, scope, {
+              resolveChoice: async () => ({ optionId, customPackageName }),
+            }),
+          );
+          if (result.status === 'cancelled') {
+            output.write(`Recipe ${nameRaw} cancelled.\n`);
+            return true;
+          }
+          if (result.status === 'failed') {
+            output.write(`Recipe ${nameRaw} failed at ${result.failedStep || 'unknown step'}: ${result.error || 'unknown error'}\n`);
+            output.write(`Completed steps: ${result.completedSteps.length}\n`);
+            return true;
+          }
+          output.write(`Installed recipe ${nameRaw} (${scope}).\n`);
+          return true;
+        }
+        if (!nameRaw || (typeRaw !== 'tool' && typeRaw !== 'middleware')) {
+          output.write('Usage: /install <tool|middleware> <name> [project|global] OR /install recipe <id> [project|global] [option]\n');
+          return true;
+        }
+        const scope: CapabilityInstallScope = scopeRaw === 'global' ? 'global' : 'project';
+        const installed = await withLoader(
+          `Installing ${typeRaw}`,
+          async () => await runtime.installCapability(typeRaw, nameRaw, scope),
+        );
+        output.write(`Installed ${installed.packageName} as ${installed.capabilityId} (${scope}).\n`);
+        output.write(`Install directory: ${installed.installDir}\n`);
+        output.write(`Manifest: ${installed.manifestPath}\n`);
         return true;
       }
 
@@ -3099,6 +5804,91 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
           async () => await runtime.addAllowCommandPrefix(prefix, scope),
         );
         output.write(`Added allow prefix '${prefix}' (${scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+        return true;
+      }
+      if (trimmed.startsWith('/tool-config ')) {
+        const payload = trimmed.slice('/tool-config '.length);
+        let command: ReturnType<typeof parseToolConfigCommandPayload>;
+        try {
+          command = parseToolConfigCommandPayload(payload);
+        } catch (error) {
+          output.write(`${error instanceof Error ? error.message : String(error)}\n`);
+          return true;
+        }
+        const result = await withLoader(
+          `Updating ${command.toolId} config`,
+          async () => await runtime.setToolConfig(command.toolId, command.config, command.scope),
+        );
+        output.write(`Updated ${command.toolId} config (${command.scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+        return true;
+      }
+      if (trimmed.startsWith('/tool-config-options ')) {
+        const toolId = trimmed.slice('/tool-config-options '.length).trim();
+        if (!toolId) {
+          output.write('Usage: /tool-config-options <tool-id>\n');
+          return true;
+        }
+        output.write(`${runtime.describeToolConfig(toolId)}\n`);
+        return true;
+      }
+      if (trimmed.startsWith('/middleware-config ')) {
+        const payload = trimmed.slice('/middleware-config '.length);
+        let command: ReturnType<typeof parseMiddlewareConfigCommandPayload>;
+        try {
+          command = parseMiddlewareConfigCommandPayload(payload);
+        } catch (error) {
+          output.write(`${error instanceof Error ? error.message : String(error)}\n`);
+          return true;
+        }
+        const result = await withLoader(
+          `Updating ${command.middlewareId} config`,
+          async () => await runtime.setMiddlewareConfig(command.middlewareId, command.config, command.scope),
+        );
+        output.write(`Updated ${command.middlewareId} config (${command.scope}).\n`);
+        if (result.targetPath) {
+          output.write(`Wrote profile: ${result.targetPath}\n`);
+        }
+        return true;
+      }
+      if (trimmed.startsWith('/middleware-config-options ')) {
+        const middlewareId = trimmed.slice('/middleware-config-options '.length).trim();
+        if (!middlewareId) {
+          output.write('Usage: /middleware-config-options <middleware-id>\n');
+          return true;
+        }
+        output.write(`${runtime.describeMiddlewareConfig(middlewareId)}\n`);
+        return true;
+      }
+      if (trimmed === '/tool-rounds') {
+        output.write(`Current maxRounds: ${runtime.getToolCallingMaxRounds()}\n`);
+        return true;
+      }
+      if (trimmed.startsWith('/tool-rounds ')) {
+        const payload = trimmed.slice('/tool-rounds '.length).trim();
+        const [scopeToken, valueToken] = payload.split(/\s+/, 2);
+        let scope: CapabilityScopeTarget = 'session';
+        let valueRaw = payload;
+        const maybeScope = parseScopeTarget(scopeToken);
+        if (maybeScope) {
+          scope = maybeScope;
+          valueRaw = valueToken || '';
+        }
+        const parsed = Number.parseInt(valueRaw, 10);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          output.write('Usage: /tool-rounds [session|project|global] <positive-integer>\n');
+          return true;
+        }
+        const result = await withLoader(
+          'Updating tool-calling maxRounds',
+          async () => await runtime.setMiddlewareConfig('tool-calling', { maxRounds: parsed }, scope),
+        );
+        output.write(`Updated tool-calling.maxRounds to ${parsed} (${scope}).\n`);
         if (result.targetPath) {
           output.write(`Wrote profile: ${result.targetPath}\n`);
         }
@@ -3290,7 +6080,12 @@ export async function runChatCli(argv: string[], io?: { input?: Readable; output
   }
 }
 
-function toProviderMessages(messages: ChatMessage[], currentAssistantMessageId: string, toolOutputs: string[]): Message[] {
+function toProviderMessages(
+  messages: ChatMessage[],
+  currentAssistantMessageId: string,
+  toolOutputs: string[],
+  configuredSystemPrompt?: string,
+): Message[] {
   const filtered = messages
     .filter((message) => message.id !== currentAssistantMessageId)
     .filter((message): message is ChatMessage & { role: 'system' | 'user' | 'assistant' } => (
@@ -3306,23 +6101,28 @@ function toProviderMessages(messages: ChatMessage[], currentAssistantMessageId: 
       return { role: 'user', content: message.content };
     });
 
+  const normalizedSystemPrompt = configuredSystemPrompt?.trim() || '';
+  const withSystem = normalizedSystemPrompt
+    ? [{ role: 'system', content: normalizedSystemPrompt } as Message, ...filtered]
+    : filtered;
+
   if (toolOutputs.length === 0) {
-    return filtered;
+    return withSystem;
   }
 
-  const lastUserIndex = [...filtered].reverse().findIndex((message) => message.role === 'user');
+  const lastUserIndex = [...withSystem].reverse().findIndex((message) => message.role === 'user');
   if (lastUserIndex === -1) {
-    return filtered;
+    return withSystem;
   }
 
-  const targetIndex = filtered.length - 1 - lastUserIndex;
-  const lastUser = filtered[targetIndex];
+  const targetIndex = withSystem.length - 1 - lastUserIndex;
+  const lastUser = withSystem[targetIndex];
   const withTools: Message = {
     role: 'user',
     content: `${lastUser.content}\n\nTool execution results:\n${toolOutputs.map((line, index) => `${index + 1}. ${line}`).join('\n')}`,
   };
-  filtered[targetIndex] = withTools;
-  return filtered;
+  withSystem[targetIndex] = withTools;
+  return withSystem;
 }
 
 function isReadlineClosedError(error: unknown): boolean {

@@ -1,0 +1,990 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-04-02T21:06:03.854Z",
+  "entries": [
+    {
+      "id": "core",
+      "category": "libraries",
+      "title": "@sisu-ai/core",
+      "packageName": "@sisu-ai/core",
+      "version": "2.4.0",
+      "summary": "Build reliable TypeScript agents with explicit context, composable middleware, and typed tools.",
+      "docsPath": "packages/core/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "core"
+      ],
+      "aliases": [
+        "core"
+      ]
+    },
+    {
+      "id": "rag-core",
+      "category": "libraries",
+      "title": "@sisu-ai/rag-core",
+      "packageName": "@sisu-ai/rag-core",
+      "version": "1.0.0",
+      "summary": "Reusable backend-agnostic RAG mechanics for Sisu.",
+      "docsPath": "packages/rag/core/README.md",
+      "examples": [
+        "examples/ollama-rag-vectra/README.md",
+        "examples/openai-rag-chroma/README.md",
+        "examples/openai-rag-vectra/README.md"
+      ],
+      "tags": [
+        "sisu",
+        "rag",
+        "core",
+        "vector",
+        "chunking"
+      ],
+      "aliases": [
+        "rag-core"
+      ]
+    },
+    {
+      "id": "server",
+      "category": "libraries",
+      "title": "@sisu-ai/server",
+      "packageName": "@sisu-ai/server",
+      "version": "8.0.0",
+      "summary": "Serve Sisu agents over HTTP/HTTPS with a thin, framework-friendly server adapter.",
+      "docsPath": "packages/server/README.md",
+      "examples": [
+        "examples/openai-server/README.md"
+      ],
+      "tags": [
+        "sisu",
+        "ai",
+        "server",
+        "adapter"
+      ],
+      "aliases": [
+        "server"
+      ]
+    },
+    {
+      "id": "agent-run-api",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-agent-run-api",
+      "packageName": "@sisu-ai/mw-agent-run-api",
+      "version": "8.0.0",
+      "summary": "Expose production-ready run endpoints (start, status, stream, cancel) for Sisu agents.",
+      "docsPath": "packages/middleware/agent-run-api/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "middleware",
+        "agent",
+        "http",
+        "api"
+      ],
+      "aliases": [
+        "agent-run-api",
+        "mw-agent-run-api"
+      ]
+    },
+    {
+      "id": "context-compressor",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-context-compressor",
+      "packageName": "@sisu-ai/mw-context-compressor",
+      "version": "9.0.0",
+      "summary": "Reduce token costs by compressing long conversations while preserving useful recent context.",
+      "docsPath": "packages/middleware/context-compressor/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "context-compressor"
+      ],
+      "aliases": [
+        "context-compressor",
+        "mw-context-compressor"
+      ]
+    },
+    {
+      "id": "control-flow",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-control-flow",
+      "packageName": "@sisu-ai/mw-control-flow",
+      "version": "10.0.0",
+      "summary": "Express branching, routing, loops, and graphs in agent pipelines with explicit middleware control flow.",
+      "docsPath": "packages/middleware/control-flow/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "control-flow"
+      ],
+      "aliases": [
+        "control-flow",
+        "mw-control-flow"
+      ]
+    },
+    {
+      "id": "conversation-buffer",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-conversation-buffer",
+      "packageName": "@sisu-ai/mw-conversation-buffer",
+      "version": "10.0.0",
+      "summary": "Keep conversations bounded and relevant with simple, predictable message buffering.",
+      "docsPath": "packages/middleware/conversation-buffer/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "conversation-buffer"
+      ],
+      "aliases": [
+        "conversation-buffer",
+        "mw-conversation-buffer"
+      ]
+    },
+    {
+      "id": "cors",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-cors",
+      "packageName": "@sisu-ai/mw-cors",
+      "version": "8.0.0",
+      "summary": "Add lightweight CORS handling for Sisu HTTP servers in local and production deployments.",
+      "docsPath": "packages/middleware/cors/README.md",
+      "examples": [],
+      "tags": [],
+      "aliases": [
+        "cors",
+        "mw-cors"
+      ]
+    },
+    {
+      "id": "error-boundary",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-error-boundary",
+      "packageName": "@sisu-ai/mw-error-boundary",
+      "version": "10.0.0",
+      "summary": "Prevent pipeline crashes by catching middleware errors and returning controlled fallbacks.",
+      "docsPath": "packages/middleware/error-boundary/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "error-boundary"
+      ],
+      "aliases": [
+        "error-boundary",
+        "mw-error-boundary"
+      ]
+    },
+    {
+      "id": "guardrails",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-guardrails",
+      "packageName": "@sisu-ai/mw-guardrails",
+      "version": "10.0.0",
+      "summary": "Enforce safety and policy constraints early to block unsafe or out-of-scope requests.",
+      "docsPath": "packages/middleware/guardrails/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "guardrails"
+      ],
+      "aliases": [
+        "guardrails",
+        "mw-guardrails"
+      ]
+    },
+    {
+      "id": "invariants",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-invariants",
+      "packageName": "@sisu-ai/mw-invariants",
+      "version": "10.0.0",
+      "summary": "Detect protocol-level mistakes early with runtime checks for message and tool-call invariants.",
+      "docsPath": "packages/middleware/invariants/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "invariants"
+      ],
+      "aliases": [
+        "invariants",
+        "mw-invariants"
+      ]
+    },
+    {
+      "id": "orchestration",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-orchestration",
+      "packageName": "@sisu-ai/mw-orchestration",
+      "version": "1.0.0",
+      "summary": "Orchestrate delegated multi-agent execution with scoped children, explicit traces, and policy hooks.",
+      "docsPath": "packages/middleware/orchestration/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "orchestration"
+      ],
+      "aliases": [
+        "orchestration",
+        "mw-orchestration"
+      ]
+    },
+    {
+      "id": "rag",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-rag",
+      "packageName": "@sisu-ai/mw-rag",
+      "version": "9.0.0",
+      "summary": "Compose retrieval-augmented generation pipelines by connecting vector retrieval outputs to prompting.",
+      "docsPath": "packages/middleware/rag/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "rag"
+      ],
+      "aliases": [
+        "rag",
+        "mw-rag"
+      ]
+    },
+    {
+      "id": "react-parser",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-react-parser",
+      "packageName": "@sisu-ai/mw-react-parser",
+      "version": "10.0.0",
+      "summary": "Run lightweight ReAct-style loops when you want plain-text action parsing and tool execution.",
+      "docsPath": "packages/middleware/react-parser/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "react-parser"
+      ],
+      "aliases": [
+        "react-parser",
+        "mw-react-parser"
+      ]
+    },
+    {
+      "id": "register-tools",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-register-tools",
+      "packageName": "@sisu-ai/mw-register-tools",
+      "version": "10.0.0",
+      "summary": "Register tool sets once and make them consistently available across your middleware pipeline.",
+      "docsPath": "packages/middleware/register-tools/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "register-tools"
+      ],
+      "aliases": [
+        "register-tools",
+        "mw-register-tools"
+      ]
+    },
+    {
+      "id": "skills",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-skills",
+      "packageName": "@sisu-ai/mw-skills",
+      "version": "1.0.0",
+      "summary": "Load reusable filesystem skills (`SKILL.md`) so agents can discover and apply curated workflows.",
+      "docsPath": "packages/middleware/skills/README.md",
+      "examples": [],
+      "tags": [],
+      "aliases": [
+        "skills",
+        "mw-skills"
+      ]
+    },
+    {
+      "id": "tool-calling",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-tool-calling",
+      "packageName": "@sisu-ai/mw-tool-calling",
+      "version": "10.0.0",
+      "summary": "Execute provider-native tool call loops with robust iteration, validation, and tool result handling.",
+      "docsPath": "packages/middleware/tool-calling/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "tool-calling"
+      ],
+      "aliases": [
+        "tool-calling",
+        "mw-tool-calling"
+      ]
+    },
+    {
+      "id": "trace-viewer",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-trace-viewer",
+      "packageName": "@sisu-ai/mw-trace-viewer",
+      "version": "11.0.0",
+      "summary": "Generate interactive HTML and JSON traces to inspect every model call, tool action, and error.",
+      "docsPath": "packages/middleware/trace-viewer/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "trace-viewer"
+      ],
+      "aliases": [
+        "trace-viewer",
+        "mw-trace-viewer"
+      ]
+    },
+    {
+      "id": "usage-tracker",
+      "category": "middleware",
+      "title": "@sisu-ai/mw-usage-tracker",
+      "packageName": "@sisu-ai/mw-usage-tracker",
+      "version": "10.0.0",
+      "summary": "Measure token usage and estimated cost across your pipeline with minimal setup.",
+      "docsPath": "packages/middleware/usage-tracker/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "middleware",
+        "usage-tracker"
+      ],
+      "aliases": [
+        "usage-tracker",
+        "mw-usage-tracker"
+      ]
+    },
+    {
+      "id": "tool-aws-s3",
+      "category": "tools",
+      "title": "@sisu-ai/tool-aws-s3",
+      "packageName": "@sisu-ai/tool-aws-s3",
+      "version": "2.0.6",
+      "summary": "Work with AWS S3 from agents using safe tools for reading, listing, writing, and metadata access.",
+      "docsPath": "packages/tools/aws-s3/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "aws-s3"
+      ],
+      "aliases": [
+        "tool-aws-s3",
+        "aws-s3"
+      ]
+    },
+    {
+      "id": "tool-azure-blob",
+      "category": "tools",
+      "title": "@sisu-ai/tool-azure-blob",
+      "packageName": "@sisu-ai/tool-azure-blob",
+      "version": "10.0.0",
+      "summary": "Work with Azure Blob Storage from agents using tools for read, list, write, delete, and metadata.",
+      "docsPath": "packages/tools/azure-blob/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "azure-blob"
+      ],
+      "aliases": [
+        "tool-azure-blob",
+        "azure-blob"
+      ]
+    },
+    {
+      "id": "tool-extract-urls",
+      "category": "tools",
+      "title": "@sisu-ai/tool-extract-urls",
+      "packageName": "@sisu-ai/tool-extract-urls",
+      "version": "10.0.0",
+      "summary": "Extract unique URLs from text quickly for downstream fetch, classify, and summarize workflows.",
+      "docsPath": "packages/tools/extract-urls/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "extract-urls"
+      ],
+      "aliases": [
+        "tool-extract-urls",
+        "extract-urls"
+      ]
+    },
+    {
+      "id": "tool-github-projects",
+      "category": "tools",
+      "title": "@sisu-ai/tool-github-projects",
+      "packageName": "@sisu-ai/tool-github-projects",
+      "version": "10.0.0",
+      "summary": "Automate GitHub Projects (v2) workflows with tools for listing, moving, and updating issues.",
+      "docsPath": "packages/tools/github-projects/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "github-projects"
+      ],
+      "aliases": [
+        "tool-github-projects",
+        "github-projects"
+      ]
+    },
+    {
+      "id": "tool-rag",
+      "category": "tools",
+      "title": "@sisu-ai/tool-rag",
+      "packageName": "@sisu-ai/tool-rag",
+      "version": "1.0.0",
+      "summary": "Backend-agnostic RAG tools for agents.",
+      "docsPath": "packages/tools/rag/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "rag"
+      ],
+      "aliases": [
+        "tool-rag",
+        "rag"
+      ]
+    },
+    {
+      "id": "tool-summarize-text",
+      "category": "tools",
+      "title": "@sisu-ai/tool-summarize-text",
+      "packageName": "@sisu-ai/tool-summarize-text",
+      "version": "10.0.0",
+      "summary": "Summarize large text inputs through the active model for compact, LLM-friendly downstream use.",
+      "docsPath": "packages/tools/summarize-text/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "summarize-text"
+      ],
+      "aliases": [
+        "tool-summarize-text",
+        "summarize-text"
+      ]
+    },
+    {
+      "id": "tool-terminal",
+      "category": "tools",
+      "title": "@sisu-ai/tool-terminal",
+      "packageName": "@sisu-ai/tool-terminal",
+      "version": "8.0.0",
+      "summary": "Execute terminal commands safely from agents with scoped paths, timeouts, and command allow-listing.",
+      "docsPath": "packages/tools/terminal/README.md",
+      "examples": [],
+      "tags": [],
+      "aliases": [
+        "tool-terminal",
+        "terminal"
+      ]
+    },
+    {
+      "id": "tool-web-fetch",
+      "category": "tools",
+      "title": "@sisu-ai/tool-web-fetch",
+      "packageName": "@sisu-ai/tool-web-fetch",
+      "version": "9.0.0",
+      "summary": "Fetch web pages and return structured text, HTML, or JSON for LLM consumption.",
+      "docsPath": "packages/tools/web-fetch/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "web-fetch"
+      ],
+      "aliases": [
+        "tool-web-fetch",
+        "web-fetch"
+      ]
+    },
+    {
+      "id": "tool-web-search-duckduckgo",
+      "category": "tools",
+      "title": "@sisu-ai/tool-web-search-duckduckgo",
+      "packageName": "@sisu-ai/tool-web-search-duckduckgo",
+      "version": "9.0.0",
+      "summary": "Run simple DuckDuckGo-based web searches for lightweight lookup and grounding tasks.",
+      "docsPath": "packages/tools/web-search-duckduckgo/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "web-search-duckduckgo"
+      ],
+      "aliases": [
+        "tool-web-search-duckduckgo",
+        "web-search-duckduckgo"
+      ]
+    },
+    {
+      "id": "tool-web-search-openai",
+      "category": "tools",
+      "title": "@sisu-ai/tool-web-search-openai",
+      "packageName": "@sisu-ai/tool-web-search-openai",
+      "version": "9.0.0",
+      "summary": "Use OpenAI Responses web search capability through a Sisu tool interface.",
+      "docsPath": "packages/tools/web-search-openai/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "web-search-openai"
+      ],
+      "aliases": [
+        "tool-web-search-openai",
+        "web-search-openai"
+      ]
+    },
+    {
+      "id": "tool-wikipedia",
+      "category": "tools",
+      "title": "@sisu-ai/tool-wikipedia",
+      "packageName": "@sisu-ai/tool-wikipedia",
+      "version": "9.0.0",
+      "summary": "Retrieve Wikipedia summaries and related pages with redirect-aware title resolution.",
+      "docsPath": "packages/tools/wikipedia/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "wikipedia"
+      ],
+      "aliases": [
+        "tool-wikipedia",
+        "wikipedia"
+      ]
+    },
+    {
+      "id": "adapter-anthropic",
+      "category": "adapters",
+      "title": "@sisu-ai/adapter-anthropic",
+      "packageName": "@sisu-ai/adapter-anthropic",
+      "version": "8.1.2",
+      "summary": "Connect Sisu to Anthropic models with first-class tool calling, streaming, and vision input support.",
+      "docsPath": "packages/adapters/anthropic/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "adapter",
+        "anthropic"
+      ],
+      "aliases": [
+        "adapter-anthropic",
+        "anthropic"
+      ]
+    },
+    {
+      "id": "adapter-ollama",
+      "category": "adapters",
+      "title": "@sisu-ai/adapter-ollama",
+      "packageName": "@sisu-ai/adapter-ollama",
+      "version": "10.0.2",
+      "summary": "Connect Sisu to local Ollama models with native tool support and streaming.",
+      "docsPath": "packages/adapters/ollama/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "adapter",
+        "ollama"
+      ],
+      "aliases": [
+        "adapter-ollama",
+        "ollama"
+      ]
+    },
+    {
+      "id": "adapter-openai",
+      "category": "adapters",
+      "title": "@sisu-ai/adapter-openai",
+      "packageName": "@sisu-ai/adapter-openai",
+      "version": "10.0.2",
+      "summary": "Connect Sisu to OpenAI and OpenAI-compatible APIs with tools and streaming support.",
+      "docsPath": "packages/adapters/openai/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "adapter",
+        "openai"
+      ],
+      "aliases": [
+        "adapter-openai",
+        "openai"
+      ]
+    },
+    {
+      "id": "vector-chroma",
+      "category": "vector",
+      "title": "@sisu-ai/vector-chroma",
+      "packageName": "@sisu-ai/vector-chroma",
+      "version": "1.0.0",
+      "summary": "Chroma vector-store adapter for Sisu RAG composition.",
+      "docsPath": "packages/vector/chroma/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "vector",
+        "chroma",
+        "adapter",
+        "rag"
+      ],
+      "aliases": [
+        "vector-chroma",
+        "chroma"
+      ]
+    },
+    {
+      "id": "vector-core",
+      "category": "vector",
+      "title": "@sisu-ai/vector-core",
+      "packageName": "@sisu-ai/vector-core",
+      "version": "1.1.0",
+      "summary": "Share provider-agnostic vector types and math utilities across Sisu vector tools and middleware.",
+      "docsPath": "packages/vector/core/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "vector",
+        "core"
+      ],
+      "aliases": [
+        "vector-core",
+        "core"
+      ]
+    },
+    {
+      "id": "vector-vectra",
+      "category": "vector",
+      "title": "@sisu-ai/vector-vectra",
+      "packageName": "@sisu-ai/vector-vectra",
+      "version": "1.0.0",
+      "summary": "Vectra vector-store adapter for Sisu RAG composition.",
+      "docsPath": "packages/vector/vectra/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "vector",
+        "vectra",
+        "adapter",
+        "rag"
+      ],
+      "aliases": [
+        "vector-vectra",
+        "vectra"
+      ]
+    },
+    {
+      "id": "skill-code-review",
+      "category": "skills",
+      "title": "@sisu-ai/skill-code-review",
+      "packageName": "@sisu-ai/skill-code-review",
+      "version": "0.2.2",
+      "summary": "Apply a repeatable code-review workflow focused on correctness, safety, and maintainability.",
+      "docsPath": "packages/skills/skill-code-review/README.md",
+      "examples": [
+        "examples/anthropic-skills/README.md",
+        "examples/openai-skills/README.md"
+      ],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "skill",
+        "code-review"
+      ],
+      "aliases": [
+        "skill-code-review",
+        "code-review"
+      ]
+    },
+    {
+      "id": "skill-debug",
+      "category": "skills",
+      "title": "@sisu-ai/skill-debug",
+      "packageName": "@sisu-ai/skill-debug",
+      "version": "0.2.2",
+      "summary": "Debug failures faster with a structured troubleshooting playbook you can reuse across projects.",
+      "docsPath": "packages/skills/skill-debug/README.md",
+      "examples": [
+        "examples/anthropic-skills/README.md",
+        "examples/openai-skills/README.md"
+      ],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "skill",
+        "debug"
+      ],
+      "aliases": [
+        "skill-debug",
+        "debug"
+      ]
+    },
+    {
+      "id": "skill-deploy",
+      "category": "skills",
+      "title": "@sisu-ai/skill-deploy",
+      "packageName": "@sisu-ai/skill-deploy",
+      "version": "0.2.2",
+      "summary": "Deploy more safely with a checklist-driven skill that emphasizes validation and rollback readiness.",
+      "docsPath": "packages/skills/skill-deploy/README.md",
+      "examples": [
+        "examples/anthropic-skills/README.md",
+        "examples/openai-skills/README.md"
+      ],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "skill",
+        "deploy"
+      ],
+      "aliases": [
+        "skill-deploy",
+        "deploy"
+      ]
+    },
+    {
+      "id": "skill-explain",
+      "category": "skills",
+      "title": "@sisu-ai/skill-explain",
+      "packageName": "@sisu-ai/skill-explain",
+      "version": "0.2.2",
+      "summary": "Generate clear code and architecture explanations using a structured, reusable explanation workflow.",
+      "docsPath": "packages/skills/skill-explain/README.md",
+      "examples": [
+        "examples/anthropic-skills/README.md",
+        "examples/openai-skills/README.md"
+      ],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "skill",
+        "explain"
+      ],
+      "aliases": [
+        "skill-explain",
+        "explain"
+      ]
+    },
+    {
+      "id": "skill-install",
+      "category": "skills",
+      "title": "@sisu-ai/skill-install",
+      "packageName": "@sisu-ai/skill-install",
+      "version": "0.4.0",
+      "summary": "Install the `sisu-framework` skill into supported agent environments from a single CLI.",
+      "docsPath": "packages/skills/skill-install/README.md",
+      "examples": [
+        "examples/anthropic-skills/README.md",
+        "examples/openai-skills/README.md"
+      ],
+      "tags": [
+        "sisu",
+        "skill",
+        "installer",
+        "codex",
+        "copilot",
+        "claude"
+      ],
+      "aliases": [
+        "skill-install",
+        "install"
+      ]
+    },
+    {
+      "id": "skill-repo-search",
+      "category": "skills",
+      "title": "@sisu-ai/skill-repo-search",
+      "packageName": "@sisu-ai/skill-repo-search",
+      "version": "0.1.2",
+      "summary": "Find files, symbols, and implementation patterns quickly with a focused repo-search workflow.",
+      "docsPath": "packages/skills/skill-repo-search/README.md",
+      "examples": [
+        "examples/anthropic-skills/README.md",
+        "examples/openai-skills/README.md"
+      ],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "skill",
+        "search",
+        "repo"
+      ],
+      "aliases": [
+        "skill-repo-search",
+        "repo-search"
+      ]
+    },
+    {
+      "id": "skill-test-gen",
+      "category": "skills",
+      "title": "@sisu-ai/skill-test-gen",
+      "packageName": "@sisu-ai/skill-test-gen",
+      "version": "0.2.2",
+      "summary": "Generate practical Vitest test plans and cases with coverage-focused guidance.",
+      "docsPath": "packages/skills/skill-test-gen/README.md",
+      "examples": [
+        "examples/anthropic-skills/README.md",
+        "examples/openai-skills/README.md"
+      ],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "skill",
+        "test",
+        "vitest"
+      ],
+      "aliases": [
+        "skill-test-gen",
+        "test-gen"
+      ]
+    },
+    {
+      "id": "chat-agent",
+      "category": "templates",
+      "title": "chat-agent",
+      "summary": "Minimal conversational agent starter with tracing.",
+      "tags": [
+        "template",
+        "chat"
+      ],
+      "aliases": [
+        "chat"
+      ]
+    },
+    {
+      "id": "cli-agent",
+      "category": "templates",
+      "title": "cli-agent",
+      "summary": "Single-shot CLI agent starter that takes prompt input from argv.",
+      "tags": [
+        "template",
+        "cli"
+      ],
+      "aliases": [
+        "cli"
+      ]
+    },
+    {
+      "id": "rag-agent",
+      "category": "templates",
+      "title": "rag-agent",
+      "summary": "Local Vectra-backed RAG starter using rag-core and tool-rag.",
+      "tags": [
+        "template",
+        "rag",
+        "vectra"
+      ],
+      "aliases": [
+        "rag"
+      ]
+    }
+  ]
+}

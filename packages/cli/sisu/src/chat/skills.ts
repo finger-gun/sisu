@@ -1,5 +1,7 @@
 import os from 'node:os';
+import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { discoverSkills } from '@sisu-ai/mw-skills';
 
 export interface DiscoveredSkill {
@@ -22,10 +24,13 @@ export interface LocalSkillDiscoveryResult {
 export function getDefaultSkillDirectories(cwd = process.cwd(), homeDir = os.homedir()): {
   globalDir: string;
   projectDir: string;
+  bundledInstallerDir: string;
 } {
+  const bundledInstallerDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../assets/skills/installer');
   return {
     globalDir: path.join(homeDir, '.sisu', 'skills'),
     projectDir: path.join(cwd, '.sisu', 'skills'),
+    bundledInstallerDir,
   };
 }
 
@@ -43,12 +48,18 @@ export async function discoverConfiguredSkills(
   directories: string[],
   cwd = process.cwd(),
 ): Promise<LocalSkillDiscoveryResult> {
-  if (directories.length === 0) {
+  const { bundledInstallerDir } = getDefaultSkillDirectories(cwd);
+  const roots = [...directories];
+  if (fs.existsSync(bundledInstallerDir) && !roots.includes(bundledInstallerDir)) {
+    roots.push(bundledInstallerDir);
+  }
+
+  if (roots.length === 0) {
     return { skills: [], diagnostics: [] };
   }
 
   const { globalDir, projectDir } = getDefaultSkillDirectories(cwd);
-  const result = await discoverSkills({ directories, cwd });
+  const result = await discoverSkills({ directories: roots, cwd });
   const merged = new Map<string, DiscoveredSkill>();
 
   for (const skill of result.skills) {

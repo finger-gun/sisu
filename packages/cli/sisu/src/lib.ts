@@ -9,9 +9,11 @@ export * from './chat/renderer.js';
 export * from './chat/runtime.js';
 export * from './chat/session-store.js';
 export * from './chat/skill-install.js';
+export * from './chat/capability-install.js';
 export * from './chat/state.js';
 export * from './chat/tool-policy.js';
 export {
+  getMiddlewareConfigDescriptor,
   getMiddlewareCatalogEntry,
   getLockedCoreMiddlewareIds,
   isLockedCoreMiddleware,
