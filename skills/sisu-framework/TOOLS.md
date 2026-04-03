@@ -11,6 +11,7 @@ Each tool is a separate package:
 pnpm add @sisu-ai/tool-web-fetch
 pnpm add @sisu-ai/tool-web-search-google
 pnpm add @sisu-ai/tool-web-search-duckduckgo
+pnpm add @sisu-ai/tool-web-search-linkup
 pnpm add @sisu-ai/tool-wikipedia
 
 # Cloud storage
@@ -60,6 +61,15 @@ LLM can use: `webSearchGoogle({ query: "Sisu framework" })`
 import { webSearchDuckDuckGo } from '@sisu-ai/tool-web-search-duckduckgo';
 
 .use(registerTools([webSearchDuckDuckGo]))
+```
+
+### webSearchLinkUp - LinkUp search API
+
+```typescript
+import { linkupWebSearch } from '@sisu-ai/tool-web-search-linkup';
+
+// Requires LINKUP_API_KEY (or API_KEY fallback)
+.use(registerTools([linkupWebSearch]))
 ```
 
 ### wikipedia - Search Wikipedia

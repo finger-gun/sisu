@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-04-02T21:06:03.854Z",
+  "generatedAt": "2026-04-02T22:23:15.701Z",
   "entries": [
     {
       "id": "core",
@@ -593,6 +593,29 @@
       "aliases": [
         "tool-web-search-duckduckgo",
         "web-search-duckduckgo"
+      ]
+    },
+    {
+      "id": "tool-web-search-linkup",
+      "category": "tools",
+      "title": "@sisu-ai/tool-web-search-linkup",
+      "packageName": "@sisu-ai/tool-web-search-linkup",
+      "version": "1.0.0",
+      "summary": "Search the web with LinkUp from Sisu agents using a typed `webSearch` tool.",
+      "docsPath": "packages/tools/web-search-linkup/README.md",
+      "examples": [],
+      "tags": [
+        "sisu",
+        "ai",
+        "ai-agent",
+        "agentic",
+        "tool",
+        "web-search-linkup",
+        "linkup"
+      ],
+      "aliases": [
+        "tool-web-search-linkup",
+        "web-search-linkup"
       ]
     },
     {

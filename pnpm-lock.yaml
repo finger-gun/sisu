@@ -116,6 +116,36 @@ importers:
         specifier: ^16.4.5
         version: 16.6.1
 
+  examples/anthropic-linkup-web-search:
+    dependencies:
+      '@sisu-ai/adapter-anthropic':
+        specifier: workspace:*
+        version: link:../../packages/adapters/anthropic
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
+      '@sisu-ai/mw-error-boundary':
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
+      '@sisu-ai/mw-register-tools':
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
+      '@sisu-ai/mw-tool-calling':
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
+      '@sisu-ai/mw-trace-viewer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
+      '@sisu-ai/tool-web-search-linkup':
+        specifier: workspace:*
+        version: link:../../packages/tools/web-search-linkup
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+
   examples/anthropic-skills:
     dependencies:
       '@sisu-ai/adapter-anthropic':
@@ -244,6 +274,36 @@ importers:
       '@sisu-ai/mw-usage-tracker':
         specifier: workspace:*
         version: link:../../packages/middleware/usage-tracker
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+
+  examples/ollama-linkup-web-search:
+    dependencies:
+      '@sisu-ai/adapter-ollama':
+        specifier: workspace:*
+        version: link:../../packages/adapters/ollama
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
+      '@sisu-ai/mw-error-boundary':
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
+      '@sisu-ai/mw-register-tools':
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
+      '@sisu-ai/mw-tool-calling':
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
+      '@sisu-ai/mw-trace-viewer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
+      '@sisu-ai/tool-web-search-linkup':
+        specifier: workspace:*
+        version: link:../../packages/tools/web-search-linkup
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -710,6 +770,36 @@ importers:
       '@sisu-ai/mw-usage-tracker':
         specifier: workspace:*
         version: link:../../packages/middleware/usage-tracker
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+
+  examples/openai-linkup-web-search:
+    dependencies:
+      '@sisu-ai/adapter-openai':
+        specifier: workspace:*
+        version: link:../../packages/adapters/openai
+      '@sisu-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@sisu-ai/mw-conversation-buffer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/conversation-buffer
+      '@sisu-ai/mw-error-boundary':
+        specifier: workspace:*
+        version: link:../../packages/middleware/error-boundary
+      '@sisu-ai/mw-register-tools':
+        specifier: workspace:*
+        version: link:../../packages/middleware/register-tools
+      '@sisu-ai/mw-tool-calling':
+        specifier: workspace:*
+        version: link:../../packages/middleware/tool-calling
+      '@sisu-ai/mw-trace-viewer':
+        specifier: workspace:*
+        version: link:../../packages/middleware/trace-viewer
+      '@sisu-ai/tool-web-search-linkup':
+        specifier: workspace:*
+        version: link:../../packages/tools/web-search-linkup
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -1603,6 +1693,18 @@ importers:
       '@sisu-ai/core':
         specifier: ^2.4.0
         version: 2.4.0
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+
+  packages/tools/web-search-linkup:
+    dependencies:
+      '@sisu-ai/core':
+        specifier: ^2.4.0
+        version: 2.4.0
+      linkup-sdk:
+        specifier: ^2.7.0
+        version: 2.7.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -3877,6 +3979,10 @@ packages:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
 
+  linkup-sdk@2.7.0:
+    resolution: {integrity: sha512-X/EvibI045zDY+n5SRNlKmmo7rCf9B/krAvuf4Jj6axatIPwufq8LqEi49ScVmgNBMp68wTB19gETK+jPzfl3A==}
+    engines: {node: '>=20.19.0'}
+
   local-pkg@0.5.1:
     resolution: {integrity: sha512-9rrA30MRRP3gBD3HTGnC6cDFpaE1kVDWxWgqWJUN0RvDNAo+Nz/9GxB+nHOH0ifbVFy0hSA1V6vFDvnx54lTEQ==}
     engines: {node: '>=14'}
@@ -4781,6 +4887,11 @@ packages:
 
   yoga-layout@3.2.1:
     resolution: {integrity: sha512-0LPOt3AxKqMdFBZA3HBAt/t/8vIKq7VaQYbuA8WxCgung+p9TVyKRYdpvCb80HcdTN2NkbIKbhNwKUfm3tQywQ==}
+
+  zod-to-json-schema@3.25.2:
+    resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
+    peerDependencies:
+      zod: ^3.25.28 || ^4
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
@@ -7463,6 +7574,14 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
 
+  linkup-sdk@2.7.0:
+    dependencies:
+      axios: 1.13.6
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
+    transitivePeerDependencies:
+      - debug
+
   local-pkg@0.5.1:
     dependencies:
       mlly: 1.8.0
@@ -8419,6 +8538,10 @@ snapshots:
   yocto-queue@1.2.2: {}
 
   yoga-layout@3.2.1: {}
+
+  zod-to-json-schema@3.25.2(zod@3.25.76):
+    dependencies:
+      zod: 3.25.76
 
   zod@3.25.76: {}
 
