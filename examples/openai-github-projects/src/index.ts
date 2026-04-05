@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, parseLogLevel } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
@@ -23,12 +23,7 @@ const ctx = createCtx({
   input: userInput,
   systemPrompt:
     "You are a helpful assistant. Use tools to interact with GitHub Projects. Start by planning out what tools to use and in what order, an interaction could require multiple tool calls in correct order.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const app = new Agent()

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { anthropicAdapter } from "@sisu-ai/adapter-anthropic";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
@@ -21,12 +21,7 @@ const ctx = createCtx({
     model: process.env.MODEL || "claude-sonnet-4-20250514",
   }),
   systemPrompt: "You are a concise, helpful assistant.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
   tools: {
     list: () => [],
     get: () => undefined,

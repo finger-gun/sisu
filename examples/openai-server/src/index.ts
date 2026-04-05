@@ -1,9 +1,10 @@
 import "dotenv/config";
 import {
-  Agent,
+Agent,
   createCtx,
   type ModelEvent,
   type ModelResponse,
+  parseLogLevel,
 } from "@sisu-ai/core";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
@@ -81,12 +82,7 @@ const server = new Server<HttpCtx>(app, {
       ...createCtx({
         model,
         systemPrompt: "You are a helpful assistant.",
-        logLevel: process.env.LOG_LEVEL as
-          | "debug"
-          | "info"
-          | "warn"
-          | "error"
-          | undefined,
+        logLevel: parseLogLevel(process.env.LOG_LEVEL),
       }),
     } as HttpCtx),
 });

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { ollamaAdapter } from "@sisu-ai/adapter-ollama";
@@ -20,12 +20,7 @@ const userMessage = {
 const ctx = createCtx({
   model: ollamaAdapter({ model: process.env.MODEL || "llava:latest" }),
   systemPrompt: "You are a concise, helpful assistant.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
   tools: {
     list: () => [],
     get: () => undefined,

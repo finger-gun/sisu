@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, parseLogLevel } from "@sisu-ai/core";
 import { ollamaAdapter } from "@sisu-ai/adapter-ollama";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
@@ -16,12 +16,7 @@ const ctx = createCtx({
   input: "Search the web for the tallest mountain in Europe.",
   systemPrompt:
     "You are a helpful assistant. Use the webSearch tool when you need external information.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const app = new Agent()

@@ -1,6 +1,6 @@
 import "dotenv/config";
 import path from "node:path";
-import { Agent, createCtx, type Ctx } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, parseLogLevel } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
@@ -35,12 +35,7 @@ const ctx = createCtx({
     "Map where tool aliases are configured in this repo. Use the repo-search skill.",
   systemPrompt:
     "You are a helpful assistant. Use skills when they provide structured guidance.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const app = new Agent()

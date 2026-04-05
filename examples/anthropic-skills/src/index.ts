@@ -1,6 +1,6 @@
 import "dotenv/config";
 import path from "node:path";
-import { Agent, createCtx, type Ctx } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, parseLogLevel } from "@sisu-ai/core";
 import { anthropicAdapter } from "@sisu-ai/adapter-anthropic";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
@@ -36,12 +36,7 @@ const ctx = createCtx({
     process.env.USER_INPUT ||
     "Find where skills middleware is initialized and summarize its configuration. Use the repo-search skill.",
   systemPrompt: "You are a helpful code review assistant.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const app = new Agent()

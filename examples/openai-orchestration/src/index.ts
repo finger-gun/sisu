@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, parseLogLevel } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import {
   inputToMessage,
@@ -111,12 +111,7 @@ const ctx = createCtx({
   input: userPrompt,
   systemPrompt:
     `You are an orchestration controller.\nAlways use delegateTask for specialized work and finish with finish(answer).\nComplete 3 delegation phases before finish:\n1) research using tools [getWeather, getCityEvents]\n2) risk review using [assessOutdoorRisk]\n3) synthesis using [summarizePlan]\nIf delegation feedback reports validation errors, fix and retry.\nFinal answer must include: plan, risk note, and one backup option.`,
-  logLevel: (process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined) ?? "info",
+  logLevel: parseLogLevel(process.env.LOG_LEVEL) ?? "info",
 });
 
 const app = new Agent()

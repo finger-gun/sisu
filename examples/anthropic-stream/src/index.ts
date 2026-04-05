@@ -1,11 +1,12 @@
 import "dotenv/config";
 import {
-  Agent,
+Agent,
   createCtx,
   stdoutStream,
   bufferStream,
   teeStream,
   streamOnce,
+  parseLogLevel,
 } from "@sisu-ai/core";
 import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
 import { anthropicAdapter } from "@sisu-ai/adapter-anthropic";
@@ -20,12 +21,7 @@ const ctx = createCtx({
   input: "Please explain our solar system as if I was 5.",
   systemPrompt: "You are a helpful assistant.",
   stream: teeStream(stdoutStream, buf.stream), // or just stdoutStream
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const app = new Agent().use(inputToMessage).use(streamOnce); // streams tokens to ctx.stream, captures final assistant message

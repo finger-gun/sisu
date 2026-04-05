@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, parseLogLevel } from "@sisu-ai/core";
 import { anthropicAdapter } from "@sisu-ai/adapter-anthropic";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
@@ -21,12 +21,7 @@ const ctx = createCtx({
     "Summarize the latest major AI regulation updates globally.",
   systemPrompt:
     "You are a helpful assistant. Use webSearch when current web information is needed.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const app = new Agent()

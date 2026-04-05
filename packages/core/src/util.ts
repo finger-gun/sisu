@@ -11,8 +11,29 @@ import type {
   ModelResponse,
 } from "./types.js";
 
-type Level = "debug" | "info" | "warn" | "error";
-const order: Record<Level, number> = {
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+function parseLogLevelRaw(level: string): LogLevel | undefined {
+  switch (level.toLowerCase()) {
+    case "debug":
+      return "debug";
+    case "info":
+      return "info";
+    case "warn":
+      return "warn";
+    case "error":
+      return "error";
+    default:
+      return undefined;
+  }
+}
+
+export function parseLogLevel(level: string | undefined): LogLevel | undefined {
+  if (!level) return undefined;
+  return parseLogLevelRaw(level);
+}
+
+const order: Record<LogLevel, number> = {
   debug: 10,
   info: 20,
   warn: 30,
@@ -26,15 +47,14 @@ function nowTs() {
 }
 
 export function createConsoleLogger(
-  opts: { level?: Level; timestamps?: boolean } = {},
+  opts: { level?: LogLevel; timestamps?: boolean } = {},
 ): Logger {
-  const envLevel = (
-    process.env.LOG_LEVEL as Level | undefined
-  )?.toLowerCase() as Level | undefined;
-  const level: Level = opts.level ?? envLevel ?? "info";
+  const envLevel = parseLogLevel(process.env.LOG_LEVEL);
+  const level: LogLevel = opts.level ?? envLevel ?? "info";
   const showTs = opts.timestamps ?? true;
-  const enabled = (lvl: Level) => order[lvl] >= order[level];
-  const prefix = (lvl: Level) => (showTs ? `[${nowTs()}] ` : "") + `[${lvl}]`;
+  const enabled = (lvl: LogLevel) => order[lvl] >= order[level];
+  const prefix = (lvl: LogLevel) =>
+    (showTs ? `[${nowTs()}] ` : "") + `[${lvl}]`;
   return {
     debug: (...a) => {
       if (enabled("debug")) console.debug(prefix("debug"), ...a);
@@ -61,11 +81,11 @@ export function createConsoleLogger(
 
 // Backward-compatible always-on logger
 export const consoleLogger: Logger = createConsoleLogger({
-  level: (process.env.LOG_LEVEL as Level | undefined) ?? "debug",
+  level: parseLogLevel(process.env.LOG_LEVEL) ?? "debug",
 });
 
 export interface TraceEvent {
-  level: Level | "span";
+  level: LogLevel | "span";
   ts: string;
   args: unknown[];
 }
@@ -352,7 +372,7 @@ export interface CreateCtxOptions {
   model: LLM; // Required - the only essential piece
   input?: string;
   systemPrompt?: string;
-  logLevel?: Level;
+  logLevel?: LogLevel;
   timestamps?: boolean; // For logger
   signal?: globalThis.AbortSignal;
   tools?: Tool[] | ToolRegistry; // Accept array OR ToolRegistry instance

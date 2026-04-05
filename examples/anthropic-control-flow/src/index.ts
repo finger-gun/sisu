@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel } from "@sisu-ai/core";
 import { anthropicAdapter } from "@sisu-ai/adapter-anthropic";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
@@ -29,12 +29,7 @@ const ctx = createCtx({
   model: anthropicAdapter({ model: "claude-sonnet-4-20250514" }),
   input: "Weather in Malmö and suggest a fika plan.",
   systemPrompt: "Be helpful. Use tools when needed.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const intentClassifier = async (c: Ctx, next: () => Promise<void>) => {
