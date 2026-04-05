@@ -294,6 +294,11 @@ export const stdoutStream: TokenStream = {
   },
 };
 
+export const inputToMessage: Middleware = async (ctx, next) => {
+  if (ctx.input) ctx.messages.push({ role: "user", content: ctx.input });
+  await next();
+};
+
 export function bufferStream() {
   let buf = "";
   return {

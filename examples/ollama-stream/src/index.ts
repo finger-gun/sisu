@@ -15,7 +15,7 @@ import { ollamaAdapter } from "@sisu-ai/adapter-ollama";
 const buf = bufferStream();
 
 const ctx = createCtx({
-  model: ollamaAdapter({ model: process.env.MODEL || "llama3" }),
+  model: ollamaAdapter({ model: process.env.MODEL || "gemma4:e4b" }),
   input: "Please explain our solar system as if I was 5.",
   systemPrompt: "You are a helpful assistant.",
   stream: teeStream(stdoutStream, buf.stream), // or just stdoutStream

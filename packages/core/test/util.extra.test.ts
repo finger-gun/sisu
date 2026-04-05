@@ -5,8 +5,10 @@ import {
   configFromFlagsAndEnv,
   firstConfigValue,
   parseLogLevel,
+  inputToMessage,
   bufferStream,
   teeStream,
+  InMemoryKV,
   SimpleTools,
   NullStream,
 } from '../src/util.js';
@@ -69,6 +71,25 @@ test('NullStream is a safe no-op', () => {
   // should not throw
   s.write('x');
   s.end();
+});
+
+test('inputToMessage appends user input when present', async () => {
+  const ac = new AbortController();
+  const ctx = {
+    input: 'hello',
+    messages: [],
+    model: { name: 'dummy', capabilities: {}, async generate() { return { message: { role: 'assistant', content: '' } }; } },
+    tools: new SimpleTools(),
+    memory: new InMemoryKV(),
+    stream: new NullStream(),
+    state: {},
+    signal: ac.signal,
+    log: { debug() {}, info() {}, warn() {}, error() {}, span() {} },
+  } as unknown as Ctx;
+
+  await inputToMessage(ctx, async () => {});
+
+  expect(ctx.messages).toEqual([{ role: 'user', content: 'hello' }]);
 });
 
 test('createTracingLogger records events and forwards', () => {

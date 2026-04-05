@@ -12,7 +12,7 @@ import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { linkupWebSearch } from "@sisu-ai/tool-web-search-linkup";
 
 const ctx = createCtx({
-  model: ollamaAdapter({ model: process.env.MODEL || "llama3.1" }),
+  model: ollamaAdapter({ model: process.env.MODEL || "gemma4:e4b" }),
   input:
     process.argv.slice(2).join(" ") ||
     "Find the latest AI policy news in Europe.",

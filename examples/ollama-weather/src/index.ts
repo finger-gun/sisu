@@ -17,9 +17,9 @@ const weather: Tool<WeatherArgs> = {
   handler: async ({ city }) => ({ city, tempC: 21, summary: 'Sunny' }),
 };
 
-// Ensure: ollama serve; ollama pull llama3.1:latest
+// Ensure: ollama serve; ollama pull gemma4:e4b
 const ctx = createCtx({
-  model: ollamaAdapter({ model: process.env.MODEL || 'llama3.1' }),
+  model: ollamaAdapter({ model: process.env.MODEL || 'gemma4:e4b' }),
   input: process.argv.slice(2).join(' ') || 'What is the weather in Malmö?',
   systemPrompt: 'You are a helpful assistant.',
 });

@@ -1,22 +1,16 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, inputToMessage, parseLogLevel } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { ollamaAdapter } from "@sisu-ai/adapter-ollama";
 
-// Minimal example with Ollama (local). Ensure ollama is running, and the model is pulled.
-// Example: ollama serve; ollama pull llama3.1:latest
 const ctx = createCtx({
-  model: ollamaAdapter({ model: process.env.MODEL || "llama3.1" }),
+  model: ollamaAdapter({ model: process.env.MODEL || "gemma4:e4b" }),
   input: "Say hello in one short sentence.",
   systemPrompt: "You are a helpful assistant.",
   logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
-const inputToMessage = async (c: Ctx, next: () => Promise<void>) => {
-  if (c.input) c.messages.push({ role: "user", content: c.input });
-  await next();
-};
 const generateOnce = async (c: Ctx) => {
   const res = (await c.model.generate(c.messages, {
     toolChoice: "none",

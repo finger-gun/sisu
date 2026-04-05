@@ -164,7 +164,7 @@ import { sequence, branch, parallel, graph } from '@sisu-ai/mw-control-flow';
 ```ts
 const model = openAIAdapter({ model: "gpt-5.4" });
 // const model = anthropicAdapter({ model: 'claude-sonnet-4' });
-// const model = ollamaAdapter({ model: 'llama3.1' });
+// const model = ollamaAdapter({ model: 'gemma4:e4b' });
 ```
 
 The OpenAI adapter works with any compatible API (LM Studio, vLLM, OpenRouter):
@@ -242,7 +242,7 @@ pnpm run ex:openai:orchestration
 pnpm run ex:openai:orchestration-adaptive
 
 # Ollama (local, no API key needed)
-ollama serve && ollama pull llama3.1
+ollama serve && ollama pull gemma4:e4b
 pnpm run ex:ollama:hello
 
 # Desktop macOS app (starts local runtime + SwiftUI app)

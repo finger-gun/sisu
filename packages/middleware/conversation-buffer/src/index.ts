@@ -1,9 +1,9 @@
+import { inputToMessage } from "@sisu-ai/core";
 import type { Middleware } from "@sisu-ai/core";
 import type { Message } from "@sisu-ai/core";
-export const inputToMessage: Middleware = async (ctx, next) => {
-  if (ctx.input) ctx.messages.push({ role: "user", content: ctx.input });
-  await next();
-};
+
+export { inputToMessage };
+
 export const conversationBuffer =
   ({ window = 12 }: { window?: number } = {}): Middleware =>
   async (ctx, next) => {

@@ -1449,10 +1449,10 @@ importers:
         version: 2.5.0
 
   packages/middleware/conversation-buffer:
-    dependencies:
+    devDependencies:
       '@sisu-ai/core':
-        specifier: ^2.5.0
-        version: 2.5.0
+        specifier: workspace:*
+        version: link:../../core
 
   packages/middleware/cors:
     dependencies:

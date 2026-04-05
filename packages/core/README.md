@@ -32,7 +32,7 @@ npm i @sisu-ai/core
 ### 60-Second Example
 ```ts
 import 'dotenv/config';
-import { Agent, createCtx } from '@sisu-ai/core';
+import { Agent, createCtx, inputToMessage } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
 // 1. Create your context
@@ -44,11 +44,6 @@ const ctx = createCtx({
 });
 
 // 2. Build your pipeline (middleware style)
-const inputToMessage = async (c, next) => { 
-  if (c.input) c.messages.push({ role: 'user', content: c.input }); 
-  await next(); 
-};
-
 const generateOnce = async (c) => { 
   const res = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });
   if (res?.message) c.messages.push(res.message);

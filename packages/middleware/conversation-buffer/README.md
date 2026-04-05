@@ -14,7 +14,7 @@ npm i @sisu-ai/mw-conversation-buffer
 ```
 
 ## Exports
-- `inputToMessage` — appends `{ role:'user', content: ctx.input }` when present.
+- `inputToMessage` — appends `{ role:'user', content: ctx.input }` when present (re-exported from `@sisu-ai/core`).
 - `conversationBuffer({ window=12 })` — keeps the first message and the last `window` messages.
 
 

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, inputToMessage, parseLogLevel } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
@@ -11,10 +11,6 @@ const ctx = createCtx({
   logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
-const inputToMessage = async (c: Ctx, next: () => Promise<void>) => {
-  if (c.input) c.messages.push({ role: "user", content: c.input });
-  await next();
-};
 const generateOnce = async (c: Ctx) => {
   const res = (await c.model.generate(c.messages, {
     toolChoice: "none",

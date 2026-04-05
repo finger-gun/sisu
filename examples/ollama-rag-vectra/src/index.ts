@@ -12,7 +12,7 @@ import { createVectraVectorStore } from "@sisu-ai/vector-vectra";
 import { docs } from "./docs";
 
 const model = ollamaAdapter({
-  model: process.env.MODEL || "llama3.1",
+  model: process.env.MODEL || "gemma4:e4b",
   baseUrl: process.env.BASE_URL,
 });
 const embeddings = ollamaEmbeddings({
@@ -99,7 +99,7 @@ try {
       "embeddinggemma";
     console.error("\n❌ Ollama model not found:", missingModel);
     console.error("💡 Pull the required models first:");
-    console.error(`   ollama pull ${process.env.MODEL || "llama3.1"}`);
+    console.error(`   ollama pull ${process.env.MODEL || "gemma4:e4b"}`);
     console.error(`   ollama pull ${missingModel}`);
     console.error(
       "   Or set EMBEDDING_MODEL to a local embedding model you already have.",

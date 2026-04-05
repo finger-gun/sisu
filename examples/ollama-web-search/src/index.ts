@@ -12,7 +12,7 @@ import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { duckDuckGoWebSearch } from "@sisu-ai/tool-web-search-duckduckgo";
 
 const ctx = createCtx({
-  model: ollamaAdapter({ model: process.env.MODEL || "llama3.1" }),
+  model: ollamaAdapter({ model: process.env.MODEL || "gemma4:e4b" }),
   input: "Search the web for the tallest mountain in Europe.",
   systemPrompt:
     "You are a helpful assistant. Use the webSearch tool when you need external information.",
