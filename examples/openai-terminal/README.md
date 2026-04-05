@@ -20,5 +20,5 @@ npm install
 npm run build -ws
 
 # 2) Run the example with tracing enabled
-MODEL=gpt-4o-mini npm run dev -w examples/openai-terminal -- --trace
+MODEL=gpt-5.4 npm run dev -w examples/openai-terminal -- --trace
 ```

@@ -12,7 +12,7 @@ import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { openAIWebSearch } from "@sisu-ai/tool-web-search-openai";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: "Find recent news about NASA missions.",
   systemPrompt:
     "You are a helpful assistant. Use the webSearch tool for up to date information.",

@@ -87,7 +87,7 @@ export const PROFILE_FILE_NAME = 'chat-profile.json';
 export const RECOMMENDED_OLLAMA_MODELS = ['qwen3.5:9b', 'llama3.1', 'llama4', 'qwen3.5:0.8b'] as const;
 const DEFAULT_MODEL_BY_PROVIDER: Record<ChatProviderId, string> = {
   mock: 'sisu-mock-chat-v1',
-  openai: 'gpt-4o-mini',
+  openai: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-20250514',
   ollama: RECOMMENDED_OLLAMA_MODELS[0],
 };

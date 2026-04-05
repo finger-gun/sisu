@@ -167,7 +167,7 @@ describe('chat cli', () => {
     const baseProfile: ChatProfile = {
       name: 'p',
       provider: 'openai',
-      model: 'gpt-4o-mini',
+      model: 'gpt-5.4',
       theme: 'auto',
       storageDir: '/tmp/sisu',
       toolPolicy: mergeToolPolicy(),

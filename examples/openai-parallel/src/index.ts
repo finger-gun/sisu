@@ -8,7 +8,7 @@ import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { parallel, sequence } from "@sisu-ai/mw-control-flow";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: "Explain sisu in two sentences and provide 5 concise hashtags.",
   systemPrompt: "Be concise.",
   logLevel: process.env.LOG_LEVEL as

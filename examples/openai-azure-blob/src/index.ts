@@ -14,7 +14,7 @@ import { azureGetBlob, azureListBlobsDetailed } from "@sisu-ai/tool-azure-blob";
 const container = process.env.AZURE_CONTAINER || "test";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: `Read the latest blob in my container ${container} on Azure Storage.`,
   systemPrompt: "You are a helpful assistant.",
   logLevel: process.env.LOG_LEVEL as

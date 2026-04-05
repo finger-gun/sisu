@@ -14,7 +14,7 @@ import { webFetch } from "@sisu-ai/tool-web-fetch";
 const urlArg = "https://en.wikipedia.org/wiki/Hubble_Space_Telescope";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: `Summarize the content from this URL: ${urlArg}.`,
   systemPrompt: "You are a helpful assistant.",
   logLevel: process.env.LOG_LEVEL as

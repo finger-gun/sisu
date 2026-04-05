@@ -12,7 +12,7 @@ import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { wikipedia } from "@sisu-ai/tool-wikipedia";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: "Tell me about the Hubble Space Telescope using Wikipedia.",
   systemPrompt:
     'You are a helpful assistant. Use the wikipediaLookup tool to fetch accurate facts. Prefer format: "summary". If the title is ambiguous, first call with format: "related" to pick the best page.',

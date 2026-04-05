@@ -290,7 +290,7 @@ async function suggestedModelsForProvider(provider: ChatProviderId, cwd: string)
     return [suggestedModelForProvider('ollama', [])];
   }
   if (provider === 'openai') {
-    return ['gpt-4o-mini', 'gpt-4.1', 'gpt-5-mini'];
+    return ['gpt-5.4', 'gpt-4.1', 'gpt-5-mini'];
   }
   if (provider === 'anthropic') {
     return ['claude-sonnet-4-20250514', 'claude-opus-4.1'];

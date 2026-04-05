@@ -12,7 +12,7 @@ import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { linkupWebSearch } from "@sisu-ai/tool-web-search-linkup";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input:
     process.argv.slice(2).join(" ") ||
     "What are the latest updates about NASA Artemis missions?",

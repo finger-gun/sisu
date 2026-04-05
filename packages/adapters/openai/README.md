@@ -37,9 +37,9 @@ Discover what you can do through examples or documentation. Check it out at http
 import { createEmbeddingsClient } from '@sisu-ai/core';
 import { openAIAdapter, openAIEmbeddings } from '@sisu-ai/adapter-openai';
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: 'gpt-5.4' });
 // or with a gateway
-const model = openAIAdapter({ model: 'gpt-4o-mini', baseUrl: 'https://openrouter.ai/api/' });
+const model = openAIAdapter({ model: 'gpt-5.4', baseUrl: 'https://openrouter.ai/api/' });
 
 const embeddings = openAIEmbeddings({ model: 'text-embedding-3-small' });
 const vectors = await embeddings.embed(['first text', 'second text']);
@@ -82,7 +82,7 @@ const res = await model.generate(messages, { toolChoice: 'none' });
 **Cost estimation:** With `@sisu-ai/mw-usage-tracker`, configure pricing per 1M tokens.   
 
 **Examples:**
-- gpt-4o-mini: inputPer1M ≈ 0.15, outputPer1M ≈ 0.60
+- gpt-5.4: inputPer1M ≈ 0.15, outputPer1M ≈ 0.60
 - Images: Prefer `imagePer1K` (e.g., ≈0.217 per 1K images). Alternatively, use `imageInputPer1K` + `imageTokenPerImage`.
 
 ## Reasoning Models Support
@@ -185,7 +185,7 @@ const response2 = await llm.generate(messages, { reasoning: true });
 | o3-preview | OpenAI | ✅ Full | Next-gen reasoning (limited access) |
 | gpt-5.1 | OpenRouter | ✅ Full | Via OpenRouter with `baseUrl` |
 | gpt-4o | OpenAI | ⚠️ Partial | Accepts parameter but limited reasoning |
-| gpt-4o-mini | OpenAI | ⚠️ Partial | Accepts parameter but limited reasoning |
+| gpt-5.4 | OpenAI | ⚠️ Partial | Accepts parameter but limited reasoning |
 
 **Usage with OpenRouter:**
 ```typescript

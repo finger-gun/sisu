@@ -31,7 +31,7 @@ function makeProfile(storageDir: string, provider: ChatProfile['provider'] = 'mo
   return {
     name: 'coverage',
     provider,
-    model: provider === 'openai' ? 'gpt-4o-mini' : provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'llama3.1',
+    model: provider === 'openai' ? 'gpt-5.4' : provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'llama3.1',
     theme: 'plain',
     storageDir,
     toolPolicy: mergeToolPolicy(),

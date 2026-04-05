@@ -8,7 +8,7 @@ import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { graph, type Node, type Edge } from "@sisu-ai/mw-control-flow";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: "Give me a short travel tip for Helsinki.",
   systemPrompt: "Be helpful and brief.",
   logLevel: process.env.LOG_LEVEL as

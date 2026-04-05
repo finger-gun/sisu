@@ -57,7 +57,7 @@ const weather: Tool<{ city: string }> = {
 };
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  model: openAIAdapter({ model: "gpt-5.4" }),
   input: "What is the weather in Stockholm?",
   systemPrompt: "You are a helpful assistant.",
 });
@@ -162,7 +162,7 @@ import { sequence, branch, parallel, graph } from '@sisu-ai/mw-control-flow';
 ### Swap Providers in One Line
 
 ```ts
-const model = openAIAdapter({ model: "gpt-4o-mini" });
+const model = openAIAdapter({ model: "gpt-5.4" });
 // const model = anthropicAdapter({ model: 'claude-sonnet-4' });
 // const model = ollamaAdapter({ model: 'llama3.1' });
 ```
@@ -171,7 +171,7 @@ The OpenAI adapter works with any compatible API (LM Studio, vLLM, OpenRouter):
 
 ```ts
 const model = openAIAdapter({
-  model: "gpt-4o-mini",
+  model: "gpt-5.4",
   baseUrl: "http://localhost:1234/v1",
 });
 ```
@@ -274,7 +274,7 @@ npx @sisu-ai/cli install skill
 # LLM Providers
 API_KEY=sk-...
 BASE_URL=http://localhost:11434           # optional, when overriding provider defaults
-MODEL=gpt-4o-mini                         # optional, example/provider dependent
+MODEL=gpt-5.4                         # optional, example/provider dependent
 
 # Logging
 LOG_LEVEL=info        # debug | info | warn | error

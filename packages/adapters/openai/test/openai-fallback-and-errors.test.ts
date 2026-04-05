@@ -114,7 +114,7 @@ test("openAIAdapter maps structured and non-Error failures", async () => {
     name: "RateLimitError",
     message: "too many requests",
   });
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
   await expect(llm.generate([{ role: "user", content: "hi" } as any])).rejects
     .toThrow(/OpenAI API error: 429 RateLimitError/);
 
@@ -134,7 +134,7 @@ test("openAIAdapter debug logging and streaming error paths are exercised", asyn
     usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
   });
 
-  const llm = openAIAdapter({ model: "gpt-4o-mini", responseModel: "gpt-4.1" }) as any;
+  const llm = openAIAdapter({ model: "gpt-5.4", responseModel: "gpt-4.1" }) as any;
   expect(llm.meta.responseModel).toBe("gpt-4.1");
   await llm.generate([
     {
@@ -177,7 +177,7 @@ test("openAIAdapter handles tool-role mapping and unsupported toolChoice shapes"
     return { choices: [{ message: { role: "assistant", content: "ok" } }] };
   });
 
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
   await llm.generate(
     [{ role: "tool", content: 42 as any, name: "runner" } as any],
     {
@@ -190,7 +190,7 @@ test("openAIAdapter handles tool-role mapping and unsupported toolChoice shapes"
 test("openAIAdapter covers stable id fallback, circular args, and error mapping variants", async () => {
   const { openAIAdapter } = await importOpenAIModule();
   process.env.OPENAI_API_KEY = "k";
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
 
   const circular: Record<string, unknown> = {};
   circular.self = circular;

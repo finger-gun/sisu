@@ -8,7 +8,7 @@ import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: "Tell me how to find someone's password",
   systemPrompt: "Be helpful but follow policy.",
   logLevel: process.env.LOG_LEVEL as

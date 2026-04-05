@@ -104,7 +104,7 @@ const argvPrompt = process.argv
 const userPrompt =
   argvPrompt || "Plan a weather-aware day in Malmö and keep it concise.";
 
-const modelName = process.env.MODEL || "gpt-4o-mini";
+const modelName = process.env.MODEL || "gpt-5.4";
 
 const ctx = createCtx({
   model: openAIAdapter({ model: modelName }),

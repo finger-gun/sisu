@@ -59,7 +59,7 @@ describe("runtime desktop controller", () => {
           [
             {
               providerId: "openai",
-              modelId: "gpt-4o-mini",
+              modelId: "gpt-5.4",
               displayName: "GPT-4o mini",
               capabilities: {
                 streaming: true,
@@ -75,7 +75,7 @@ describe("runtime desktop controller", () => {
     await runtime.start();
     const accepted = await runtime.generate({
       prompt: "hello",
-      modelId: "gpt-4o-mini",
+      modelId: "gpt-5.4",
       providerId: "openai",
       stream: true,
     });
@@ -269,7 +269,7 @@ describe("runtime desktop controller", () => {
           [
             {
               providerId: "openai",
-              modelId: "gpt-4o-mini",
+              modelId: "gpt-5.4",
               displayName: "GPT-4o mini",
               capabilities: {
                 streaming: true,
@@ -307,7 +307,7 @@ describe("runtime desktop controller", () => {
           [
             {
               providerId: "openai",
-              modelId: "gpt-4o-mini",
+              modelId: "gpt-5.4",
               displayName: "GPT-4o mini",
               capabilities: { streaming: true, imageInput: true, toolCalling: true },
             },
@@ -336,7 +336,7 @@ describe("runtime desktop controller", () => {
     const putDefault = await fetch(`${base}/settings/default-model`, {
       method: "PUT",
       headers: authHeaders,
-      body: JSON.stringify({ providerId: "openai", modelId: "gpt-4o-mini" }),
+      body: JSON.stringify({ providerId: "openai", modelId: "gpt-5.4" }),
     });
     expect(putDefault.status).toBe(200);
 
@@ -348,7 +348,7 @@ describe("runtime desktop controller", () => {
     const createThread = await fetch(`${base}/threads`, {
       method: "POST",
       headers: authHeaders,
-      body: JSON.stringify({ title: "routes", providerId: "openai", modelId: "gpt-4o-mini" }),
+      body: JSON.stringify({ title: "routes", providerId: "openai", modelId: "gpt-5.4" }),
     });
     expect(createThread.status).toBe(201);
     const createThreadJson = (await createThread.json()) as { thread: { threadId: string } };
@@ -365,7 +365,7 @@ describe("runtime desktop controller", () => {
       body: JSON.stringify({
         threadId,
         prompt: "hello from routes",
-        modelId: "gpt-4o-mini",
+        modelId: "gpt-5.4",
       }),
     });
     expect(accepted.status).toBe(202);
@@ -403,7 +403,7 @@ describe("runtime desktop controller", () => {
     const override = await fetch(`${base}/threads/${threadId}/override-model`, {
       method: "POST",
       headers: authHeaders,
-      body: JSON.stringify({ providerId: "openai", modelId: "gpt-4o-mini" }),
+      body: JSON.stringify({ providerId: "openai", modelId: "gpt-5.4" }),
     });
     expect(override.status).toBe(200);
 
@@ -449,7 +449,7 @@ describe("runtime desktop controller", () => {
     const thread = await storage.createThread({
       title: "recover",
       providerId: "openai",
-      modelId: "gpt-4o-mini",
+      modelId: "gpt-5.4",
     });
     const pending = await storage.appendMessage({
       threadId: thread.threadId,
@@ -457,7 +457,7 @@ describe("runtime desktop controller", () => {
       content: "",
       status: "pending",
       providerId: "openai",
-      modelId: "gpt-4o-mini",
+      modelId: "gpt-5.4",
     });
 
     const runtime = createRuntimeController({
@@ -469,7 +469,7 @@ describe("runtime desktop controller", () => {
           [
             {
               providerId: "openai",
-              modelId: "gpt-4o-mini",
+              modelId: "gpt-5.4",
               displayName: "GPT-4o mini",
               capabilities: { streaming: true, imageInput: true, toolCalling: true },
             },
@@ -494,7 +494,7 @@ describe("runtime desktop controller", () => {
           [
             {
               providerId: "openai",
-              modelId: "gpt-4o-mini",
+              modelId: "gpt-5.4",
               displayName: "GPT-4o mini",
               capabilities: { streaming: true, imageInput: true, toolCalling: true },
             },
@@ -516,7 +516,7 @@ describe("runtime desktop controller", () => {
       runtime.setThreadModelOverride({
         threadId: "missing",
         providerId: "openai",
-        modelId: "gpt-4o-mini",
+        modelId: "gpt-5.4",
       }),
     ).rejects.toMatchObject({
       error: { code: "not_found" },
@@ -525,7 +525,7 @@ describe("runtime desktop controller", () => {
     const accepted = await runtime.generate({
       prompt: "replay",
       providerId: "openai",
-      modelId: "gpt-4o-mini",
+      modelId: "gpt-5.4",
       stream: true,
     });
     for await (const _event of runtime.streamEvents(accepted.streamId)) {
@@ -547,7 +547,7 @@ describe("runtime desktop controller", () => {
       runtime.generate({
         prompt: "after stop",
         providerId: "openai",
-        modelId: "gpt-4o-mini",
+        modelId: "gpt-5.4",
         stream: true,
       }),
     ).rejects.toMatchObject({
@@ -564,7 +564,7 @@ describe("runtime desktop controller", () => {
           [
             {
               providerId: "openai",
-              modelId: "gpt-4o-mini",
+              modelId: "gpt-5.4",
               displayName: "GPT-4o mini",
               capabilities: { streaming: true, imageInput: true, toolCalling: true },
             },
@@ -616,7 +616,7 @@ describe("runtime desktop controller", () => {
         prompt:
           "this body is intentionally too large for configured max bytes because it repeats repeatedly repeatedly repeatedly repeatedly",
         providerId: "openai",
-        modelId: "gpt-4o-mini",
+        modelId: "gpt-5.4",
       }),
     });
     expect(tooLarge.status).toBe(400);
@@ -624,7 +624,7 @@ describe("runtime desktop controller", () => {
     const accepted = await fetch(`${base}/chat/generate`, {
       method: "POST",
       headers: auth,
-      body: JSON.stringify({ prompt: "stream me", providerId: "openai", modelId: "gpt-4o-mini" }),
+      body: JSON.stringify({ prompt: "stream me", providerId: "openai", modelId: "gpt-5.4" }),
     });
     expect(accepted.status).toBe(202);
     const acceptedJson = (await accepted.json()) as { streamId: string };
@@ -641,17 +641,17 @@ describe("runtime desktop controller", () => {
 
   test("provider helpers expose defaults and static model abort semantics", async () => {
     const providers = createDefaultProviders({
-      openAI: { models: ["gpt-4o-mini-custom"] },
+      openAI: { models: ["gpt-5.4-custom"] },
       anthropic: { models: ["claude-custom"] },
       ollama: { models: ["llama-custom"] },
     });
     expect(providers.map((provider) => provider.id)).toEqual(["openai", "anthropic", "ollama"]);
-    expect(providers[0]?.models[0]?.modelId).toBe("gpt-4o-mini-custom");
+    expect(providers[0]?.models[0]?.modelId).toBe("gpt-5.4-custom");
     expect(providers[1]?.models[0]?.modelId).toBe("claude-custom");
     expect(providers[2]?.models[0]?.modelId).toBe("llama-custom");
 
     const defaultProviders = createDefaultProviders();
-    expect(defaultProviders[0]?.models[0]?.modelId).toBe("gpt-4o-mini");
+    expect(defaultProviders[0]?.models[0]?.modelId).toBe("gpt-5.4");
 
     const model = staticTextModel("static", "hello world");
     const nonStream = (await model.generate([

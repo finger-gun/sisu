@@ -38,7 +38,7 @@ function response(message: Message): Promise<ModelResponse> {
 
 test("orchestration completes on finish control action", async () => {
   const model: LLM = {
-    name: "gpt-4o-mini",
+    name: "gpt-5.4",
     capabilities: { functionCall: true },
     generate: async () =>
       response({
@@ -62,7 +62,7 @@ test("orchestration completes on finish control action", async () => {
 
 test("orchestration rejects unsupported control tools", async () => {
   const model: LLM = {
-    name: "gpt-4o-mini",
+    name: "gpt-5.4",
     capabilities: { functionCall: true },
     generate: async () =>
       response({
@@ -86,7 +86,7 @@ test("orchestration rejects unsupported control tools", async () => {
 test("orchestration captures delegate validation failures", async () => {
   let calls = 0;
   const model: LLM = {
-    name: "gpt-4o-mini",
+    name: "gpt-5.4",
     capabilities: { functionCall: true },
     generate: async () => {
       calls += 1;
@@ -140,7 +140,7 @@ test("orchestration normalizes delegation payload using defaults", async () => {
   });
 
   const model: LLM = {
-    name: "gpt-4o-mini",
+    name: "gpt-5.4",
     capabilities: { functionCall: true },
     generate: async () => {
       calls += 1;
@@ -180,12 +180,12 @@ test("orchestration normalizes delegation payload using defaults", async () => {
 
   const toolResult = ctx.messages.find((m) => m.role === "tool");
   expect(String(toolResult?.content)).toContain('"toolsAllowed":["echo"]');
-  expect(String(toolResult?.content)).toContain('"model":"gpt-4o-mini"');
+  expect(String(toolResult?.content)).toContain('"model":"gpt-5.4"');
 });
 
 test("orchestration enforces correction retry budget", async () => {
   const model: LLM = {
-    name: "gpt-4o-mini",
+    name: "gpt-5.4",
     capabilities: { functionCall: true },
     generate: async () =>
       response({
@@ -230,7 +230,7 @@ test("orchestration uses custom child executor", async () => {
   };
   let calls = 0;
   const model: LLM = {
-    name: "gpt-4o-mini",
+    name: "gpt-5.4",
     capabilities: { functionCall: true },
     generate: async () => {
       calls += 1;
@@ -246,7 +246,7 @@ test("orchestration uses custom child executor", async () => {
                 instruction: "child task",
                 context: {},
                 tools: { allow: ["echo"] },
-                model: { name: "gpt-4o-mini" },
+                model: { name: "gpt-5.4" },
               },
             },
           ],
@@ -274,7 +274,7 @@ test("orchestration uses custom child executor", async () => {
 
 test("inline child executor validates model and tools", async () => {
   const parentModel: LLM = {
-    name: "gpt-4o-mini",
+    name: "gpt-5.4",
     capabilities: { functionCall: true },
     generate: async () => response({ role: "assistant", content: "ok" }),
   };
@@ -282,7 +282,7 @@ test("inline child executor validates model and tools", async () => {
   const executor = createInlineChildExecutor({
     defaultTimeoutMs: 200,
     maxChildTurns: 2,
-    allowedModels: ["gpt-4o-mini"],
+    allowedModels: ["gpt-5.4"],
   });
 
   await expect(
@@ -293,7 +293,7 @@ test("inline child executor validates model and tools", async () => {
           instruction: "task",
           context: {},
           tools: { allow: ["missingTool"] },
-          model: { name: "gpt-4o-mini" },
+          model: { name: "gpt-5.4" },
         },
       },
       ctx,
@@ -304,7 +304,7 @@ test("inline child executor validates model and tools", async () => {
 test("inline child executor runs child tools and returns usage", async () => {
   let generation = 0;
   const parentModel: LLM = {
-    name: "gpt-4o-mini",
+    name: "gpt-5.4",
     capabilities: { functionCall: true },
     generate: async () => {
       generation += 1;
@@ -330,7 +330,7 @@ test("inline child executor runs child tools and returns usage", async () => {
   const executor = createInlineChildExecutor({
     defaultTimeoutMs: 300,
     maxChildTurns: 3,
-    allowedModels: ["gpt-4o-mini"],
+    allowedModels: ["gpt-5.4"],
   });
 
   const result = await executor(
@@ -340,7 +340,7 @@ test("inline child executor runs child tools and returns usage", async () => {
         instruction: "do work",
         context: {},
         tools: { allow: ["echo"] },
-        model: { name: "gpt-4o-mini" },
+        model: { name: "gpt-5.4" },
       },
     },
     ctx,
@@ -356,7 +356,7 @@ test("orchestration stops when aborted", async () => {
   const ac = new AbortController();
   ac.abort();
   const model: LLM = {
-    name: "gpt-4o-mini",
+    name: "gpt-5.4",
     capabilities: { functionCall: true },
     generate: async () => response({ role: "assistant", content: "done" }),
   };

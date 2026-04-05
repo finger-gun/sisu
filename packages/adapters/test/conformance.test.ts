@@ -121,7 +121,7 @@ function withProviderEnv(provider: "openai" | "anthropic" | "ollama"): void {
 }
 
 function makeAdapter(provider: "openai" | "anthropic" | "ollama") {
-  if (provider === "openai") return openAIAdapter({ model: "gpt-4o-mini" });
+  if (provider === "openai") return openAIAdapter({ model: "gpt-5.4" });
   if (provider === "anthropic")
     return anthropicAdapter({ model: "claude-3-haiku" });
   return ollamaAdapter({ model: "llama3" });

@@ -21,7 +21,7 @@ const echoTool = {
 };
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: 'Use Action: echo with Action Input: {"text":"hello from ReAct"}',
   systemPrompt:
     "Use tools when helpful. For ReAct, reply with\nAction: <tool>\nAction Input: <JSON>",

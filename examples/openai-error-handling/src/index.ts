@@ -197,7 +197,7 @@ async function runExample(
   };
 
   const ctx = createCtx({
-    model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+    model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
     input: prompts[scenario],
     systemPrompt:
       "You are a helpful assistant. Use the provided tools to help the user.",

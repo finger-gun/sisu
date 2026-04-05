@@ -7,21 +7,22 @@ import path from "node:path";
 
 const DEFAULT_EXAMPLES = [
   "ex:ollama:hello",
-//   "ex:ollama:rag-vectra",
+  "ex:ollama:rag-vectra",
   "ex:ollama:weather",
-//   "ex:ollama:vision",
-//   "ex:ollama:stream",
+  "ex:ollama:vision",
+  "ex:ollama:stream",
 ];
 
 const DEFAULT_MODELS = [
   "gemma4:e4b",
   "qwen3.5:35b-a3b-coding-nvfp4",
   "qwen3.5:9b",
-//   "qwen3.5:0.8b",
+  "qwen3.5:0.8b",
 ];
 
 const DEFAULT_RUNS = 5;
 const VALID_ORDER_MODES = new Set(["grouped", "shuffled"]);
+const VALID_MODEL_UNLOAD_MODES = new Set(["none", "switch"]);
 
 function parseArgs(argv) {
   const args = {
@@ -33,6 +34,7 @@ function parseArgs(argv) {
     timeoutMs: 0,
     cooldownMs: 0,
     order: "grouped",
+    modelUnload: "switch",
     resumeFrom: null,
   };
 
@@ -90,6 +92,12 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === "--model-unload" && argv[i + 1]) {
+      args.modelUnload = argv[i + 1];
+      i += 1;
+      continue;
+    }
+
     if (arg === "--resume-from" && argv[i + 1]) {
       args.resumeFrom = argv[i + 1];
       i += 1;
@@ -121,6 +129,10 @@ function parseArgs(argv) {
     throw new Error(`Invalid --order value: ${String(args.order)}. Use one of: grouped, shuffled.`);
   }
 
+  if (!VALID_MODEL_UNLOAD_MODES.has(args.modelUnload)) {
+    throw new Error(`Invalid --model-unload value: ${String(args.modelUnload)}. Use one of: none, switch.`);
+  }
+
   return args;
 }
 
@@ -135,7 +147,7 @@ function shuffleInPlace(items) {
 
 function sleepMs(ms) {
   return new Promise((resolve) => {
-    setTimeout(resolve, ms);
+    globalThis.setTimeout(resolve, ms);
   });
 }
 
@@ -149,6 +161,22 @@ function formatDuration(ms) {
 
 function sanitizeFileName(input) {
   return input.replace(/[^a-zA-Z0-9._-]+/g, "_");
+}
+
+function stopOllamaModel(model) {
+  const result = spawnSync("ollama", ["stop", model], {
+    cwd: process.cwd(),
+    env: process.env,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+  });
+
+  return {
+    success: result.status === 0,
+    exitCode: result.status,
+    errorCode: result.error?.code || null,
+    message: `${result.stdout || ""}${result.stderr || ""}`.trim(),
+  };
 }
 
 function toCsv(records) {
@@ -258,6 +286,7 @@ function buildMarkdownSummary({ args, records, startedIso, finishedIso }) {
   lines.push(`- Timeout per run: ${args.timeoutMs > 0 ? `${args.timeoutMs} ms` : "disabled"}`);
   lines.push(`- Cooldown between runs: ${args.cooldownMs} ms`);
   lines.push(`- Execution order: ${args.order}`);
+  lines.push(`- Model unload policy: ${args.modelUnload}`);
   lines.push("- Stats rule: when there are at least 3 successful runs, the fastest and slowest successful run are excluded from avg/median.");
   if (args.resumeFrom) {
     lines.push(`- Resumed from: ${args.resumeFrom}`);
@@ -374,6 +403,7 @@ async function main() {
   console.log(`  timeoutMs: ${args.timeoutMs}`);
   console.log(`  cooldownMs: ${args.cooldownMs}`);
   console.log(`  order: ${args.order}`);
+  console.log(`  modelUnload: ${args.modelUnload}`);
   console.log(`  resumeFrom: ${args.resumeFrom || "none"}`);
   console.log("");
 
@@ -397,6 +427,7 @@ async function main() {
 
   const totalRuns = allJobs.length;
   let runIndex = records.length;
+  let previousModel = records.length > 0 ? records[records.length - 1].model : null;
   const checkpointPath = path.join(outputDir, "checkpoint.ndjson");
 
   const writeOutputs = (finishedIso) => {
@@ -417,6 +448,7 @@ async function main() {
             timeoutMs: args.timeoutMs,
             cooldownMs: args.cooldownMs,
             order: args.order,
+            modelUnload: args.modelUnload,
             resumeFrom: args.resumeFrom,
           },
           records,
@@ -453,6 +485,16 @@ async function main() {
   for (const job of pendingJobs) {
     const { model, example, run } = job;
     runIndex += 1;
+
+    if (!args.dryRun && args.modelUnload === "switch" && previousModel && previousModel !== model) {
+      const unloadResult = stopOllamaModel(previousModel);
+      if (!unloadResult.success) {
+        const reason = unloadResult.errorCode || unloadResult.message || `exitCode=${String(unloadResult.exitCode ?? "")}`;
+        console.warn(`  -> WARN failed to unload model "${previousModel}": ${reason}`);
+      } else {
+        console.log(`  -> unloaded previous model "${previousModel}"`);
+      }
+    }
 
     const startMs = Date.now();
     const startIso = new Date(startMs).toISOString();
@@ -549,6 +591,18 @@ async function main() {
 
     if (args.cooldownMs > 0 && runIndex < totalRuns) {
       await sleepMs(args.cooldownMs);
+    }
+
+    previousModel = model;
+  }
+
+  if (!args.dryRun && args.modelUnload === "switch" && previousModel) {
+    const unloadResult = stopOllamaModel(previousModel);
+    if (!unloadResult.success) {
+      const reason = unloadResult.errorCode || unloadResult.message || `exitCode=${String(unloadResult.exitCode ?? "")}`;
+      console.warn(`  -> WARN failed to unload model "${previousModel}" at benchmark end: ${reason}`);
+    } else {
+      console.log(`  -> unloaded final model "${previousModel}"`);
     }
   }
 

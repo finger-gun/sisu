@@ -51,7 +51,7 @@ What you expected to happen instead.
 If the issue is related to prompts or tool-calling, please include:
 
 * The prompt you used.
-* The model and adapter configuration (e.g. `gpt-4o-mini` via `@sisu-ai/adapter-openai`).
+* The model and adapter configuration (e.g. `gpt-5.4` via `@sisu-ai/adapter-openai`).
 
 ---
 

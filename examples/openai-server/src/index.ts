@@ -14,7 +14,7 @@ import { cors } from "@sisu-ai/mw-cors";
 import { Server } from "@sisu-ai/server";
 import { InMemoryKV } from "@sisu-ai/core";
 
-const model = openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" });
+const model = openAIAdapter({ model: process.env.MODEL || "gpt-5.4" });
 const basePath = process.env.BASE_PATH || "/api";
 const healthPath = process.env.HEALTH_PATH || "/health";
 const apiKey = process.env.API_KEY;

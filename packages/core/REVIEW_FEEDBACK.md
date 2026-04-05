@@ -186,7 +186,7 @@ export function createCtx(options: CreateCtxOptions): Ctx {
 const ctx = createCtx({
   input: 'Hello',
   systemPrompt: 'You are helpful',
-  model: openAIAdapter({ model: 'gpt-4o-mini' }),
+  model: openAIAdapter({ model: 'gpt-5.4' }),
   logLevel: 'debug'
 });
 ```

@@ -47,6 +47,6 @@ sequenceDiagram
 ## Environment
 
 - `API_KEY` (required)
-- `MODEL` (optional, default `gpt-4o-mini`)
+- `MODEL` (optional, default `gpt-5.4`)
 - `BASE_URL` (optional, for OpenAI-compatible endpoints)
 - `TRACE_HTML=1` and/or `TRACE_JSON=1` for trace output

@@ -368,7 +368,7 @@ export interface CreateCtxOptions {
  * @example
  * ```ts
  * const ctx = createCtx({
- *   model: openAIAdapter({ model: 'gpt-4o-mini' }),
+ *   model: openAIAdapter({ model: 'gpt-5.4' }),
  *   input: 'Hello',
  *   systemPrompt: 'You are a helpful assistant',
  *   logLevel: 'debug'

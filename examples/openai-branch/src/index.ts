@@ -8,7 +8,7 @@ import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { branch, sequence } from "@sisu-ai/mw-control-flow";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: "Tell me a joke about cats.",
   systemPrompt: "Be helpful and concise.",
   logLevel: process.env.LOG_LEVEL as

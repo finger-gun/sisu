@@ -165,7 +165,7 @@ import {
 import { toolCalling } from "@sisu-ai/mw-tool-calling";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  model: openAIAdapter({ model: "gpt-5.4" }),
   input: "Use the pdf-processing skill to extract text from document.pdf",
   systemPrompt: "You are a helpful assistant with access to skills.",
 });

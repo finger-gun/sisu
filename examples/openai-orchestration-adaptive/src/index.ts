@@ -113,7 +113,7 @@ const userPrompt =
   argvPrompt ||
   "Create a half-day plan in Malmö, adapt to weather uncertainty, and include a fallback option.";
 
-const modelName = process.env.MODEL || "gpt-4o-mini";
+const modelName = process.env.MODEL || "gpt-5.4";
 
 const ctx = createCtx({
   model: openAIAdapter({ model: modelName }),

@@ -97,7 +97,7 @@ const app = new Agent()
 
 // Create context
 const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  model: openAIAdapter({ model: "gpt-5.4" }),
   input: "List files in current directory",
 });
 

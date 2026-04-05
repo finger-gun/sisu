@@ -20,7 +20,7 @@ const userMessage = {
 } as unknown as Ctx["messages"][number];
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   systemPrompt: "You are a concise, helpful assistant.",
   logLevel: process.env.LOG_LEVEL as
     | "debug"

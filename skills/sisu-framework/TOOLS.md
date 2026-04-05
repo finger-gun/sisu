@@ -281,7 +281,7 @@ const calculator: Tool<{ expression: string }> = {
 };
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  model: openAIAdapter({ model: "gpt-5.4" }),
   input: 'Search for "Sisu AI framework" and summarize the top result',
   systemPrompt: "You are a research assistant with web access.",
 });

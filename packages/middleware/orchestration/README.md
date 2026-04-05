@@ -70,7 +70,7 @@ import { orchestration } from "@sisu-ai/mw-orchestration";
 const app = new Agent()
   .use(
     orchestration({
-      allowedModels: ["gpt-4o-mini"],
+      allowedModels: ["gpt-5.4"],
       maxDelegations: 6,
       defaultTimeoutMs: 30_000,
     }),

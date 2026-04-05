@@ -20,7 +20,7 @@ const bucket = process.env.AWS_S3_BUCKET || "my-bucket";
 const prefix = process.env.AWS_S3_PREFIX || "";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: `List 3 largest files in s3://${bucket}/${prefix}.`,
   systemPrompt: "You are a helpful assistant.",
   logLevel: process.env.LOG_LEVEL as
@@ -51,7 +51,7 @@ const app = new Agent()
   .use(
     usageTracker(
       {
-        "openai:gpt-4o-mini": {
+        "openai:gpt-5.4": {
           // Preferred: prices per 1M tokens (matches provider docs)
           inputPer1M: 0.15,
           outputPer1M: 0.6,

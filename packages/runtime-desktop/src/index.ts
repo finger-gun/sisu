@@ -1323,7 +1323,7 @@ export function createDefaultProviders(
   opts: RuntimeProviderFactoryOptions = {},
 ): RuntimeProvider[] {
   const providers: RuntimeProvider[] = [];
-  const openAiModels = modelsOrDefault(opts.openAI?.models, ["gpt-4o-mini"]);
+  const openAiModels = modelsOrDefault(opts.openAI?.models, ["gpt-5.4"]);
   providers.push(
     simpleProvider(
       "openai",

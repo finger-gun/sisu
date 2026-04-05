@@ -15,7 +15,7 @@ const textArg =
   "Check out https://example.com and http://sisu.ai for more info.";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: `Extract URLs from: ${textArg}`,
   systemPrompt: "You are a helpful assistant.",
   logLevel: process.env.LOG_LEVEL as

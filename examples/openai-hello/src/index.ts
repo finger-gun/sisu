@@ -5,7 +5,7 @@ import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: "Say hello in one short sentence.",
   systemPrompt: "You are a helpful assistant.",
   logLevel: process.env.LOG_LEVEL as

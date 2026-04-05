@@ -9,7 +9,7 @@ import { Agent, createCtx, stdoutStream } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  model: openAIAdapter({ model: "gpt-5.4" }),
   input: "Write a short poem",
   stream: stdoutStream(), // Stream to stdout
 });
@@ -60,7 +60,7 @@ class CustomStream implements TokenStream {
 }
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  model: openAIAdapter({ model: "gpt-5.4" }),
   stream: new CustomStream(),
 });
 ```
@@ -93,7 +93,7 @@ const app = express();
 
 app.get("/stream", async (req, res) => {
   const ctx = createCtx({
-    model: openAIAdapter({ model: "gpt-4o-mini" }),
+    model: openAIAdapter({ model: "gpt-5.4" }),
     input: req.query.prompt as string,
     stream: new SSEStream(res),
   });
@@ -152,7 +152,7 @@ wss.on("connection", (ws) => {
     const { prompt } = JSON.parse(data.toString());
 
     const ctx = createCtx({
-      model: openAIAdapter({ model: "gpt-4o-mini" }),
+      model: openAIAdapter({ model: "gpt-5.4" }),
       input: prompt,
       stream: new WebSocketStream(ws),
     });
@@ -267,7 +267,7 @@ const controller = new AbortController();
 setTimeout(() => controller.abort(), 10000);
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  model: openAIAdapter({ model: "gpt-5.4" }),
   signal: controller.signal,
   stream: stdoutStream(),
 });

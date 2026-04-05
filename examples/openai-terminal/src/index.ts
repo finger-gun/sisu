@@ -23,7 +23,7 @@ const userInput =
   "You have multiple run-*.json files like run-20250907-233125.json. Using only pwd, ls, stat, wc, head, tail, cat, cut, sort, uniq, grep, write one piped command that counts how many runs' final output included README.md";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: userInput,
   systemPrompt: "You are a useful and helpful assistant.",
   logLevel: process.env.LOG_LEVEL as

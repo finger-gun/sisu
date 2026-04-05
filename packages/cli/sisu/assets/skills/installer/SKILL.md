@@ -70,7 +70,7 @@ import { z } from "zod";
 
 // Create context
 const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  model: openAIAdapter({ model: "gpt-5.4" }),
   input: "User input here",
   systemPrompt: "You are a helpful assistant.",
 });
@@ -194,11 +194,11 @@ See [RAG.md](RAG.md) for retrieval augmented generation patterns.
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 
 // Standard OpenAI
-const model = openAIAdapter({ model: "gpt-4o-mini" });
+const model = openAIAdapter({ model: "gpt-5.4" });
 
 // Compatible APIs (LM Studio, vLLM, OpenRouter)
 const model = openAIAdapter({
-  model: "gpt-4o-mini",
+  model: "gpt-5.4",
   baseUrl: "http://localhost:1234/v1",
 });
 ```

@@ -29,7 +29,7 @@ const terminal = createTerminalTool({
 });
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input:
     process.env.USER_INPUT ||
     "Map where tool aliases are configured in this repo. Use the repo-search skill.",

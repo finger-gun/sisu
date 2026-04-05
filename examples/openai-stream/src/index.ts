@@ -14,7 +14,7 @@ import { openAIAdapter } from "@sisu-ai/adapter-openai";
 const buf = bufferStream();
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.OPENAI_MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.OPENAI_MODEL || "gpt-5.4" }),
   input: "Please explain our solar system as if I was 5.",
   systemPrompt: "You are a helpful assistant.",
   stream: teeStream(stdoutStream, buf.stream), // or just stdoutStream

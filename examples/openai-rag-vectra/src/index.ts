@@ -12,7 +12,7 @@ import { createVectraVectorStore } from "@sisu-ai/vector-vectra";
 import { docs } from "./docs";
 
 const model = openAIAdapter({
-  model: process.env.MODEL || "gpt-4o-mini",
+  model: process.env.MODEL || "gpt-5.4",
   baseUrl: process.env.BASE_URL,
 });
 const embeddings = openAIEmbeddings({

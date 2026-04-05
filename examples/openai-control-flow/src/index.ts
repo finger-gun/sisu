@@ -26,7 +26,7 @@ const weather = {
 };
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: "Weather in Malmö and suggest a fika plan.",
   systemPrompt: "Be helpful. Use tools when needed.",
   logLevel: process.env.LOG_LEVEL as

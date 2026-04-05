@@ -37,7 +37,7 @@ import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
 // 1. Create your context
 const ctx = createCtx({
-  model: openAIAdapter({ model: 'gpt-4o-mini' }),
+  model: openAIAdapter({ model: 'gpt-5.4' }),
   input: 'Say hello in one short sentence.',
   systemPrompt: 'You are a helpful assistant.',
   logLevel: 'info'
@@ -117,7 +117,7 @@ import { createCtx } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: 'gpt-4o-mini' }),  // Required
+  model: openAIAdapter({ model: 'gpt-5.4' }),  // Required
   input: 'Say hello in one short sentence.',       // Optional
   systemPrompt: 'You are a helpful assistant.',    // Optional
   logLevel: 'info'                                  // Optional
@@ -154,7 +154,7 @@ import {
 const ctx: Ctx = {
   input: 'Say hello in one short sentence.',
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-  model: openAIAdapter({ model: 'gpt-4o-mini' }),
+  model: openAIAdapter({ model: 'gpt-5.4' }),
   tools: new SimpleTools(),
   memory: new InMemoryKV(),
   stream: new NullStream(),

@@ -42,7 +42,7 @@ const userInput =
   "Please list the files in the current directory using the 'bash' command, then read the package.json file using 'read_file'.";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: userInput,
   systemPrompt: "You are a helpful assistant with access to terminal commands.",
   logLevel: process.env.LOG_LEVEL as
