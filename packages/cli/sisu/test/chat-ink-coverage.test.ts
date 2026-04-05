@@ -114,8 +114,8 @@ describe('chat ink coverage', () => {
 
     cwdSpy.mockRestore();
     const rendered = chunks.join('');
-    expect(rendered).toContain('/provider mock');
-    expect(rendered).toContain('/model sisu-mock-chat-v1');
+    expect(rendered).toContain('Provider updated: mock / sisu-mock-chat-v1');
+    expect(rendered).toContain('Model updated: mock / sisu-mock-chat-v1');
     expect(rendered).toContain('Session not found: missing.');
     expect(rendered).toContain('sisu-ink-cov-session');
   }, 15000);
