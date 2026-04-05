@@ -1429,8 +1429,8 @@ importers:
   packages/middleware/agent-run-api:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
     devDependencies:
       '@sisu-ai/server':
         specifier: workspace:*
@@ -1439,44 +1439,44 @@ importers:
   packages/middleware/context-compressor:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/control-flow:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/conversation-buffer:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/cors:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/error-boundary:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/guardrails:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/invariants:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/orchestration:
     dependencies:
@@ -1497,8 +1497,8 @@ importers:
   packages/middleware/rag:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       '@sisu-ai/vector-core':
         specifier: ^1.1.0
         version: 1.1.0
@@ -1506,14 +1506,14 @@ importers:
   packages/middleware/react-parser:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/register-tools:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/skills:
     dependencies:
@@ -1534,8 +1534,8 @@ importers:
   packages/middleware/tool-calling:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/middleware/trace-viewer:
     devDependencies:
@@ -1546,8 +1546,8 @@ importers:
   packages/middleware/usage-tracker:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/protocol:
     dependencies:
@@ -1595,8 +1595,8 @@ importers:
   packages/server:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
 
   packages/skills/skill-code-review: {}
 
@@ -1618,8 +1618,8 @@ importers:
         specifier: ^3.0.0
         version: 3.934.0
       '@sisu-ai/core':
-        specifier: 2.4.0
-        version: 2.4.0
+        specifier: 2.5.0
+        version: 2.5.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1630,8 +1630,8 @@ importers:
         specifier: ^12.15.0
         version: 12.29.1
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1639,8 +1639,8 @@ importers:
   packages/tools/extract-urls:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1648,8 +1648,8 @@ importers:
   packages/tools/github-projects:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1657,8 +1657,8 @@ importers:
   packages/tools/rag:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       '@sisu-ai/rag-core':
         specifier: workspace:*
         version: link:../../rag/core
@@ -1672,8 +1672,8 @@ importers:
   packages/tools/summarize-text:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1681,8 +1681,8 @@ importers:
   packages/tools/terminal:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       minimatch:
         specifier: ^9.0.3
         version: 9.0.5
@@ -1693,8 +1693,8 @@ importers:
   packages/tools/web-fetch:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1702,8 +1702,8 @@ importers:
   packages/tools/web-search-duckduckgo:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1711,8 +1711,8 @@ importers:
   packages/tools/web-search-linkup:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       linkup-sdk:
         specifier: ^2.7.0
         version: 2.7.0
@@ -1723,8 +1723,8 @@ importers:
   packages/tools/web-search-openai:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1732,8 +1732,8 @@ importers:
   packages/tools/wikipedia:
     dependencies:
       '@sisu-ai/core':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.5.0
+        version: 2.5.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -2896,8 +2896,8 @@ packages:
   '@sinclair/typebox@0.27.10':
     resolution: {integrity: sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA==}
 
-  '@sisu-ai/core@2.4.0':
-    resolution: {integrity: sha512-dZ0TnmlB6KFbXIooIT0v+UYjRhWsbMFwvEGjCT49bADT7jmf8Y5utagzI9FCcgZgTKnGtZLuANY98j5SxfMKAQ==}
+  '@sisu-ai/core@2.5.0':
+    resolution: {integrity: sha512-V0kUrU70vWw0qT08PkupLvgGe20skyImqQK6GkYbUL8ET+jhy2fhYt1CXe8RWw8H8+/y/eJMbUdwLs1xB0tPfw==}
 
   '@sisu-ai/vector-core@1.1.0':
     resolution: {integrity: sha512-pERINu43LHOIfDqDwqQ0d48X4dBNQ53NC1ozLv0WczohnK0s4IXlsP29C7DBy/Xu2g5CaP2rkbTKKYHErorFJA==}
@@ -6365,7 +6365,7 @@ snapshots:
 
   '@sinclair/typebox@0.27.10': {}
 
-  '@sisu-ai/core@2.4.0': {}
+  '@sisu-ai/core@2.5.0': {}
 
   '@sisu-ai/vector-core@1.1.0': {}
 
