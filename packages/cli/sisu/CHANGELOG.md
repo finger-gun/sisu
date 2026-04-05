@@ -1,5 +1,28 @@
 # sisu
 
+## 0.6.0
+
+### Minor Changes
+
+- 3e8c117: Add catalog-driven capability discovery and installation to the CLI, including improved interactive chat capabilities and configuration flows.
+
+  Publish the new `@sisu-ai/discovery` and `@sisu-ai/tool-web-search-linkup` packages for dynamic package discovery and LinkUp web search support.
+
+  Patch provider adapters and DuckDuckGo web search handling for improved runtime compatibility and safer error handling.
+
+### Patch Changes
+
+- Updated dependencies [aa659d9]
+- Updated dependencies [3e8c117]
+  - @sisu-ai/core@2.5.0
+  - @sisu-ai/discovery@0.2.0
+  - @sisu-ai/adapter-openai@11.0.0
+  - @sisu-ai/adapter-anthropic@9.0.0
+  - @sisu-ai/adapter-ollama@11.0.0
+  - @sisu-ai/mw-skills@2.0.0
+  - @sisu-ai/mw-trace-viewer@12.0.0
+  - @sisu-ai/tool-terminal@9.0.0
+
 ## 0.5.1
 
 ### Patch Changes

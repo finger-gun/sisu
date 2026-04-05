@@ -1,5 +1,19 @@
 # @sisu-ai/runtime-desktop
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [aa659d9]
+- Updated dependencies [3e8c117]
+  - @sisu-ai/core@2.5.0
+  - @sisu-ai/adapter-openai@11.0.0
+  - @sisu-ai/adapter-anthropic@9.0.0
+  - @sisu-ai/adapter-ollama@11.0.0
+  - @sisu-ai/mw-error-boundary@11.0.0
+  - @sisu-ai/mw-guardrails@11.0.0
+  - @sisu-ai/mw-invariants@11.0.0
+
 ## 0.2.1
 
 ### Patch Changes

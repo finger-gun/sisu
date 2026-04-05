@@ -1,5 +1,12 @@
 # @sisu-ai/mw-trace-viewer
 
+## 12.0.0
+
+### Patch Changes
+
+- Updated dependencies [aa659d9]
+  - @sisu-ai/core@2.5.0
+
 ## 11.0.0
 
 ### Patch Changes
