@@ -254,3 +254,100 @@ test('SSE late subscriber receives final immediately', async () => {
   await server.listener()(req as any, res as any);
   expect(buf).toContain('event: final');
 });
+
+test('enforces api key and falls through for non-api routes', async () => {
+  let passedThrough = false;
+  const middleware = agentRunApi({ apiKey: 'secret' });
+  const baseCtx = {
+    req: { method: 'GET', url: '/outside', headers: {} } as any,
+    res: {
+      statusCode: 0,
+      end: () => undefined,
+      setHeader: () => undefined,
+    } as any,
+    agent: { handler: () => async () => undefined } as any,
+    signal: new AbortController().signal,
+    messages: [],
+  } as HttpCtx;
+
+  await middleware(baseCtx, async () => {
+    passedThrough = true;
+  });
+  expect(passedThrough).toBe(true);
+
+  let unauthorizedEnded = false;
+  const unauthorizedCtx = {
+    ...baseCtx,
+    req: { method: 'GET', url: '/api/runs/start', headers: {} } as any,
+    res: {
+      statusCode: 0,
+      end: () => {
+        unauthorizedEnded = true;
+      },
+      setHeader: () => undefined,
+    } as any,
+  } as HttpCtx;
+
+  await middleware(unauthorizedCtx, async () => undefined);
+  expect(unauthorizedCtx.res.statusCode).toBe(401);
+  expect(unauthorizedEnded).toBe(true);
+});
+
+test('returns 404 for unknown run ids on status/stream/cancel', async () => {
+  const app = new Agent<HttpCtx>().use(agentRunApi());
+  const server = new Server(app, { createCtx: (req, res) => ({ req, res, messages: [], signal: new AbortController().signal, agent: app }) });
+
+  const statusReq = makeReqRes('GET', '/api/runs/missing/status');
+  await server.listener()(statusReq.req, statusReq.res);
+  expect(statusReq.read().status).toBe(404);
+
+  const streamReq = makeReqRes('GET', '/api/runs/missing/stream');
+  await server.listener()(streamReq.req, streamReq.res);
+  expect(streamReq.read().status).toBe(404);
+
+  const cancelReq = makeReqRes('POST', '/api/runs/missing/cancel');
+  await server.listener()(cancelReq.req, cancelReq.res);
+  expect(cancelReq.read().status).toBe(404);
+});
+
+test('returns 413 when request body exceeds max size', async () => {
+  const app = new Agent<HttpCtx>().use(agentRunApi({ maxBodyBytes: 8 }));
+  const server = new Server(app, { createCtx: (req, res) => ({ req, res, messages: [], signal: new AbortController().signal, agent: app }) });
+
+  const reqRes = makeReqRes('POST', '/api/runs/start', { input: 'too-large-body' });
+  await server.listener()(reqRes.req, reqRes.res);
+  const out = reqRes.read();
+  expect(out.status).toBe(413);
+  expect(JSON.parse(out.text).error).toBe('body_too_large');
+});
+
+test('custom route returns 422 without input and 400 on transform error', async () => {
+  const app = new Agent<HttpCtx>()
+    .use(agentRunApi({
+      routes: [
+        { path: '/runs/custom-no-input', transform: async () => ({ options: {} } as any) },
+        { path: '/runs/custom-fail', transform: async () => { throw new Error('bad transform'); } },
+      ],
+    }))
+    .use(async () => undefined);
+  const server = new Server(app, { createCtx: (req, res) => ({
+    req,
+    res,
+    messages: [],
+    signal: new AbortController().signal,
+    agent: app,
+    log: { info: () => undefined, warn: () => undefined } as any,
+  }) });
+
+  const missing = makeReqRes('POST', '/api/runs/custom-no-input', { hello: 'x' });
+  await server.listener()(missing.req, missing.res);
+  const missingOut = missing.read();
+  expect(missingOut.status).toBe(422);
+  expect(JSON.parse(missingOut.text).error).toBe('missing_input');
+
+  const failed = makeReqRes('POST', '/api/runs/custom-fail', { hello: 'x' });
+  await server.listener()(failed.req, failed.res);
+  const failedOut = failed.read();
+  expect(failedOut.status).toBe(400);
+  expect(JSON.parse(failedOut.text).error).toBe('invalid_request');
+});

@@ -3,6 +3,7 @@ import * as npmDiscovery from '../src/chat/npm-discovery.js';
 import * as skillInstall from '../src/chat/skill-install.js';
 import * as capabilityInstall from '../src/chat/capability-install.js';
 import * as chatRuntime from '../src/chat/runtime.js';
+import * as lib from '../src/lib.js';
 import { parseGlobalOptions, runCli, runCliEntrypoint } from '../src/cli-main.js';
 
 vi.mock('../src/chat/discovery-package.js', () => ({
@@ -334,4 +335,104 @@ describe('cli main', () => {
     expect(runChatSpy).toHaveBeenCalledWith(['--prompt', 'hello']);
     runChatSpy.mockRestore();
   });
+
+  test('create command prints next steps on success', async () => {
+    const scaffoldSpy = vi.spyOn(lib, 'scaffoldTemplate').mockResolvedValue('/tmp/my-app');
+    const templatesSpy = vi.spyOn(lib, 'getTemplateIds').mockReturnValue(['chat-agent']);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await runCli(['create', 'chat-agent', 'my-app']);
+    expect(scaffoldSpy).toHaveBeenCalledWith(expect.objectContaining({
+      templateId: 'chat-agent',
+      projectName: 'my-app',
+    }));
+    expect(log.mock.calls.some((call) => String(call[0]).includes('Created chat-agent project at /tmp/my-app'))).toBe(true);
+    expect(log.mock.calls.some((call) => String(call[0]).includes('Next steps:'))).toBe(true);
+    templatesSpy.mockRestore();
+    scaffoldSpy.mockRestore();
+    log.mockRestore();
+  });
+
+  test('list-official supports --json output', async () => {
+    const listSpy = vi.spyOn(npmDiscovery, 'listOfficialPackages').mockResolvedValue([
+      { name: '@sisu-ai/tool-terminal', version: '1.2.3', description: 'Terminal tool' },
+    ]);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await runCli(['--json', 'list-official', 'tools']);
+    expect(log.mock.calls.some((call) => String(call[0]).includes('"@sisu-ai/tool-terminal"'))).toBe(true);
+    listSpy.mockRestore();
+    log.mockRestore();
+  });
+
+  test('list without category in non-interactive mode returns E1004', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const code = await runCliEntrypoint(['list']);
+    expect(code).toBe(2);
+    expect(err.mock.calls.some((call) => String(call[0]).includes('E1004'))).toBe(true);
+    err.mockRestore();
+  });
+
+  test('install recipe validates --package and unknown options', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const missingPackageValue = await runCliEntrypoint(['install', 'recipe', 'rag-advanced', '--package']);
+    expect(missingPackageValue).toBe(2);
+    expect(err.mock.calls.some((call) => String(call[0]).includes('E1213'))).toBe(true);
+    err.mockClear();
+    const unknownOption = await runCliEntrypoint(['install', 'recipe', 'rag-advanced', '--wat']);
+    expect(unknownOption).toBe(2);
+    expect(err.mock.calls.some((call) => String(call[0]).includes('E1211'))).toBe(true);
+    err.mockRestore();
+  });
+
+  test('install recipe handles cancelled and failed runtime results', async () => {
+    const createSpy = vi.spyOn(chatRuntime.ChatRuntime, 'create').mockResolvedValue({
+      installRecipe: vi
+        .fn()
+        .mockResolvedValueOnce({ recipeId: 'rag-advanced', status: 'cancelled', completedSteps: [] })
+        .mockResolvedValueOnce({ recipeId: 'rag-advanced', status: 'failed', failedStep: 'install', error: 'boom', completedSteps: [] })
+        .mockImplementation(async (_id: string, _scope: string, options?: { resolveChoice?: () => Promise<unknown> }) => {
+          await options?.resolveChoice?.();
+          return { recipeId: 'rag-advanced', status: 'completed', completedSteps: [] };
+        }),
+    } as unknown as chatRuntime.ChatRuntime);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await runCli(['install', 'recipe', 'rag-advanced']);
+    expect(log.mock.calls.some((call) => String(call[0]).includes('cancelled'))).toBe(true);
+
+    const failedCode = await runCliEntrypoint(['install', 'recipe', 'rag-advanced']);
+    expect(failedCode).toBe(1);
+    expect(err.mock.calls.some((call) => String(call[0]).includes('E1215'))).toBe(true);
+
+    await runCli(['install', 'recipe', 'rag-advanced', '--global', '--backend', 'custom', '--package', '@sisu-ai/vector-x']);
+    expect(createSpy).toHaveBeenCalled();
+
+    err.mockRestore();
+    log.mockRestore();
+    createSpy.mockRestore();
+  });
+
+  test('install tool accepts --global scope', async () => {
+    const installSpy = vi.spyOn(capabilityInstall, 'installCapabilityPackage').mockResolvedValue({
+      record: {
+        id: 'tool-terminal',
+        type: 'tool',
+        packageName: '@sisu-ai/tool-terminal',
+        installDir: '/tmp/.sisu/capabilities/tools/terminal',
+        installedAt: new Date().toISOString(),
+        source: 'global',
+      },
+      manifestPath: '/tmp/.sisu/capabilities/manifest.json',
+    });
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await runCli(['install', 'tool', 'terminal', '--global']);
+    expect(installSpy).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'tool',
+      name: 'terminal',
+      scope: 'global',
+    }));
+    installSpy.mockRestore();
+    log.mockRestore();
+  });
+
 });

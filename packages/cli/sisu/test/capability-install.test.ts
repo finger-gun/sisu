@@ -55,6 +55,28 @@ vi.mock('../src/chat/discovery-package.js', () => ({
           { kind: 'enableCapability', id: 'rag', type: 'middleware' },
         ],
       },
+      {
+        id: 'bad-step',
+        label: 'Bad step',
+        description: 'Contains mismatched install step.',
+        kind: 'bundle',
+        category: 'middleware',
+        installs: [
+          { type: 'tool', name: 'left-pad' },
+        ],
+        postInstall: [],
+      },
+      {
+        id: 'bad-postinstall',
+        label: 'Bad post-install',
+        description: 'Contains unsupported post-install action.',
+        kind: 'bundle',
+        category: 'middleware',
+        installs: [],
+        postInstall: [
+          { kind: 'enableCapability', id: 'oops', type: 'package' as unknown as 'tool' },
+        ],
+      },
     ],
   }),
 }));
@@ -275,5 +297,172 @@ describe('capability install', () => {
       '@sisu-ai/vector-custom',
     ]);
     expect(result.completedSteps.some((step) => step.kind === 'set-middleware-config')).toBe(true);
+  });
+
+  test('runInstallRecipe rejects unknown recipe id', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-cap-install-recipe-unknown-'));
+    tempDirs.push(root);
+    await expect(runInstallRecipe({
+      recipeId: 'missing-recipe',
+      scope: 'project',
+      cwd: root,
+      homeDir: root,
+    })).rejects.toThrow('E6620');
+  });
+
+  test('runInstallRecipe rag-advanced defaults to vectra backend without resolver', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-cap-install-recipe-advanced-default-'));
+    tempDirs.push(root);
+    const calls: string[] = [];
+    const result = await runInstallRecipe(
+      {
+        recipeId: 'rag-advanced',
+        scope: 'project',
+        cwd: root,
+        homeDir: root,
+      },
+      {
+        runInstall: async (_installDir: string, packageName: string) => {
+          calls.push(packageName);
+        },
+      },
+    );
+    expect(result.status).toBe('completed');
+    expect(calls).toContain('@sisu-ai/vector-vectra');
+    expect(result.completedSteps.some((step) => step.kind === 'set-tool-config' && step.config.backend === 'vectra')).toBe(true);
+  });
+
+  test('runInstallRecipe rag-advanced can be cancelled by resolver', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-cap-install-recipe-advanced-cancel-choice-'));
+    tempDirs.push(root);
+    const result = await runInstallRecipe(
+      {
+        recipeId: 'rag-advanced',
+        scope: 'project',
+        cwd: root,
+        homeDir: root,
+      },
+      {
+        resolveChoice: async () => undefined,
+      },
+    );
+    expect(result.status).toBe('cancelled');
+  });
+
+  test('runInstallRecipe rag-advanced validates custom and unknown backend choices', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-cap-install-recipe-advanced-choice-errors-'));
+    tempDirs.push(root);
+
+    await expect(runInstallRecipe(
+      {
+        recipeId: 'rag-advanced',
+        scope: 'project',
+        cwd: root,
+        homeDir: root,
+      },
+      {
+        resolveChoice: async () => ({ optionId: 'custom' }),
+      },
+    )).rejects.toThrow('E6621');
+
+    await expect(runInstallRecipe(
+      {
+        recipeId: 'rag-advanced',
+        scope: 'project',
+        cwd: root,
+        homeDir: root,
+      },
+      {
+        resolveChoice: async () => ({ optionId: 'not-real' }),
+      },
+    )).rejects.toThrow('E6622');
+  });
+
+  test('runInstallRecipe rag-advanced maps chroma backend', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-cap-install-recipe-advanced-chroma-'));
+    tempDirs.push(root);
+    const result = await runInstallRecipe(
+      {
+        recipeId: 'rag-advanced',
+        scope: 'project',
+        cwd: root,
+        homeDir: root,
+      },
+      {
+        runInstall: async () => {},
+        resolveChoice: async () => ({ optionId: 'chroma' }),
+      },
+    );
+    expect(result.status).toBe('completed');
+    expect(result.completedSteps.some((step) => step.kind === 'set-tool-config' && step.config.backend === 'chroma')).toBe(true);
+  });
+
+  test('runInstallRecipe can cancel during post-install phase', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-cap-install-recipe-cancel-postinstall-'));
+    tempDirs.push(root);
+    let installCount = 0;
+    const result = await runInstallRecipe(
+      {
+        recipeId: 'rag-recommended',
+        scope: 'project',
+        cwd: root,
+        homeDir: root,
+      },
+      {
+        runInstall: async () => {
+          installCount += 1;
+        },
+        shouldCancel: () => installCount >= 3,
+      },
+    );
+    expect(result.status).toBe('cancelled');
+    expect(result.completedSteps.filter((step) => step.kind === 'install').length).toBe(3);
+  });
+
+  test('runInstallRecipe surfaces invalid recipe install and post-install shapes', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-cap-install-recipe-invalid-shape-'));
+    tempDirs.push(root);
+
+    const badInstall = await runInstallRecipe(
+      {
+        recipeId: 'bad-step',
+        scope: 'project',
+        cwd: root,
+        homeDir: root,
+      },
+      {
+        runInstall: async () => {},
+      },
+    );
+    expect(badInstall.status).toBe('failed');
+    expect(badInstall.error).toContain('E6623');
+
+    await expect(runInstallRecipe(
+      {
+        recipeId: 'bad-postinstall',
+        scope: 'project',
+        cwd: root,
+        homeDir: root,
+      },
+      {
+        runInstall: async () => {},
+      },
+    )).rejects.toThrow('E6624');
+  });
+
+  test('listInstalledCapabilities ignores invalid manifest schema', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-cap-install-invalid-manifest-'));
+    tempDirs.push(root);
+    const cwd = path.join(root, 'repo');
+    const homeDir = path.join(root, 'home');
+    const projectManifest = path.join(cwd, '.sisu', 'capabilities', 'manifest.json');
+    const globalManifest = path.join(homeDir, '.sisu', 'capabilities', 'manifest.json');
+    await fs.mkdir(path.dirname(projectManifest), { recursive: true });
+    await fs.mkdir(path.dirname(globalManifest), { recursive: true });
+    await fs.writeFile(projectManifest, JSON.stringify({ version: 2, entries: {} }), 'utf8');
+    await fs.writeFile(globalManifest, JSON.stringify({ version: 0, entries: null }), 'utf8');
+
+    const listed = await listInstalledCapabilities({ cwd, homeDir });
+    expect(listed).toEqual([]);
   });
 });

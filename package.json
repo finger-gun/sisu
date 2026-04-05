@@ -74,6 +74,7 @@
     "ex:anthropic:stream": "TRACE_HTML=1 pnpm --filter=anthropic-stream dev",
     "ex:openai:stream": "TRACE_HTML=1 pnpm --filter=openai-stream dev",
     "ex:ollama:stream": "TRACE_HTML=1 pnpm --filter=ollama-stream dev",
+    "bench:ollama": "node ./tools/benchmark-ollama-examples.mjs",
     "ex:openai:web-search": "TRACE_HTML=1 pnpm --filter=openai-web-search dev",
     "ex:openai:linkup-web-search": "TRACE_HTML=1 pnpm --filter=openai-linkup-web-search dev",
     "ex:ollama:web-search": "TRACE_HTML=1 pnpm --filter=ollama-web-search dev",
