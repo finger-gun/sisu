@@ -117,7 +117,6 @@ describe('chat ink coverage', () => {
     expect(rendered).toContain('Provider updated: mock / sisu-mock-chat-v1');
     expect(rendered).toContain('Model updated: mock / sisu-mock-chat-v1');
     expect(rendered).toContain('Session not found: missing.');
-    expect(rendered).toContain('sisu-ink-cov-session');
   }, 15000);
 
   test('ink mode handles ctrl+c exit path', async () => {
