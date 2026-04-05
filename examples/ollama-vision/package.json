@@ -13,5 +13,8 @@
     "@sisu-ai/mw-usage-tracker": "workspace:*",
     "@sisu-ai/mw-trace-viewer": "workspace:*",
     "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2"
   }
 }

@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "@types/node": "^24.12.2"
   },
   "dependencies": {
     "@sisu-ai/core": "workspace:*",
