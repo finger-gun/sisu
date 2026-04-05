@@ -3,8 +3,6 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "types": ["node"],
-    "baseUrl": ".",
     "paths": {}
   },
   "include": ["src"]

@@ -8,8 +8,6 @@
     "target": "ES2022",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node"],
-    "baseUrl": ".",
     "paths": {}
   },
   "include": ["src"]
