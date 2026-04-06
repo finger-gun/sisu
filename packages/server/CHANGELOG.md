@@ -1,5 +1,12 @@
 # @sisu-ai/server
 
+## 10.0.0
+
+### Patch Changes
+
+- Updated dependencies [3f417c7]
+  - @sisu-ai/core@2.6.0
+
 ## 9.0.0
 
 ### Patch Changes

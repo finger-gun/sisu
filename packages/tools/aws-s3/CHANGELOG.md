@@ -1,5 +1,12 @@
 # @sisu-ai/tool-aws-s3
 
+## 2.0.8
+
+### Patch Changes
+
+- Updated dependencies [3f417c7]
+  - @sisu-ai/core@2.6.0
+
 ## 2.0.7
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @sisu-ai/tool-github-projects
 
+## 12.0.0
+
+### Patch Changes
+
+- Updated dependencies [3f417c7]
+  - @sisu-ai/core@2.6.0
+
 ## 11.0.0
 
 ### Patch Changes

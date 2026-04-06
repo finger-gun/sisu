@@ -1,5 +1,13 @@
 # @sisu-ai/discovery
 
+## 0.2.1
+
+### Patch Changes
+
+- ad040f8: Refresh generated discovery metadata for catalog and install recipes.
+
+  This publishes updated `src/generated/catalog.json` and `src/generated/recipes.json` so consumers get the latest package versions and capability definitions at runtime.
+
 ## 0.2.0
 
 ### Minor Changes

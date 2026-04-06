@@ -1,6 +1,6 @@
 {
   "name": "@sisu-ai/mw-skills",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -21,7 +21,7 @@
     "zod": "^3.22.4"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "^2.5.0"
+    "@sisu-ai/core": "^2.6.0"
   },
   "devDependencies": {
     "@sisu-ai/core": "workspace:*",
