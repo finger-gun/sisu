@@ -31,7 +31,7 @@ Inspired by the Finnish concept of <i>sisu</i> calm determination under pressure
 
 ```bash
 pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
-         @sisu-ai/mw-register-tools @sisu-ai/mw-tool-calling \
+         @sisu-ai/mw-register-tools \
          @sisu-ai/mw-conversation-buffer @sisu-ai/mw-trace-viewer \
          @sisu-ai/mw-error-boundary zod dotenv
 ```
@@ -40,11 +40,10 @@ pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
 
 ```ts
 import "dotenv/config";
-import { Agent, createCtx, type Tool } from "@sisu-ai/core";
+import { Agent, createCtx, execute, getExecutionResult, type Tool } from "@sisu-ai/core";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import { inputToMessage, conversationBuffer } from "@sisu-ai/mw-conversation-buffer";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { z } from "zod";
@@ -68,9 +67,10 @@ const app = new Agent()
   .use(registerTools([weather]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling);
+  .use(execute);
 
 await app.handler()(ctx);
+console.log(getExecutionResult(ctx)?.text);
 ```
 
 Open `traces/viewer.html` to see exactly what happened.
@@ -116,7 +116,8 @@ const app = new Agent()
   .use(errorBoundary())
   .use(traceViewer())
   .use(registerTools([...]))
-  .use(toolCalling);
+  .use(inputToMessage)
+  .use(execute);
 ```
 
 ### One Context, Zero Magic
@@ -193,7 +194,7 @@ const model = openAIAdapter({
 | Category       | Packages |
 | -------------- | -------- |
 | Control Flow   | [`sequence`](packages/middleware/control-flow/) · [`branch`](packages/middleware/control-flow/) · [`parallel`](packages/middleware/control-flow/) · [`graph`](packages/middleware/control-flow/) |
-| Tool Management | [`registerTools`](packages/middleware/register-tools/) · [`toolCalling`](packages/middleware/tool-calling/) |
+| Tool Management | [`registerTools`](packages/middleware/register-tools/) · core `execute` / `executeStream` |
 | Conversation   | [`conversationBuffer`](packages/middleware/conversation-buffer/) · [`contextCompressor`](packages/middleware/context-compressor/) |
 | Safety         | [`errorBoundary`](packages/middleware/error-boundary/) · [`guardrails`](packages/middleware/guardrails/) · [`invariants`](packages/middleware/invariants/) |
 | Observability  | [`traceViewer`](packages/middleware/trace-viewer/) · [`usageTracker`](packages/middleware/usage-tracker/) |
@@ -327,7 +328,7 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 - [@sisu-ai/mw-rag](packages/middleware/rag/README.md)
 - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md)
 - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md)
-- [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md)
+- [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md) *(legacy compatibility)*
 - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md)
 - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
 </details>
