@@ -47,6 +47,7 @@ If the CLI is not available, inspect:
 
 - installed package READMEs in `node_modules/@sisu-ai/*`
 - official package docs on npm/GitHub
+- agent-friendly docs: `http://sisuai.me/agents.html`
 - the public examples in `https://github.com/finger-gun/sisu/tree/main/examples`
 
 Do not invent ad-hoc `rag(...)`, custom vector abstractions, or custom tool registries when maintained Sisu packages already exist.
