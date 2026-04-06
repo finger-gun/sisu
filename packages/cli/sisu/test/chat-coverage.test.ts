@@ -558,7 +558,7 @@ describe('chat coverage', () => {
     expect(rendered).toContain('terminal (enabled, source:core, inherited, locked-core)');
     expect(rendered).toContain('Terminal tool config: Shell permissions and command execution policy.');
     expect(rendered).toContain('Updated terminal config (session).');
-    expect(rendered).toContain('Tool-calling middleware config: Controls automatic tool-call loop behavior.');
+    expect(rendered).toContain('Legacy tool-calling middleware config: Controls compatibility-mode tool-call loop behavior.');
     expect(rendered).toContain('Current maxRounds:');
     expect(rendered).toContain('Usage: /tool-rounds [session|project|global] <positive-integer>');
     expect(rendered).toContain('Updated tool-calling.maxRounds to 12 (project).');

@@ -26,10 +26,13 @@ Lightweight core contracts and utilities that give you full control over your AI
 
 ### Install
 ```bash
-npm i @sisu-ai/core
+pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
+         @sisu-ai/mw-register-tools \
+         @sisu-ai/mw-trace-viewer \
+         @sisu-ai/mw-error-boundary zod dotenv
 ```
 
-### 60-Second Example
+### Your First Agent
 ```ts
 import 'dotenv/config';
 import {
@@ -38,27 +41,39 @@ import {
   execute,
   getExecutionResult,
   inputToMessage,
+  type Tool,
 } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { registerTools } from '@sisu-ai/mw-register-tools';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+import { z } from 'zod';
 
-// 1. Create your context
+const weather: Tool<{ city: string }> = {
+  name: 'getWeather',
+  description: 'Get weather for a city',
+  schema: z.object({ city: z.string() }),
+  handler: async ({ city }) => ({ city, tempC: 21, summary: 'Sunny' }),
+};
+
 const ctx = createCtx({
   model: openAIAdapter({ model: 'gpt-5.4' }),
-  input: 'Say hello in one short sentence.',
+  input: 'What is the weather in Stockholm?',
   systemPrompt: 'You are a helpful assistant.',
-  logLevel: 'info'
 });
 
-// 2. Build your pipeline (middleware style)
-const app = new Agent().use(inputToMessage).use(execute);
+const app = new Agent()
+  .use(errorBoundary())
+  .use(traceViewer())
+  .use(registerTools([weather]))
+  .use(inputToMessage)
+  .use(execute);
 
-// 3. Run it!
 await app.handler()(ctx);
-const result = getExecutionResult(ctx);
-console.log('Result:', result?.text);
+console.log(getExecutionResult(ctx)?.text);
 ```
 
-**Want more?** Check out the [examples](https://github.com/finger-gun/sisu/tree/main/examples) or the [full documentation](https://github.com/finger-gun/sisu).
+Open `traces/viewer.html` to inspect the run.
 
 ---
 
