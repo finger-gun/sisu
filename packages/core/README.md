@@ -10,6 +10,8 @@ Lightweight core contracts and utilities that give you full control over your AI
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcore)](https://www.npmjs.com/package/@sisu-ai/core)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
+[sisuai.me](https://sisuai.me/)
+
 ---
 
 ## Why @sisu-ai/core?

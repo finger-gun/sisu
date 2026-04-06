@@ -35,22 +35,19 @@ sisu info mw-rag
 sisu info tool-rag
 ```
 
-If `sisu` is not installed, either run via `npx` or install globally:
+If `sisu` is not installed, use `npx` equivalents:
 
 ```bash
 npx @sisu-ai/cli list middleware
 npx @sisu-ai/cli list tools
 npx @sisu-ai/cli info mw-rag
-# optional global install
-pnpm add -g @sisu-ai/cli
 ```
 
 If the CLI is not available, inspect:
 
-- `packages/middleware/*`
-- `packages/tools/*`
-- `packages/vector/*`
-- `examples/*`
+- installed package READMEs in `node_modules/@sisu-ai/*`
+- official package docs on npm/GitHub
+- the public examples in `https://github.com/finger-gun/sisu/tree/main/examples`
 
 Do not invent ad-hoc `rag(...)`, custom vector abstractions, or custom tool registries when maintained Sisu packages already exist.
 

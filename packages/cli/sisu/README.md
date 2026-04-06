@@ -8,6 +8,8 @@ CLI for discovering Sisu packages, scaffolding maintained starter projects, and 
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcli)](https://www.npmjs.com/package/@sisu-ai/cli)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
+[sisuai.me](https://sisuai.me/)
+
 ## Usage
 
 ```bash
