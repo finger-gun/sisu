@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel, execute, getExecutionResult } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
@@ -35,14 +35,6 @@ const ctx = createCtx({
 // Add the user message with image after context creation
 ctx.messages.push(userMessage);
 
-const generateOnce = async (c: Ctx) => {
-  const res = (await c.model.generate(c.messages, {
-    toolChoice: "none",
-    signal: c.signal,
-  })) as ModelResponse;
-  if (res?.message) c.messages.push(res.message);
-};
-
 const app = new Agent()
   .use(async (c, next) => {
     try {
@@ -64,8 +56,7 @@ const app = new Agent()
       { logPerCall: true },
     ),
   )
-  .use(generateOnce);
+  .use(execute);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel, execute, getExecutionResult } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { withGuardrails } from "@sisu-ai/mw-guardrails";
 import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
@@ -17,14 +17,6 @@ const ctx = createCtx({
 const policy = async (text: string) =>
   /password|apikey|token/i.test(text) ? "I can't help with that." : null;
 
-const generateOnce = async (c: Ctx) => {
-  const res = (await c.model.generate(c.messages, {
-    toolChoice: "none",
-    signal: c.signal,
-  })) as ModelResponse;
-  if (res?.message) c.messages.push(res.message);
-};
-
 const app = new Agent()
   .use(
     errorBoundary(async (err, ctx) => {
@@ -39,8 +31,7 @@ const app = new Agent()
   .use(usageTracker({ "*": { inputPer1M: 0.15, outputPer1M: 0.6 } }))
   .use(withGuardrails(policy))
   .use(inputToMessage)
-  .use(generateOnce);
+  .use(execute);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

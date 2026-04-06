@@ -715,7 +715,7 @@ export const executeWith =
 
 export const execute: Middleware = executeWith();
 
-export const executeStreamWith =
+const buildExecuteStream =
   (options: ExecuteStreamOptions = {}): Middleware =>
   async (ctx, next) => {
     await next();
@@ -732,7 +732,18 @@ export const executeStreamWith =
     }
   };
 
-export const executeStream: Middleware = executeStreamWith();
+type ExecuteStreamMiddleware = Middleware &
+  ((options?: ExecuteStreamOptions) => Middleware);
+
+export const executeStream: ExecuteStreamMiddleware = ((
+  ctxOrOptions?: Ctx | ExecuteStreamOptions,
+  next?: () => Promise<void>,
+) => {
+  if (typeof next === "function") {
+    return buildExecuteStream()(ctxOrOptions as Ctx, next);
+  }
+  return buildExecuteStream(ctxOrOptions as ExecuteStreamOptions | undefined);
+}) as ExecuteStreamMiddleware;
 
 export const streamOnce: Middleware = async (c: Ctx) => {
   const out = await c.model.generate(c.messages, {

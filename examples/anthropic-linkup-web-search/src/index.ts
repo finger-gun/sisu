@@ -1,12 +1,11 @@
 import "dotenv/config";
-import { Agent, createCtx, parseLogLevel } from "@sisu-ai/core";
+import { Agent, createCtx, parseLogLevel, execute, getExecutionResult } from "@sisu-ai/core";
 import { anthropicAdapter } from "@sisu-ai/adapter-anthropic";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
   inputToMessage,
   conversationBuffer,
 } from "@sisu-ai/mw-conversation-buffer";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { linkupWebSearch } from "@sisu-ai/tool-web-search-linkup";
@@ -38,8 +37,7 @@ const app = new Agent()
   .use(registerTools([linkupWebSearch]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 6 }))
-  .use(toolCalling);
+  .use(execute);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

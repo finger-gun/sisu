@@ -65,7 +65,7 @@ export const MIDDLEWARE_CATALOG: MiddlewareCatalogEntry[] = [
   {
     id: 'tool-calling',
     packageName: '@sisu-ai/mw-tool-calling',
-    description: 'Runs the tool loop over model tool calls.',
+    description: 'Legacy compatibility tool loop middleware. Prefer core execute/executeStream middleware in new code.',
     lockedCore: true,
     defaultEnabled: true,
   },
@@ -122,8 +122,8 @@ const MIDDLEWARE_CONFIG_DESCRIPTORS: Record<string, MiddlewareConfigDescriptor> 
   'tool-calling': {
     schemaVersion: 1,
     middlewareId: 'tool-calling',
-    title: 'Tool-calling middleware config',
-    description: 'Controls automatic tool-call loop behavior.',
+    title: 'Legacy tool-calling middleware config',
+    description: 'Controls compatibility-mode tool-call loop behavior.',
     options: [
       {
         path: 'maxRounds',

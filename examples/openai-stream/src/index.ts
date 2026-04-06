@@ -1,14 +1,5 @@
 import "dotenv/config";
-import {
-  Agent,
-  createCtx,
-  stdoutStream,
-  bufferStream,
-  teeStream,
-  executeStream,
-  inputToMessage,
-  parseLogLevel,
-} from "@sisu-ai/core";
+import { Agent, createCtx, stdoutStream, bufferStream, teeStream, executeStream, inputToMessage, parseLogLevel } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 
 // Optional: capture a copy while also printing to stdout for demo purposes
@@ -18,11 +9,12 @@ const ctx = createCtx({
   model: openAIAdapter({ model: process.env.OPENAI_MODEL || "gpt-5.4" }),
   input: "Please explain our solar system as if I was 5.",
   systemPrompt: "You are a helpful assistant.",
-  stream: teeStream(stdoutStream, buf.stream), // or just stdoutStream
   logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
-const app = new Agent().use(inputToMessage).use(executeStream);
+const app = new Agent()
+  .use(inputToMessage)
+  .use(executeStream({ sink: teeStream(stdoutStream, buf.stream) })); // or just executeStream({ sink: stdoutStream })
 
 await app.handler()(ctx);
 

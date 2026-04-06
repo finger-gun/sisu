@@ -243,7 +243,7 @@ const app = new Agent()
   .use(registerTools([weatherTool]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling);
+  .use(execute);
 ```
 
 ### Control flow agent
@@ -262,14 +262,7 @@ const app = new Agent()
 See: `openai-stream`, `anthropic-stream`, `ollama-stream`
 
 ```typescript
-const app = new Agent().use(inputToMessage).use(async (ctx) => {
-  const stream = await ctx.model.generate(ctx.messages, { stream: true });
-  for await (const event of stream) {
-    if (event.type === "token" && event.delta) {
-      await ctx.stream.write(event.delta);
-    }
-  }
-});
+const app = new Agent().use(inputToMessage).use(executeStream);
 ```
 
 ### RAG agent
@@ -286,7 +279,7 @@ const app = new Agent()
     }),
   )
   .use(inputToMessage)
-  .use(toolCalling);
+  .use(execute);
 ```
 
 ## Tips for using examples

@@ -4,7 +4,7 @@ Legacy compatibility middleware for provider-native tool call loops.
 
 > **Recommended for new code:** use core execution middleware from `@sisu-ai/core`:
 > - `execute` / `executeWith(opts)` for non-streaming
-> - `executeStream` / `executeStreamWith(opts)` for streaming
+> - `executeStream` (optionally as `executeStream(opts)`) for streaming
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)

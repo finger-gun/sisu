@@ -253,10 +253,9 @@ const myCustomTool: Tool<{ param: string }> = {
 ## Example: Multi-tool agent
 
 ```typescript
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, execute } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { webFetch } from "@sisu-ai/tool-web-fetch";
 import { webSearchGoogle } from "@sisu-ai/tool-web-search-google";
 import { wikipedia } from "@sisu-ai/tool-wikipedia";
@@ -292,7 +291,7 @@ const app = new Agent()
   .use(registerTools([webFetch, webSearchGoogle, wikipedia, calculator]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling);
+  .use(execute);
 
 await app.handler()(ctx);
 ```

@@ -1,11 +1,5 @@
 import "dotenv/config";
-import {
-Agent,
-  createCtx,
-  type ModelEvent,
-  type ModelResponse,
-  parseLogLevel,
-} from "@sisu-ai/core";
+import { Agent, createCtx, type ModelEvent, type ModelResponse, parseLogLevel, execute } from "@sisu-ai/core";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
@@ -65,7 +59,7 @@ const app = new Agent<HttpCtx>()
     ),
   )
   .use(runApi)
-  .use(generateOnce);
+  .use(execute);
 
 const port = Number(process.env.PORT) || 3000;
 

@@ -85,7 +85,7 @@ Everything you need to get started:
 
 - **`createCtx(options)`** - Factory with sensible defaults (⭐ **Recommended**)
 - **`execute`** / **`executeWith(opts)`** - Non-streaming execution middleware
-- **`executeStream`** / **`executeStreamWith(opts)`** - Streaming execution middleware
+- **`executeStream`** - Streaming execution middleware (`.use(executeStream)` or `.use(executeStream(opts))`)
 - **`getExecutionResult(ctx)`** / **`getExecutionEvents(ctx)`** - Read typed execution outputs from context state
 - **`createConsoleLogger({ level, timestamps })`** - Leveled logging
 - **`createTracingLogger(base?)`** - Captures events for trace viewers
@@ -222,9 +222,10 @@ const buf = bufferStream();
 const ctx = createCtx({
   model,
   input: 'Explain stars simply.',
-  stream: teeStream(stdoutStream, buf.stream),
 });
-const app = new Agent().use(inputToMessage).use(executeStream);
+const app = new Agent()
+  .use(inputToMessage)
+  .use(executeStream({ sink: teeStream(stdoutStream, buf.stream) }));
 
 await app.handler()(ctx);
 console.log('\nFinal:', getExecutionResult(ctx)?.text);

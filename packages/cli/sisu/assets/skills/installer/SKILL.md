@@ -50,7 +50,7 @@ Do not invent ad-hoc `rag(...)`, custom vector abstractions, or custom tool regi
 
 ```bash
 pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
-         @sisu-ai/mw-register-tools @sisu-ai/mw-tool-calling \
+         @sisu-ai/mw-register-tools \
          @sisu-ai/mw-conversation-buffer @sisu-ai/mw-trace-viewer \
          @sisu-ai/mw-error-boundary zod dotenv
 ```
@@ -59,11 +59,10 @@ pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
 
 ```typescript
 import "dotenv/config";
-import { Agent, createCtx, type Tool } from "@sisu-ai/core";
+import { Agent, createCtx, execute, type Tool } from "@sisu-ai/core";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import { inputToMessage, conversationBuffer } from "@sisu-ai/mw-conversation-buffer";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { z } from "zod";
@@ -82,7 +81,7 @@ const app = new Agent()
   .use(registerTools([...]))  // Add tools here
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling);
+  .use(execute);
 
 // Run
 await app.handler()(ctx);
@@ -175,7 +174,7 @@ const app = new Agent()
   .use(registerTools([tool1, tool2]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling);
+  .use(execute);
 ```
 
 ### Agent with control flow

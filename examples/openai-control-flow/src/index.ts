@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel, executeWith, getExecutionResult } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
@@ -7,7 +7,6 @@ import {
   conversationBuffer,
 } from "@sisu-ai/mw-conversation-buffer";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { switchCase, sequence, loopUntil } from "@sisu-ai/mw-control-flow";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
@@ -46,7 +45,7 @@ const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => {
   await next();
 };
 
-const toolingBody = sequence([toolCalling, decideIfMoreTools]);
+const toolingBody = sequence([executeWith({ strategy: "single" }), decideIfMoreTools]);
 const toolingLoop = loopUntil((c) => !c.state.moreTools, toolingBody, {
   max: 6,
 });
@@ -86,5 +85,4 @@ const app = new Agent()
   );
 
 await app.handler()(ctx, async () => {});
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

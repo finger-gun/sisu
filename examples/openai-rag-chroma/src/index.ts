@@ -1,9 +1,8 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, execute, getExecutionResult } from "@sisu-ai/core";
 import { openAIAdapter, openAIEmbeddings } from "@sisu-ai/adapter-openai";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { registerTools } from "@sisu-ai/mw-register-tools";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
 import { storeRagContent } from "@sisu-ai/rag-core";
 import { createRagTools } from "@sisu-ai/tool-rag";
@@ -74,10 +73,8 @@ const queryAgent = new Agent()
   .use(traceViewer())
   .use(registerTools(ragTools))
   .use(inputToMessage)
-  .use(toolCalling);
+  .use(execute);
 
 await runIngestion();
 await queryAgent.handler()(queryCtx);
-
-const final = queryCtx.messages.filter((message) => message.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(queryCtx)?.text);

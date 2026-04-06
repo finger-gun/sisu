@@ -115,10 +115,6 @@ test("executeStream middleware emits events and stores them in ctx.state", async
   const sinkWrites: string[] = [];
   const ctx = makeCtx({
     tools,
-    stream: {
-      write: (token: string) => sinkWrites.push(token),
-      end: () => sinkWrites.push("<END>"),
-    },
     model: {
       name: "dummy",
       capabilities: { functionCall: true, streaming: true },
@@ -149,7 +145,14 @@ test("executeStream middleware emits events and stores them in ctx.state", async
     } as Ctx["model"],
   });
 
-  await compose([executeStream])(ctx);
+  await compose([
+    executeStream({
+      sink: {
+        write: (token: string) => sinkWrites.push(token),
+        end: () => sinkWrites.push("<END>"),
+      },
+    }),
+  ])(ctx);
   const events = getExecutionEvents(ctx).map((event) => event.type);
   expect(events).toContain("tool_call_started");
   expect(events).toContain("tool_call_finished");

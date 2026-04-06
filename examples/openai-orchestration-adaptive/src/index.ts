@@ -1,5 +1,11 @@
 import "dotenv/config";
-import { Agent, createCtx, parseLogLevel } from "@sisu-ai/core";
+import {
+  Agent,
+  createCtx,
+  execute,
+  getExecutionResult,
+  parseLogLevel,
+} from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import {
   inputToMessage,
@@ -154,9 +160,9 @@ const app = new Agent()
       maxChildTurns: 6,
       modelResolver: (_requestedModel, parentCtx) => parentCtx.model,
     }),
-  );
+  )
+  .use(execute);
 
 await app.handler()(ctx);
 
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

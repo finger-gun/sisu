@@ -70,6 +70,7 @@ const classify = async (ctx, next) => {
 Run body at least once, continue until condition is true.
 
 ```typescript
+import { executeWith } from '@sisu-ai/core';
 import { loopUntil, sequence } from '@sisu-ai/mw-control-flow';
 
 const setMoreFlag = async (ctx, next) => {
@@ -78,7 +79,7 @@ const setMoreFlag = async (ctx, next) => {
 };
 
 const body = sequence([
-  toolCalling,
+  executeWith({ strategy: "single" }),
   setMoreFlag
 ]);
 
@@ -179,10 +180,9 @@ const edges: Edge[] = [
 ## Complete example
 
 ```typescript
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, executeWith } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { sequence, branch, loopUntil } from "@sisu-ai/mw-control-flow";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 
 const classify = async (ctx, next) => {
@@ -197,9 +197,13 @@ const setMoreFlag = async (ctx, next) => {
 
 const toolFlow = sequence([
   registerTools([weatherTool, searchTool]),
-  loopUntil((ctx) => !ctx.state.more, sequence([toolCalling, setMoreFlag]), {
+  loopUntil(
+    (ctx) => !ctx.state.more,
+    sequence([executeWith({ strategy: "single" }), setMoreFlag]),
+    {
     max: 6,
-  }),
+    },
+  ),
 ]);
 
 const chatFlow = async (ctx) => {
@@ -241,7 +245,7 @@ loopUntil((ctx) => ctx.state.done, body, { max: 10 });
 
 // CORRECT - body sets the flag
 const body = sequence([
-  toolCalling,
+  executeWith({ strategy: "single" }),
   async (ctx, next) => {
     ctx.state.done = ctx.messages.at(-1)?.role !== "tool";
     await next();

@@ -17,7 +17,6 @@
     "@sisu-ai/mw-register-tools": "workspace:*",
     "@sisu-ai/mw-conversation-buffer": "workspace:*",
     "@sisu-ai/mw-error-boundary": "workspace:*",
-    "@sisu-ai/mw-tool-calling": "workspace:*",
     "@sisu-ai/mw-control-flow": "workspace:*",
     "@sisu-ai/mw-trace-viewer": "workspace:*",
     "@sisu-ai/mw-usage-tracker": "workspace:*",

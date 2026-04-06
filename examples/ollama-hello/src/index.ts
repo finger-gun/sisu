@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse, inputToMessage, parseLogLevel } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, inputToMessage, parseLogLevel, execute, getExecutionResult } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { ollamaAdapter } from "@sisu-ai/adapter-ollama";
@@ -10,14 +10,6 @@ const ctx = createCtx({
   systemPrompt: "You are a helpful assistant.",
   logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
-
-const generateOnce = async (c: Ctx) => {
-  const res = (await c.model.generate(c.messages, {
-    toolChoice: "none",
-    signal: c.signal,
-  })) as ModelResponse;
-  if (res?.message) c.messages.push(res.message);
-};
 
 const app = new Agent()
   .use(async (c, next) => {
@@ -39,8 +31,7 @@ const app = new Agent()
     ),
   )
   .use(inputToMessage)
-  .use(generateOnce);
+  .use(execute);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

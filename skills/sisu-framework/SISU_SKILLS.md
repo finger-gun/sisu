@@ -151,7 +151,7 @@ import { terminal } from '@sisu-ai/tool-terminal';
 
 ```typescript
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, execute } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { skillsMiddleware } from "@sisu-ai/mw-skills";
 import { registerTools } from "@sisu-ai/mw-register-tools";
@@ -162,7 +162,6 @@ import {
   inputToMessage,
   conversationBuffer,
 } from "@sisu-ai/mw-conversation-buffer";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 
 const ctx = createCtx({
   model: openAIAdapter({ model: "gpt-5.4" }),
@@ -190,7 +189,7 @@ const app = new Agent()
   )
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling);
+  .use(execute);
 
 await app.handler()(ctx);
 ```

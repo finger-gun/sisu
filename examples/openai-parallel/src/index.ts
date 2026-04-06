@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel, getExecutionResult } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
@@ -81,5 +81,4 @@ const app = new Agent()
   .use(parallel<Ctx>([summary, hashtags], merge));
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);
