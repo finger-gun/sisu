@@ -21,7 +21,7 @@
     "zod": "^3.22.4"
   },
   "peerDependencies": {
-    "@sisu-ai/core": "^2.6.0"
+    "@sisu-ai/core": "^2.6.1"
   },
   "devDependencies": {
     "@sisu-ai/core": "workspace:*",

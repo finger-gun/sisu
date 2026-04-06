@@ -1,5 +1,13 @@
 # @sisu-ai/core
 
+## 2.6.1
+
+### Patch Changes
+
+- 2e43e02: Refresh README and skill-install guidance links for improved discoverability.
+
+  This update adds the official website reference and clarifies CLI usage guidance in package docs. No runtime behavior or API contracts changed.
+
 ## 2.6.0
 
 ### Minor Changes

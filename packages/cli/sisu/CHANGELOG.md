@@ -1,5 +1,21 @@
 # sisu
 
+## 0.6.2
+
+### Patch Changes
+
+- 2e43e02: Refresh README and skill-install guidance links for improved discoverability.
+
+  This update adds the official website reference and clarifies CLI usage guidance in package docs. No runtime behavior or API contracts changed.
+
+- Updated dependencies [2e43e02]
+  - @sisu-ai/core@2.6.1
+  - @sisu-ai/adapter-anthropic@10.0.0
+  - @sisu-ai/adapter-ollama@12.0.0
+  - @sisu-ai/adapter-openai@12.0.0
+  - @sisu-ai/mw-skills@3.0.0
+  - @sisu-ai/mw-trace-viewer@13.0.0
+
 ## 0.6.1
 
 ### Patch Changes

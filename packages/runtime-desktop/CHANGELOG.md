@@ -1,5 +1,15 @@
 # @sisu-ai/runtime-desktop
 
+## 0.2.4
+
+### Patch Changes
+
+- Updated dependencies [2e43e02]
+  - @sisu-ai/core@2.6.1
+  - @sisu-ai/adapter-anthropic@10.0.0
+  - @sisu-ai/adapter-ollama@12.0.0
+  - @sisu-ai/adapter-openai@12.0.0
+
 ## 0.2.3
 
 ### Patch Changes
