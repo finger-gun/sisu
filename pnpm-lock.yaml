@@ -1510,10 +1510,10 @@ importers:
         version: 2.5.0
 
   packages/middleware/register-tools:
-    dependencies:
+    devDependencies:
       '@sisu-ai/core':
-        specifier: ^2.5.0
-        version: 2.5.0
+        specifier: workspace:*
+        version: link:../../core
 
   packages/middleware/skills:
     dependencies:
@@ -1532,10 +1532,13 @@ importers:
         version: 1.6.1(@types/node@20.19.33)
 
   packages/middleware/tool-calling:
-    dependencies:
+    devDependencies:
       '@sisu-ai/core':
-        specifier: ^2.5.0
-        version: 2.5.0
+        specifier: workspace:*
+        version: link:../../core
+      '@sisu-ai/mw-register-tools':
+        specifier: workspace:*
+        version: link:../register-tools
 
   packages/middleware/trace-viewer:
     devDependencies:

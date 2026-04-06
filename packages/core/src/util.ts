@@ -1,13 +1,25 @@
 import { Middleware } from "./compose.js";
 import type {
+  AssistantMessage,
   Ctx,
+  ExecuteOptions,
+  ExecuteResult,
+  ExecuteStreamEvent,
+  ExecuteStreamOptions,
+  GenerateOptions,
   Logger,
+  Message,
   Memory,
+  ModelEvent,
   TokenStream,
   Tool,
+  ToolCall,
+  ToolChoice,
+  ToolContext,
+  ToolExecutionRecord,
   ToolRegistry,
+  Usage,
   LLM,
-  Message,
   ModelResponse,
 } from "./types.js";
 
@@ -312,6 +324,19 @@ export function bufferStream() {
   };
 }
 
+export function getExecutionResult(
+  ctx: Pick<Ctx, "state">,
+): ExecuteResult | undefined {
+  return ctx.state.executionResult as ExecuteResult | undefined;
+}
+
+export function getExecutionEvents(
+  ctx: Pick<Ctx, "state">,
+): ExecuteStreamEvent[] {
+  const events = ctx.state.executionEvents;
+  return Array.isArray(events) ? (events as ExecuteStreamEvent[]) : [];
+}
+
 export function teeStream(...streams: TokenStream[]): TokenStream {
   return {
     write: (t: string) => {
@@ -322,6 +347,392 @@ export function teeStream(...streams: TokenStream[]): TokenStream {
     },
   };
 }
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    Symbol.asyncIterator in value
+  );
+}
+
+function hasParseSchema(
+  schema: unknown,
+): schema is { parse: (input: unknown) => unknown } {
+  if (!schema || typeof schema !== "object") return false;
+  const maybeSchema = schema as { parse?: unknown };
+  return typeof maybeSchema.parse === "function";
+}
+
+function normalizeToolArguments(args: unknown): unknown {
+  if (typeof args !== "string") return args;
+  let current: unknown = args;
+  for (let i = 0; i < 2; i++) {
+    if (typeof current !== "string") return current;
+    const trimmed = current.trim();
+    if (!trimmed) return args;
+    try {
+      current = JSON.parse(trimmed);
+    } catch {
+      return current;
+    }
+  }
+  return current;
+}
+
+function safeStableStringify(v: unknown): string {
+  try {
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      const keys = Object.keys(v as Record<string, unknown>).sort();
+      const obj: Record<string, unknown> = {};
+      for (const k of keys) obj[k] = (v as Record<string, unknown>)[k];
+      return JSON.stringify(obj);
+    }
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
+}
+
+function applyAliasesToTools(
+  tools: Tool[],
+  aliasMap?: Map<string, string>,
+): { aliasedTools: Tool[]; reverseMap: Map<string, string> } {
+  if (!aliasMap || aliasMap.size === 0) {
+    const reverseMap = new Map<string, string>();
+    for (const tool of tools) reverseMap.set(tool.name, tool.name);
+    return { aliasedTools: tools, reverseMap };
+  }
+
+  const aliasedTools: Tool[] = [];
+  const reverseMap = new Map<string, string>();
+  for (const tool of tools) {
+    const alias = aliasMap.get(tool.name);
+    if (alias) {
+      aliasedTools.push({ ...tool, name: alias });
+      reverseMap.set(alias, tool.name);
+    } else {
+      aliasedTools.push(tool);
+      reverseMap.set(tool.name, tool.name);
+    }
+  }
+  return { aliasedTools, reverseMap };
+}
+
+function assertNotAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw new Error("EXECUTION_CANCELLED");
+  }
+}
+
+function pushToolExecution(
+  ctx: Pick<Ctx, "state">,
+  record: ToolExecutionRecord,
+): void {
+  const existing = ctx.state.toolExecutions;
+  if (Array.isArray(existing)) {
+    existing.push(record);
+    return;
+  }
+  ctx.state.toolExecutions = [record];
+}
+
+type ToolCallShape = {
+  id?: string;
+  name: string;
+  arguments: unknown;
+};
+
+type ToolRoundEvent =
+  | { type: "tool_call_started"; call: ToolCall; round: number }
+  | {
+      type: "tool_call_finished";
+      call: ToolCall;
+      round: number;
+      result: unknown;
+    };
+
+interface ExecutePreparation {
+  rounds: number;
+  usage?: Usage;
+  finalMessage: AssistantMessage;
+  toolExecutions: ToolExecutionRecord[];
+  toolEvents: ToolRoundEvent[];
+}
+
+function effectiveToolChoice(
+  configured: ToolChoice | undefined,
+  hasTools: boolean,
+): ToolChoice {
+  if (configured) return configured;
+  return hasTools ? "auto" : "none";
+}
+
+async function prepareExecution(
+  ctx: Ctx,
+  options: ExecuteOptions = {},
+): Promise<ExecutePreparation> {
+  const toolList = ctx.tools.list();
+  const userAliases = ctx.state.toolAliases as Map<string, string> | undefined;
+  const { aliasedTools, reverseMap } = applyAliasesToTools(toolList, userAliases);
+
+  const strategy = options.strategy ?? "iterative";
+  const maxRounds = options.maxRounds ?? (strategy === "single" ? 6 : 12);
+  const parallelToolCalls = options.parallelToolCalls ?? false;
+
+  let usage: Usage | undefined;
+  let toolChoice: ToolChoice = effectiveToolChoice(
+    options.toolChoice,
+    aliasedTools.length > 0,
+  );
+  const toolExecutions: ToolExecutionRecord[] = [];
+  const toolEvents: ToolRoundEvent[] = [];
+
+  for (let round = 0; round < maxRounds; round++) {
+    assertNotAborted(ctx.signal);
+
+    const genOpts: GenerateOptions = {
+      toolChoice,
+      signal: ctx.signal,
+      parallelToolCalls,
+    };
+
+    if (toolChoice !== "none" && aliasedTools.length > 0) {
+      genOpts.tools = aliasedTools;
+    }
+
+    const out = await ctx.model.generate(ctx.messages, genOpts);
+    if (isAsyncIterable(out)) {
+      throw new Error(
+        "[execute] model returned a stream for non-streaming round",
+      );
+    }
+
+    usage = out.usage ?? usage;
+    const msg = out.message;
+    const toolCalls = (
+      msg as Message & { tool_calls?: ToolCallShape[] }
+    ).tool_calls;
+
+    if (!toolCalls || toolCalls.length === 0) {
+      return {
+        rounds: round + 1,
+        usage,
+        finalMessage: msg,
+        toolExecutions,
+        toolEvents,
+      };
+    }
+
+    ctx.messages.push(msg);
+    const cache = new Map<string, unknown>();
+    const lastArgsByName = new Map<string, unknown>();
+
+    for (let i = 0; i < toolCalls.length; i++) {
+      assertNotAborted(ctx.signal);
+      const call = toolCalls[i] as ToolCallShape;
+      const callId = call.id ?? `tool-call-${round + 1}-${i + 1}`;
+      const providedArgs =
+        typeof call.arguments === "undefined" && lastArgsByName.has(call.name)
+          ? lastArgsByName.get(call.name)
+          : call.arguments;
+      const normalizedCall: ToolCall = {
+        id: callId,
+        name: call.name,
+        arguments: providedArgs,
+      };
+      toolEvents.push({ type: "tool_call_started", call: normalizedCall, round: round + 1 });
+
+      const canonicalName = reverseMap.get(call.name);
+      if (!canonicalName) throw new Error(`Unknown tool: ${call.name}`);
+      const tool = ctx.tools.get(canonicalName);
+      if (!tool) throw new Error(`Unknown tool: ${canonicalName}`);
+
+      const cacheKey = `${call.name}:${safeStableStringify(providedArgs)}`;
+      let result = cache.get(cacheKey);
+      let parsedArgs = lastArgsByName.get(call.name);
+
+      if (typeof result === "undefined") {
+        const normalizedArgs = normalizeToolArguments(providedArgs);
+        parsedArgs = hasParseSchema(tool.schema)
+          ? tool.schema.parse(normalizedArgs)
+          : normalizedArgs;
+
+        const toolCtx: ToolContext = {
+          memory: ctx.memory,
+          signal: ctx.signal,
+          log: ctx.log,
+          model: ctx.model,
+          deps: ctx.state?.toolDeps as Record<string, unknown> | undefined,
+        };
+
+        result = await tool.handler(parsedArgs as never, toolCtx);
+        cache.set(cacheKey, result);
+        lastArgsByName.set(call.name, parsedArgs);
+      }
+
+      const toolMsg: Message = {
+        role: "tool",
+        tool_call_id: callId,
+        name: call.name,
+        content: JSON.stringify(result),
+      };
+      ctx.messages.push(toolMsg);
+
+      const record: ToolExecutionRecord = {
+        aliasName: call.name,
+        canonicalName,
+        callId,
+        args: parsedArgs,
+        result,
+      };
+      toolExecutions.push(record);
+      pushToolExecution(ctx, record);
+      toolEvents.push({
+        type: "tool_call_finished",
+        call: normalizedCall,
+        round: round + 1,
+        result,
+      });
+    }
+
+    toolChoice = strategy === "single" ? "none" : "auto";
+  }
+
+  throw new Error(`[execute] exceeded max rounds (${maxRounds})`);
+}
+
+async function runExecute(
+  ctx: Ctx,
+  options: ExecuteOptions = {},
+): Promise<ExecuteResult> {
+  assertNotAborted(ctx.signal);
+  const prepared = await prepareExecution(ctx, options);
+  assertNotAborted(ctx.signal);
+  ctx.messages.push(prepared.finalMessage);
+  return {
+    message: prepared.finalMessage,
+    text: prepared.finalMessage.content,
+    usage: prepared.usage,
+    rounds: prepared.rounds,
+    toolExecutions: prepared.toolExecutions,
+  };
+}
+
+async function* streamExecution(
+  ctx: Ctx,
+  options: ExecuteStreamOptions = {},
+): AsyncGenerator<ExecuteStreamEvent> {
+  const sink = options.sink ?? ctx.stream;
+  try {
+    assertNotAborted(ctx.signal);
+    const hasTools = ctx.tools.list().length > 0;
+    const initialToolChoice = effectiveToolChoice(options.toolChoice, hasTools);
+    const prepared =
+      initialToolChoice === "none"
+        ? {
+            rounds: 0,
+            usage: undefined,
+            finalMessage: { role: "assistant", content: "" } as AssistantMessage,
+            toolExecutions: [] as ToolExecutionRecord[],
+            toolEvents: [] as ToolRoundEvent[],
+          }
+        : await prepareExecution(ctx, options);
+
+    for (const event of prepared.toolEvents) {
+      yield event;
+    }
+
+    assertNotAborted(ctx.signal);
+    const out = await ctx.model.generate(ctx.messages, {
+      stream: true,
+      toolChoice: "none",
+      signal: ctx.signal,
+    });
+
+    let usage = prepared.usage;
+    let streamedText = "";
+    let assistantMessage: AssistantMessage | undefined;
+
+    if (isAsyncIterable(out)) {
+      for await (const event of out as AsyncIterable<ModelEvent>) {
+        assertNotAborted(ctx.signal);
+        if (event.type === "token") {
+          streamedText += event.token;
+          sink.write(event.token);
+          yield { type: "token", token: event.token };
+        } else if (event.type === "assistant_message") {
+          assistantMessage = event.message;
+          yield event;
+        } else if (event.type === "usage") {
+          usage = event.usage;
+          yield event;
+        }
+      }
+    } else {
+      assistantMessage = out.message;
+      usage = out.usage ?? usage;
+      if (assistantMessage.content) {
+        streamedText = assistantMessage.content;
+        sink.write(assistantMessage.content);
+        yield { type: "token", token: assistantMessage.content };
+      }
+    }
+
+    const finalMessage: AssistantMessage = assistantMessage ?? {
+      role: "assistant",
+      content: streamedText,
+    };
+    ctx.messages.push(finalMessage);
+    sink.end();
+
+    const result: ExecuteResult = {
+      message: finalMessage,
+      text: finalMessage.content,
+      usage,
+      rounds: prepared.rounds + 1,
+      toolExecutions: prepared.toolExecutions,
+    };
+
+    if (!assistantMessage) {
+      yield { type: "assistant_message", message: finalMessage };
+    }
+    yield { type: "done", result };
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    yield { type: "error", error: err };
+    throw err;
+  }
+}
+
+export const executeWith =
+  (options: ExecuteOptions = {}): Middleware =>
+  async (ctx, next) => {
+    await next();
+    const result = await runExecute(ctx, options);
+    ctx.state.executionResult = result;
+  };
+
+export const execute: Middleware = executeWith();
+
+export const executeStreamWith =
+  (options: ExecuteStreamOptions = {}): Middleware =>
+  async (ctx, next) => {
+    await next();
+    const events: ExecuteStreamEvent[] = [];
+    let result: ExecuteResult | undefined;
+    try {
+      for await (const event of streamExecution(ctx, options)) {
+        events.push(event);
+        if (event.type === "done") result = event.result;
+      }
+    } finally {
+      ctx.state.executionEvents = events;
+      if (result) ctx.state.executionResult = result;
+    }
+  };
+
+export const executeStream: Middleware = executeStreamWith();
 
 export const streamOnce: Middleware = async (c: Ctx) => {
   const out = await c.model.generate(c.messages, {

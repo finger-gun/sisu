@@ -1,6 +1,12 @@
 import { test, expect } from "vitest";
 import type { Ctx, Tool } from "@sisu-ai/core";
-import { InMemoryKV, NullStream, SimpleTools, compose } from "@sisu-ai/core";
+import {
+  executeWith,
+  InMemoryKV,
+  NullStream,
+  SimpleTools,
+  compose,
+} from "@sisu-ai/core";
 import { registerTools } from "../src/index.js";
 
 function makeCtx(): Ctx {
@@ -150,4 +156,38 @@ test("registerTools handles empty alias map", async () => {
   // Empty alias map should not be stored
   const aliasMap = ctx.state.toolAliases as Map<string, string> | undefined;
   expect(aliasMap).toBeUndefined();
+});
+
+test("registerTools interops with core execute tool discovery defaults", async () => {
+  const echo: Tool<{ text: string }> = {
+    name: "echo",
+    schema: { parse: (value: unknown) => value as { text: string } },
+    async handler({ text }: { text: string }) {
+      return { echoed: text };
+    },
+  };
+  const ctx = makeCtx();
+  await compose([registerTools([echo])])(ctx);
+
+  let firstCall = true;
+  ctx.model.generate = async (_messages: any[], opts: any) => {
+    if (firstCall) {
+      firstCall = false;
+      expect(opts.toolChoice).toBe("auto");
+      expect(opts.tools.map((t: any) => t.name)).toContain("echo");
+      return {
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [{ id: "1", name: "echo", arguments: { text: "hello" } }],
+        },
+      } as any;
+    }
+    return { message: { role: "assistant", content: "done" } } as any;
+  };
+
+  await compose([executeWith({ strategy: "iterative" })])(ctx);
+  const result = ctx.state.executionResult as { text: string; toolExecutions: unknown[] } | undefined;
+  expect(result?.text).toBe("done");
+  expect(result?.toolExecutions).toHaveLength(1);
 });

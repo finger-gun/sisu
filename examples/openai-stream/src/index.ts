@@ -1,14 +1,14 @@
 import "dotenv/config";
 import {
-Agent,
+  Agent,
   createCtx,
   stdoutStream,
   bufferStream,
   teeStream,
-  streamOnce,
+  executeStream,
+  inputToMessage,
   parseLogLevel,
 } from "@sisu-ai/core";
-import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 
 // Optional: capture a copy while also printing to stdout for demo purposes
@@ -22,7 +22,7 @@ const ctx = createCtx({
   logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
-const app = new Agent().use(inputToMessage).use(streamOnce); // streams tokens to ctx.stream, captures final assistant message
+const app = new Agent().use(inputToMessage).use(executeStream);
 
 await app.handler()(ctx);
 

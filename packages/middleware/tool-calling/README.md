@@ -1,6 +1,10 @@
 # @sisu-ai/mw-tool-calling
 
-Execute provider-native tool call loops with robust iteration, validation, and tool result handling.
+Legacy compatibility middleware for provider-native tool call loops.
+
+> **Recommended for new code:** use core execution middleware from `@sisu-ai/core`:
+> - `execute` / `executeWith(opts)` for non-streaming
+> - `executeStream` / `executeStreamWith(opts)` for streaming
 
 [![Tests](https://github.com/finger-gun/sisu/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/finger-gun/sisu/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/finger-gun/sisu/actions/workflows/github-code-scanning/codeql)
@@ -14,7 +18,7 @@ npm i @sisu-ai/mw-tool-calling
 ```
 
 ## Behavior
-- `toolCalling`: single-round tool calling.
+- `toolCalling`: single-round compatibility mode.
   - First turn: calls `ctx.model.generate(messages, { tools, toolChoice:'auto' })`.
   - If assistant returns `tool_calls`, appends the assistant message and executes each tool.
     - Executes each unique `(name, args)` once and responds to every `tool_call_id`.
@@ -46,7 +50,7 @@ sequenceDiagram
   end
 
 ```
-- `iterativeToolCalling`: multi-round tool calling.
+- `iterativeToolCalling`: multi-round compatibility mode.
   - Repeats calls with `toolChoice:'auto'` until the model returns a message with no `tool_calls` (max 12 iters).
 
 ```mermaid
@@ -86,6 +90,22 @@ agent.use(toolCalling);
 
 // OR multi-round
 agent.use(iterativeToolCalling);
+```
+
+## Migration to Core Execution APIs
+
+```ts
+import { Agent, execute, getExecutionResult } from '@sisu-ai/core';
+import { registerTools } from '@sisu-ai/mw-register-tools';
+import { inputToMessage } from '@sisu-ai/mw-conversation-buffer';
+
+const app = new Agent()
+  .use(registerTools([myTool]))
+  .use(inputToMessage)
+  .use(execute);
+
+await app.handler()(ctx); // primary path
+console.log(getExecutionResult(ctx)?.text);
 ```
 
 ## Tool Execution Records

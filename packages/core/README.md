@@ -32,7 +32,13 @@ npm i @sisu-ai/core
 ### 60-Second Example
 ```ts
 import 'dotenv/config';
-import { Agent, createCtx, inputToMessage } from '@sisu-ai/core';
+import {
+  Agent,
+  createCtx,
+  execute,
+  getExecutionResult,
+  inputToMessage,
+} from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
 // 1. Create your context
@@ -44,18 +50,12 @@ const ctx = createCtx({
 });
 
 // 2. Build your pipeline (middleware style)
-const generateOnce = async (c) => { 
-  const res = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });
-  if (res?.message) c.messages.push(res.message);
-};
-
-const app = new Agent()
-  .use(inputToMessage)
-  .use(generateOnce);
+const app = new Agent().use(inputToMessage).use(execute);
 
 // 3. Run it!
 await app.handler()(ctx);
-console.log('✅', ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
+const result = getExecutionResult(ctx);
+console.log('✅', result?.text);
 ```
 
 **Want more?** Check out the [examples](https://github.com/finger-gun/sisu/tree/main/examples) or the [full documentation](https://github.com/finger-gun/sisu).
@@ -84,6 +84,9 @@ Compose complex behavior from simple pieces:
 Everything you need to get started:
 
 - **`createCtx(options)`** - Factory with sensible defaults (⭐ **Recommended**)
+- **`execute`** / **`executeWith(opts)`** - Non-streaming execution middleware
+- **`executeStream`** / **`executeStreamWith(opts)`** - Streaming execution middleware
+- **`getExecutionResult(ctx)`** / **`getExecutionEvents(ctx)`** - Read typed execution outputs from context state
 - **`createConsoleLogger({ level, timestamps })`** - Leveled logging
 - **`createTracingLogger(base?)`** - Captures events for trace viewers
 - **`createRedactingLogger(base, opts)`** - Auto-redacts secrets 🔒
@@ -173,6 +176,74 @@ Use any provider by implementing `LLM.generate(messages, opts)`:
 **Return types:**
 - `Promise<ModelResponse>` for non-streaming calls
 - `AsyncIterable<ModelEvent>` for token streaming
+
+---
+
+## Execution APIs (Recommended)
+
+Use core execution APIs as the primary runtime path.
+
+### Non-streaming
+
+```ts
+import {
+  Agent,
+  createCtx,
+  execute,
+  getExecutionResult,
+  inputToMessage,
+} from '@sisu-ai/core';
+
+const ctx = createCtx({ model, input: 'What is the weather in Malmö?' });
+const app = new Agent().use(inputToMessage).use(execute);
+
+await app.handler()(ctx);
+const result = getExecutionResult(ctx);
+
+console.log(result?.text);
+console.log(result?.toolExecutions.length ?? 0);
+```
+
+### Streaming
+
+```ts
+import {
+  Agent,
+  createCtx,
+  executeStream,
+  getExecutionResult,
+  inputToMessage,
+  teeStream,
+  stdoutStream,
+  bufferStream,
+} from '@sisu-ai/core';
+
+const buf = bufferStream();
+const ctx = createCtx({
+  model,
+  input: 'Explain stars simply.',
+  stream: teeStream(stdoutStream, buf.stream),
+});
+const app = new Agent().use(inputToMessage).use(executeStream);
+
+await app.handler()(ctx);
+console.log('\nFinal:', getExecutionResult(ctx)?.text);
+```
+
+### Migration from middleware-first tool-calling
+
+```ts
+// Before
+app.use(registerTools([weather])).use(inputToMessage).use(toolCalling);
+await app.handler()(ctx);
+const final = ctx.messages.filter(m => m.role === 'assistant').pop();
+
+// After
+import { execute, getExecutionResult } from '@sisu-ai/core';
+app.use(registerTools([weather])).use(inputToMessage).use(execute);
+await app.handler()(ctx);
+console.log(getExecutionResult(ctx)?.text);
+```
 
 ---
 

@@ -104,6 +104,62 @@ export interface ModelResponse {
   usage?: Usage;
 }
 
+export type ExecutionStrategy = "single" | "iterative";
+
+export interface ExecuteOptions {
+  /**
+   * Tool-calling strategy:
+   * - `iterative` (default): keep tool-calling enabled across rounds
+   * - `single`: first round may call tools, then finalize with toolChoice "none"
+   */
+  strategy?: ExecutionStrategy;
+  /**
+   * Override tool choice for the first model call. Defaults to:
+   * - "auto" when tools are available
+   * - "none" when no tools are available
+   */
+  toolChoice?: ToolChoice;
+  /** Maximum rounds before failing. Defaults: iterative=12, single=6 */
+  maxRounds?: number;
+  /** Provider hint for parallel tool calls. Defaults to false */
+  parallelToolCalls?: boolean;
+}
+
+export interface ExecuteStreamOptions extends ExecuteOptions {
+  /** Optional stream sink override. Falls back to `ctx.stream`. */
+  sink?: TokenStream;
+}
+
+export interface ToolExecutionRecord {
+  aliasName: string;
+  canonicalName: string;
+  callId?: string;
+  args: unknown;
+  result: unknown;
+}
+
+export interface ExecuteResult {
+  message: AssistantMessage;
+  text: string;
+  usage?: Usage;
+  rounds: number;
+  toolExecutions: ToolExecutionRecord[];
+}
+
+export type ExecuteStreamEvent =
+  | { type: "token"; token: string }
+  | { type: "tool_call_started"; call: ToolCall; round: number }
+  | {
+      type: "tool_call_finished";
+      call: ToolCall;
+      round: number;
+      result: unknown;
+    }
+  | { type: "assistant_message"; message: AssistantMessage }
+  | { type: "usage"; usage: Usage }
+  | { type: "done"; result: ExecuteResult }
+  | { type: "error"; error: Error };
+
 export interface EmbedOptions {
   model?: string;
   signal?: globalThis.AbortSignal;
@@ -204,6 +260,9 @@ export interface Ctx {
    *
    * Well-known keys used by SISU middleware:
    * - `toolAliases` (Map<string, string>): Map of tool names to API aliases set by registerTools
+   * - `toolExecutions` (ToolExecutionRecord[]): Tool execution records populated by execution helpers
+   * - `executionResult` (ExecuteResult): Latest execution result populated by execute/executeStream middleware
+   * - `executionEvents` (ExecuteStreamEvent[]): Streaming execution events populated by executeStream middleware
    */
   state: Record<string, unknown>;
   signal: globalThis.AbortSignal;

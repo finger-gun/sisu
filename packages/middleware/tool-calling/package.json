@@ -21,6 +21,10 @@
   "peerDependencies": {
     "@sisu-ai/core": "^2.5.0"
   },
+  "devDependencies": {
+    "@sisu-ai/core": "workspace:*",
+    "@sisu-ai/mw-register-tools": "workspace:*"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/finger-gun/sisu",
