@@ -91,6 +91,49 @@ body{
   color:var(--muted); background:var(--panel-strong);
   border:1px solid rgba(255,255,255,.10);
 }
+.chips{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.chip-action{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:20px;
+  height:20px;
+  padding:0;
+  margin:0;
+  background:transparent;
+  border:0;
+  outline:0;
+  box-shadow:none;
+  appearance:none;
+  -webkit-appearance:none;
+  border-radius:0;
+  cursor:pointer;
+  color:inherit;
+  opacity:.8;
+  transition:transform .15s ease, color .15s ease, opacity .15s ease;
+}
+.chip-action:hover{
+  transform:translateY(-1px);
+  color:var(--text);
+  opacity:1;
+}
+.chip-action:focus-visible{
+  opacity:1;
+}
+.chip-action svg{
+  width:16px;
+  height:16px;
+  display:block;
+}
+.chip-action.copied{
+  color:var(--text);
+  opacity:1;
+}
 [data-theme="light"] .chip{
   background:#f5f7fd; border-color:#e6e9f3; color:#55607a;
 }
@@ -182,6 +225,21 @@ body{
 
 .titlebar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .titlebar h2{ margin:0; font-size:18px; font-weight:700; }
+.trace-path-inline{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  color:var(--muted);
+  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size:13px;
+}
+.trace-path-inline span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 
 .metrics{
   display:grid;

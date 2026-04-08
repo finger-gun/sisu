@@ -32,6 +32,7 @@
       var run = {
         id,
         file: obj.file || meta.file || '',
+        fullTracePath: obj.fullTracePath || meta.fullTracePath || '',
         title: obj.title || (obj.input ? String(obj.input).slice(0, 120) : id),
         time: obj.time || meta.start || null,
         status: obj.status || meta.status || 'unknown',
@@ -171,6 +172,7 @@
     $('#duration').textContent = currentRun.duration ? fmt(currentRun.duration) : '—';
     $('#startTime').textContent = currentRun.start ? formatDateTime(currentRun.start) : '—';
     $('#endTime').textContent = currentRun.end ? formatDateTime(currentRun.end) : '—';
+    renderFullTracePath(currentRun);
 
     // Error display (if status is failed and error info exists)
     renderErrorDisplay(currentRun);
@@ -185,6 +187,23 @@
     currentLevel = '*';
     renderLevelTags();
     applyEventFilter();
+  }
+
+  function renderFullTracePath(run) {
+    var wrap = $('#fullTracePathWrap');
+    var valueEl = $('#fullTracePath');
+    var copyBtn = $('#copyFullTracePath');
+    if (!wrap || !valueEl || !copyBtn) return;
+    var fullTracePath = run && run.fullTracePath ? String(run.fullTracePath) : '';
+    if (!fullTracePath) {
+      wrap.style.display = 'none';
+      valueEl.textContent = '—';
+      copyBtn.disabled = true;
+      return;
+    }
+    wrap.style.display = 'inline-flex';
+    valueEl.textContent = fullTracePath;
+    copyBtn.disabled = false;
   }
 
   function renderErrorDisplay(run) {
@@ -680,6 +699,20 @@
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'trace.json'; a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
   });
+  var copyFullTracePathBtn = $('#copyFullTracePath');
+  if (copyFullTracePathBtn) {
+    copyFullTracePathBtn.addEventListener('click', function () {
+      if (!currentRun || !currentRun.fullTracePath) return;
+      copy(String(currentRun.fullTracePath));
+      var btn = $('#copyFullTracePath');
+      if (!btn) return;
+      btn.classList.remove('copied'); void btn.offsetWidth;
+      btn.classList.add('copied');
+      setTimeout(function () {
+        btn.classList.remove('copied');
+      }, 1200);
+    });
+  }
 
   // --- Boot: load .js and/or .json listed in runs.js ---
   function dedupeSortRuns() {
