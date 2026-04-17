@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-04-12T07:54:18.504Z",
+  "recipes": [
+    {
+      "id": "rag-recommended",
+      "label": "RAG (Recommended)",
+      "description": "Install tool-rag + mw-rag with vector-vectra defaults.",
+      "kind": "bundle",
+      "category": "middleware",
+      "installs": [
+        {
+          "type": "tool",
+          "name": "@sisu-ai/tool-rag"
+        },
+        {
+          "type": "middleware",
+          "name": "@sisu-ai/mw-rag"
+        },
+        {
+          "type": "package",
+          "name": "@sisu-ai/vector-vectra"
+        }
+      ],
+      "postInstall": [
+        {
+          "kind": "enableCapability",
+          "id": "tool-rag",
+          "type": "tool"
+        },
+        {
+          "kind": "enableCapability",
+          "id": "rag",
+          "type": "middleware"
+        },
+        {
+          "kind": "setConfig",
+          "scope": "tool",
+          "id": "tool-rag",
+          "config": {
+            "backend": "vectra"
+          }
+        },
+        {
+          "kind": "setConfig",
+          "scope": "middleware",
+          "id": "rag",
+          "config": {
+            "backend": "vectra"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rag-advanced",
+      "label": "RAG (Advanced)",
+      "description": "Install RAG stack with selectable vector backend.",
+      "kind": "bundle",
+      "category": "middleware",
+      "installs": [
+        {
+          "type": "tool",
+          "name": "@sisu-ai/tool-rag"
+        },
+        {
+          "type": "middleware",
+          "name": "@sisu-ai/mw-rag"
+        }
+      ],
+      "choices": [
+        {
+          "id": "vector-backend",
+          "label": "Vector backend",
+          "allowCustomPackage": true,
+          "options": [
+            {
+              "id": "vectra",
+              "label": "Vectra (local)",
+              "packageName": "@sisu-ai/vector-vectra",
+              "description": "Local file-backed vector store."
+            },
+            {
+              "id": "chroma",
+              "label": "Chroma",
+              "packageName": "@sisu-ai/vector-chroma",
+              "description": "Chroma-backed vector store."
+            },
+            {
+              "id": "custom",
+              "label": "Custom package",
+              "description": "Provide a custom vector package name."
+            }
+          ]
+        }
+      ],
+      "postInstall": [
+        {
+          "kind": "enableCapability",
+          "id": "tool-rag",
+          "type": "tool"
+        },
+        {
+          "kind": "enableCapability",
+          "id": "rag",
+          "type": "middleware"
+        }
+      ]
+    }
+  ]
+}

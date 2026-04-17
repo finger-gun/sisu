@@ -1,5 +1,11 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import {
+  Agent,
+  createCtx,
+  execute,
+  getExecutionResult,
+  parseLogLevel,
+} from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import {
   inputToMessage,
@@ -113,18 +119,13 @@ const userPrompt =
   argvPrompt ||
   "Create a half-day plan in Malmö, adapt to weather uncertainty, and include a fallback option.";
 
-const modelName = process.env.MODEL || "gpt-4o-mini";
+const modelName = process.env.MODEL || "gpt-5.4";
 
 const ctx = createCtx({
   model: openAIAdapter({ model: modelName }),
   input: userPrompt,
   systemPrompt: `You are an adaptive orchestration controller.\nYou MAY delegate using delegateTask when it improves quality, confidence, or safety.\nYou do not need fixed phases. Decide dynamically if/when to delegate and how many times.\nAlways enforce tool/model scoping in each delegation.\nStop delegating when confidence is sufficient or additional delegation has low expected value.\nWhen finished, call finish(answer).\nAllowed child tools: lookupWeather, findIndoorOptions, findOutdoorOptions, evaluatePlanRisk, condenseAnswer.\nIf delegation feedback indicates an invalid payload, correct and retry.`,
-  logLevel: (process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined) ?? "info",
+  logLevel: parseLogLevel(process.env.LOG_LEVEL) ?? "info",
 });
 
 const app = new Agent()
@@ -159,9 +160,9 @@ const app = new Agent()
       maxChildTurns: 6,
       modelResolver: (_requestedModel, parentCtx) => parentCtx.model,
     }),
-  );
+  )
+  .use(execute);
 
 await app.handler()(ctx);
 
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

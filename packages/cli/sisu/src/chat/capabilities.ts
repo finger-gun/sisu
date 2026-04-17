@@ -1,4 +1,5 @@
 import os from 'node:os';
+import { loadDiscoveryCatalog } from './discovery-package.js';
 import {
   MIDDLEWARE_CATALOG,
   getLockedCoreMiddlewareIds,
@@ -11,6 +12,8 @@ import {
   type DiscoveredSkill,
   type SkillDiscoveryDiagnostics,
 } from './skills.js';
+import { getToolConfigDescriptor, type ToolConfigDescriptor } from './tool-config.js';
+import { listInstalledCapabilities } from './capability-install.js';
 
 export type CapabilityType = 'tool' | 'skill' | 'middleware';
 export type CapabilitySource = 'core' | 'catalog' | 'project' | 'global' | 'session' | 'custom';
@@ -20,10 +23,12 @@ export interface CapabilityEntry {
   type: CapabilityType;
   source: CapabilitySource;
   packageName?: string;
+  packageVersion?: string;
   description?: string;
   defaultEnabled: boolean;
   lockedCore?: boolean;
-  configSchema?: 'none';
+  configSchema?: 'metadata' | 'none';
+  configMetadata?: ToolConfigDescriptor;
 }
 
 export interface MiddlewarePipelineEntry {
@@ -78,7 +83,8 @@ export const BUILTIN_TOOL_CAPABILITIES: CapabilityEntry[] = [
     description: 'Shell command execution with policy checks.',
     defaultEnabled: true,
     lockedCore: true,
-    configSchema: 'none',
+    configSchema: 'metadata',
+    configMetadata: getToolConfigDescriptor('terminal'),
   },
 ];
 
@@ -179,6 +185,64 @@ function mapSkillEntry(skill: DiscoveredSkill): CapabilityEntry {
   };
 }
 
+function mapDiscoveryCapabilityEntries(): CapabilityEntry[] {
+  const catalogEntries = loadDiscoveryCatalog().entries;
+  const entries: CapabilityEntry[] = [];
+  for (const entry of catalogEntries) {
+    if (!entry.packageName) {
+      continue;
+    }
+    if (entry.category === 'tools') {
+      const id = entry.packageName.replace(/^@sisu-ai\//, '');
+      if (id === 'tool-terminal') {
+        continue;
+      }
+      entries.push({
+        id,
+        type: 'tool',
+        source: 'catalog',
+        packageName: entry.packageName,
+        packageVersion: entry.version,
+        description: entry.summary,
+        defaultEnabled: false,
+        lockedCore: false,
+        configSchema: 'none',
+      });
+      continue;
+    }
+    if (entry.category === 'middleware') {
+      const id = entry.packageName.replace(/^@sisu-ai\/mw-/, '');
+      entries.push({
+        id,
+        type: 'middleware',
+        source: 'catalog',
+        packageName: entry.packageName,
+        packageVersion: entry.version,
+        description: entry.summary,
+        defaultEnabled: false,
+        lockedCore: false,
+        configSchema: 'none',
+      });
+      continue;
+    }
+    if (entry.category === 'skills') {
+      const id = entry.packageName.replace(/^@sisu-ai\//, '');
+      entries.push({
+        id,
+        type: 'skill',
+        source: 'catalog',
+        packageName: entry.packageName,
+        packageVersion: entry.version,
+        description: entry.summary,
+        defaultEnabled: false,
+        lockedCore: false,
+        configSchema: 'none',
+      });
+    }
+  }
+  return entries;
+}
+
 export async function buildCapabilityRegistry(
   options?: { cwd?: string; homeDir?: string; skillDirectories?: string[] },
 ): Promise<CapabilityRegistryBuildResult> {
@@ -200,6 +264,47 @@ export async function buildCapabilityRegistry(
 
   for (const skill of discovered.skills.map(mapSkillEntry)) {
     registry.set(skill.id, skill);
+  }
+
+  for (const capability of mapDiscoveryCapabilityEntries()) {
+    const current = registry.get(capability.id);
+    if (!current) {
+      registry.set(capability.id, capability);
+      continue;
+    }
+    registry.set(capability.id, {
+      ...current,
+      packageName: current.packageName || capability.packageName,
+      packageVersion: current.packageVersion || capability.packageVersion,
+      description: current.description || capability.description,
+    });
+  }
+
+  const installed = await listInstalledCapabilities({ cwd, homeDir });
+  for (const item of installed) {
+    if (item.type === 'tool') {
+      registry.set(item.id, {
+        id: item.id,
+        type: 'tool',
+        source: item.source,
+        packageName: item.packageName,
+        description: `Installed tool package ${item.packageName}`,
+        defaultEnabled: false,
+        lockedCore: false,
+        configSchema: 'none',
+      });
+      continue;
+    }
+    registry.set(item.id, {
+      id: item.id,
+      type: 'middleware',
+      source: item.source,
+      packageName: item.packageName,
+      description: `Installed middleware package ${item.packageName}`,
+      defaultEnabled: false,
+      lockedCore: false,
+      configSchema: 'none',
+    });
   }
 
   return {

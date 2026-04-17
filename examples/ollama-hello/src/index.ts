@@ -1,34 +1,15 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, inputToMessage, parseLogLevel, execute, getExecutionResult } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { ollamaAdapter } from "@sisu-ai/adapter-ollama";
 
-// Minimal example with Ollama (local). Ensure ollama is running, and the model is pulled.
-// Example: ollama serve; ollama pull llama3.1:latest
 const ctx = createCtx({
-  model: ollamaAdapter({ model: process.env.MODEL || "llama3.1" }),
+  model: ollamaAdapter({ model: process.env.MODEL || "gemma4:e4b" }),
   input: "Say hello in one short sentence.",
   systemPrompt: "You are a helpful assistant.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
-
-const inputToMessage = async (c: Ctx, next: () => Promise<void>) => {
-  if (c.input) c.messages.push({ role: "user", content: c.input });
-  await next();
-};
-const generateOnce = async (c: Ctx) => {
-  const res = (await c.model.generate(c.messages, {
-    toolChoice: "none",
-    signal: c.signal,
-  })) as ModelResponse;
-  if (res?.message) c.messages.push(res.message);
-};
 
 const app = new Agent()
   .use(async (c, next) => {
@@ -50,8 +31,7 @@ const app = new Agent()
     ),
   )
   .use(inputToMessage)
-  .use(generateOnce);
+  .use(execute);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

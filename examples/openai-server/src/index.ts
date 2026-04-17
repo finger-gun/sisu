@@ -1,10 +1,5 @@
 import "dotenv/config";
-import {
-  Agent,
-  createCtx,
-  type ModelEvent,
-  type ModelResponse,
-} from "@sisu-ai/core";
+import { Agent, createCtx, type ModelEvent, type ModelResponse, parseLogLevel, execute } from "@sisu-ai/core";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
@@ -14,7 +9,7 @@ import { cors } from "@sisu-ai/mw-cors";
 import { Server } from "@sisu-ai/server";
 import { InMemoryKV } from "@sisu-ai/core";
 
-const model = openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" });
+const model = openAIAdapter({ model: process.env.MODEL || "gpt-5.4" });
 const basePath = process.env.BASE_PATH || "/api";
 const healthPath = process.env.HEALTH_PATH || "/health";
 const apiKey = process.env.API_KEY;
@@ -64,7 +59,7 @@ const app = new Agent<HttpCtx>()
     ),
   )
   .use(runApi)
-  .use(generateOnce);
+  .use(execute);
 
 const port = Number(process.env.PORT) || 3000;
 
@@ -81,12 +76,7 @@ const server = new Server<HttpCtx>(app, {
       ...createCtx({
         model,
         systemPrompt: "You are a helpful assistant.",
-        logLevel: process.env.LOG_LEVEL as
-          | "debug"
-          | "info"
-          | "warn"
-          | "error"
-          | undefined,
+        logLevel: parseLogLevel(process.env.LOG_LEVEL),
       }),
     } as HttpCtx),
 });

@@ -2,8 +2,7 @@
 
 Define transport requirements for first-party adapters using official provider SDKs while preserving the Sisu adapter contract.
 
-## ADDED Requirements
-
+## Requirements
 ### Requirement: OpenAI adapter uses official SDK transport
 `@sisu-ai/adapter-openai` SHALL execute model requests through the official `openai` SDK transport path while preserving Sisu message and tool normalization behavior.
 

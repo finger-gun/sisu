@@ -1,12 +1,11 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, parseLogLevel, execute, getExecutionResult } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
   inputToMessage,
   conversationBuffer,
 } from "@sisu-ai/mw-conversation-buffer";
-import { iterativeToolCalling } from "@sisu-ai/mw-tool-calling";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
@@ -23,15 +22,10 @@ const userInput =
   "You have multiple run-*.json files like run-20250907-233125.json. Using only pwd, ls, stat, wc, head, tail, cat, cut, sort, uniq, grep, write one piped command that counts how many runs' final output included README.md";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: userInput,
   systemPrompt: "You are a useful and helpful assistant.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const app = new Agent()
@@ -56,8 +50,7 @@ const app = new Agent()
   .use(registerTools(terminal.tools))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 6 }))
-  .use(iterativeToolCalling);
+  .use(execute);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

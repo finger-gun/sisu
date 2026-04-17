@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define CLI requirements for scaffolding projects from Sisu templates.
+
+## Requirements
 ### Requirement: CLI Scaffolds Maintained Starter Templates
 The `sisu` CLI SHALL scaffold small maintained Sisu starter projects from built-in templates.
 

@@ -28,7 +28,7 @@ import { toolCalling } from '@sisu-ai/mw-tool-calling';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { openAIWebSearch } from '@sisu-ai/tool-web-search-openai';
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: 'gpt-5.4' });
 const app = new Agent()
   .use(registerTools([openAIWebSearch]))
   .use(toolCalling);

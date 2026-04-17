@@ -62,7 +62,7 @@ export MODEL=openai/gpt-5.1
 ## Note About Reasoning Parameter
 
 - **With reasoning models** (o1, o3, ChatGPT 5.1): The `reasoning: true` parameter enables extended thinking and returns `reasoning_details`
-- **With regular models** (gpt-4o, gpt-4o-mini): The reasoning parameter is ignored, but the conversation still works normally
+- **With regular models** (gpt-4o, gpt-5.4): The reasoning parameter is ignored, but the conversation still works normally
 - The example demonstrates both scenarios and shows how reasoning context is preserved when available
 
 ## Troubleshooting

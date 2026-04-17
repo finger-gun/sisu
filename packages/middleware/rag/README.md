@@ -85,7 +85,7 @@ function embed(text: string): number[] {
   const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1; return v.map(x => x / norm);
 }
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: 'gpt-5.4' });
 const query = 'Best fika in Malmö?';
 const vectorStore = createChromaVectorStore({ namespace: process.env.VECTOR_NAMESPACE || 'sisu' });
 

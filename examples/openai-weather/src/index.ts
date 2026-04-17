@@ -1,9 +1,8 @@
 import 'dotenv/config';
-import { Agent, createCtx, type Tool, type Ctx } from '@sisu-ai/core';
+import { Agent, createCtx, execute, getExecutionResult, type Tool } from "@sisu-ai/core";
 import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buffer';
 import { errorBoundary } from '@sisu-ai/mw-error-boundary';
-import { toolCalling /* or iterativeToolCalling */ } from '@sisu-ai/mw-tool-calling';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 import { z } from 'zod';
@@ -19,7 +18,7 @@ const weather: Tool<WeatherArgs> = {
 
 // Ctx
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' }),
+  model: openAIAdapter({ model: process.env.MODEL || 'gpt-5.4' }),
   input: 'What is the weather in Malmö?',
   systemPrompt: 'You are a helpful assistant.',
 });
@@ -34,8 +33,7 @@ const app = new Agent()
   .use(registerTools([weather]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling); // 1) generate(..., auto) → maybe run tools → 2) finalize with none
+  .use(execute);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter(m => m.role === 'assistant').pop();
-console.log('\nAssistant:\n', final?.content);
+console.log('\nAssistant:\n', getExecutionResult(ctx)?.text);

@@ -1,5 +1,35 @@
 # @sisu-ai/core
 
+## 2.6.1
+
+### Patch Changes
+
+- 2e43e02: Refresh README and skill-install guidance links for improved discoverability.
+
+  This update adds the official website reference and clarifies CLI usage guidance in package docs. No runtime behavior or API contracts changed.
+
+## 2.6.0
+
+### Minor Changes
+
+- 3f417c7: Adopt the new middleware-first execution flow across core and generated app scaffolds.
+
+  Core now standardizes execution around `execute` and `executeStream` middleware patterns, including configurable streaming sink usage through `executeStream(opts)` and consistent typed execution results/events in context state.
+
+  `@sisu-ai/mw-tool-calling` remains available as legacy compatibility middleware, now explicitly documented as a migration path to core execution middleware.
+
+  CLI templates and installer guidance now scaffold the core execution approach by default so new projects follow the recommended runtime pattern out of the box.
+
+## 2.5.0
+
+### Minor Changes
+
+- aa659d9: Add a new reusable embeddings client factory to `@sisu-ai/core` and export it from the public API.
+
+  This gives adapter and integration authors a standard way to build OpenAI-compatible embeddings clients with configurable auth, request shape, and response parsing.
+
+  Apply a non-breaking `@sisu-ai/server` patch that cleans up route matcher export wiring and import paths without changing runtime behavior.
+
 ## 2.4.0
 
 ### Minor Changes

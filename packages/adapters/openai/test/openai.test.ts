@@ -40,7 +40,7 @@ function toAsyncIterable<T = any>(value: unknown): AsyncIterable<T> {
 
 test("openAIAdapter throws without API key", async () => {
   delete (process.env as any).OPENAI_API_KEY;
-  expect(() => openAIAdapter({ model: "gpt-4o-mini" })).toThrow(
+  expect(() => openAIAdapter({ model: "gpt-5.4" })).toThrow(
     /Missing API_KEY or OPENAI_API_KEY/,
   );
 });
@@ -110,7 +110,7 @@ test("openAIAdapter prefers generic API_KEY and BASE_URL over adapter-specific e
       }) as any,
     );
 
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
   await llm.generate([{ role: "user", content: "hello" } as any]);
 
   const request = requestFromCall(fetchMock.mock.calls[0] as any);
@@ -153,7 +153,7 @@ test("openAIAdapter posts messages and returns mapped response with usage", asyn
     );
 
   const llm = openAIAdapter({
-    model: "gpt-4o-mini",
+    model: "gpt-5.4",
     baseUrl: "https://api.example.com",
   });
   const msgs: Message[] = [{ role: "user", content: "hello" } as any];
@@ -171,7 +171,7 @@ test("openAIAdapter posts messages and returns mapped response with usage", asyn
   expect(request.method).toBe("POST");
   expect(request.headers.get("authorization")).toContain("Bearer test-key");
   const body = JSON.parse(await request.text());
-  expect(body.model).toBe("gpt-4o-mini");
+  expect(body.model).toBe("gpt-5.4");
   expect(Array.isArray(body.messages)).toBe(true);
 });
 
@@ -215,7 +215,7 @@ test("openAIAdapter maps tool_calls and tool_choice in request/response", async 
     schema: {} as any,
     handler: async () => null,
   };
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
   const messages: Message[] = [
     // Assistant requesting tools (input mapping)
     {
@@ -271,7 +271,7 @@ test("openAIAdapter builds content parts from contentParts and image aliases", a
       }) as any,
     );
 
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
   const messages: Message[] = [
     {
       role: "user",
@@ -332,7 +332,7 @@ test("openAIAdapter maps function_call response to tool_calls", async () => {
     }) as any,
   );
 
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
   const out = await llm.generate([{ role: "user", content: "test" }]);
   const tcs = (out.message as any).tool_calls;
   expect(Array.isArray(tcs)).toBe(true);
@@ -357,7 +357,7 @@ test("openAIAdapter includes tool_choice none when tools are provided", async ()
     schema: {} as any,
     handler: async () => null,
   };
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
   await llm.generate([{ role: "user", content: "hi" }], {
     tools: [tool],
     toolChoice: "none",
@@ -390,7 +390,7 @@ test("openAIAdapter maps invalid tool_call arguments as raw string", async () =>
     }) as any,
   );
 
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
   const out = await llm.generate([{ role: "user", content: "hi" }]);
   const tcs = (out.message as any).tool_calls;
   expect(tcs[0].arguments).toBe("{bad");
@@ -418,7 +418,7 @@ test("openAIAdapter converts zod schemas to JSON schema", async () => {
     handler: async () => null,
   };
 
-  const llm = openAIAdapter({ model: "gpt-4o-mini" });
+  const llm = openAIAdapter({ model: "gpt-5.4" });
   await llm.generate([{ role: "user", content: "hi" }], { tools: [tool] });
 
   const request = requestFromCall(fetchMock.mock.calls[0] as any);

@@ -15,7 +15,7 @@ afterEach(() => {
 
 const makeCtx = (deps?: Record<string, unknown>): ToolContext =>
   ({
-    model: { name: "openai:gpt-4o-mini" },
+    model: { name: "openai:gpt-5.4" },
     log: { info: vi.fn(), debug: vi.fn() },
     signal: new AbortController().signal,
     memory: { get: vi.fn(), set: vi.fn() },

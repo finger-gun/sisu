@@ -48,7 +48,18 @@ export const duckDuckGoWebSearch: Tool<DuckDuckGoSearchArgs> = {
       throw new Error(
         `DuckDuckGo search failed: ${res.status} ${res.statusText}`,
       );
-    const data = (await res.json()) as DDGResponse;
+    const raw = await res.text();
+    if (!raw.trim()) {
+      return [];
+    }
+    let data: DDGResponse;
+    try {
+      data = JSON.parse(raw) as DDGResponse;
+    } catch (error) {
+      throw new Error(
+        `DuckDuckGo returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     const topics = Array.isArray(data.RelatedTopics) ? data.RelatedTopics : [];
 
     // Flatten groups and plain topics

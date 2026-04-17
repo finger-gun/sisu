@@ -42,7 +42,7 @@ import { registerTools } from '@sisu-ai/mw-register-tools';
 import { toolCalling } from '@sisu-ai/mw-tool-calling';
 import { toolCallInvariant } from '@sisu-ai/mw-invariants';
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: 'gpt-5.4' });
 
 // Example tool
 const echo = {

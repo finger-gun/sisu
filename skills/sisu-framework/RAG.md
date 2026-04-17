@@ -24,11 +24,10 @@ pnpm add @sisu-ai/vector-chroma
 ```
 
 ```typescript
-import { Agent } from "@sisu-ai/core";
+import { Agent, execute } from "@sisu-ai/core";
 import { openAIEmbeddings } from "@sisu-ai/adapter-openai";
 import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
 import { registerTools } from "@sisu-ai/mw-register-tools";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { storeRagContent } from "@sisu-ai/rag-core";
 import { createRagTools } from "@sisu-ai/tool-rag";
 import { createChromaVectorStore } from "@sisu-ai/vector-chroma";
@@ -57,7 +56,7 @@ const ragTools = createRagTools({
 const app = new Agent()
   .use(registerTools(ragTools))
   .use(inputToMessage)
-  .use(toolCalling);
+  .use(execute);
 ```
 
 Switch to Vectra for local file-backed storage:

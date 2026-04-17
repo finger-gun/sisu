@@ -1,5 +1,25 @@
 # @sisu-ai/adapter-anthropic
 
+## 10.0.0
+
+### Patch Changes
+
+- Updated dependencies [3f417c7]
+  - @sisu-ai/core@2.6.0
+
+## 9.0.0
+
+### Patch Changes
+
+- 3e8c117: Add catalog-driven capability discovery and installation to the CLI, including improved interactive chat capabilities and configuration flows.
+
+  Publish the new `@sisu-ai/discovery` and `@sisu-ai/tool-web-search-linkup` packages for dynamic package discovery and LinkUp web search support.
+
+  Patch provider adapters and DuckDuckGo web search handling for improved runtime compatibility and safer error handling.
+
+- Updated dependencies [aa659d9]
+  - @sisu-ai/core@2.5.0
+
 ## 8.1.2
 
 ### Patch Changes

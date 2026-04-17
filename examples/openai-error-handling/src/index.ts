@@ -1,20 +1,7 @@
 import "dotenv/config";
-import {
-  Agent,
-  createCtx,
-  type Ctx,
-  type Tool,
-  type ToolContext,
-  ToolExecutionError,
-  ValidationError,
-  ConfigurationError,
-  TimeoutError,
-  isSisuError,
-  getErrorDetails,
-} from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type Tool, type ToolContext, ToolExecutionError, ValidationError, ConfigurationError, TimeoutError, isSisuError, getErrorDetails, execute, getExecutionResult } from "@sisu-ai/core";
 import { errorBoundary, logErrors } from "@sisu-ai/mw-error-boundary";
 import { registerTools } from "@sisu-ai/mw-register-tools";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { z } from "zod";
@@ -197,7 +184,7 @@ async function runExample(
   };
 
   const ctx = createCtx({
-    model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+    model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
     input: prompts[scenario],
     systemPrompt:
       "You are a helpful assistant. Use the provided tools to help the user.",
@@ -224,12 +211,11 @@ async function runExample(
         configuredTool,
       ]),
     )
-    .use(toolCalling);
+    .use(execute);
 
   try {
     await app.handler()(ctx);
-    const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-    console.log("\n✅ Final response:\n", final?.content, "\n");
+        console.log("\n✅ Final response:\n", getExecutionResult(ctx)?.text, "\n");
   } catch (err) {
     console.log(
       "\n❌ Unhandled error (escaped error boundary):\n",

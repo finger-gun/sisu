@@ -2,8 +2,7 @@
 
 Define cross-adapter conformance requirements for normalized generation behavior and error semantics.
 
-## ADDED Requirements
-
+## Requirements
 ### Requirement: Generate options are normalized consistently across adapters
 All first-party adapters SHALL apply consistent normalization semantics for shared `GenerateOptions` fields (`toolChoice`, `stream`, `signal`, `maxTokens`, `temperature`) before invoking provider transport.
 

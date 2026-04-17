@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel, executeWith, getExecutionResult } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
@@ -7,7 +7,6 @@ import {
   conversationBuffer,
 } from "@sisu-ai/mw-conversation-buffer";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { switchCase, sequence, loopUntil } from "@sisu-ai/mw-control-flow";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
@@ -26,15 +25,10 @@ const weather = {
 };
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: "Weather in Malmö and suggest a fika plan.",
   systemPrompt: "Be helpful. Use tools when needed.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const intentClassifier = async (c: Ctx, next: () => Promise<void>) => {
@@ -51,7 +45,7 @@ const decideIfMoreTools = async (c: Ctx, next: () => Promise<void>) => {
   await next();
 };
 
-const toolingBody = sequence([toolCalling, decideIfMoreTools]);
+const toolingBody = sequence([executeWith({ strategy: "single" }), decideIfMoreTools]);
 const toolingLoop = loopUntil((c) => !c.state.moreTools, toolingBody, {
   max: 6,
 });
@@ -91,5 +85,4 @@ const app = new Agent()
   );
 
 await app.handler()(ctx, async () => {});
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

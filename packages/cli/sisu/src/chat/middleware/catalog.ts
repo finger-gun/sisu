@@ -1,3 +1,26 @@
+export interface MiddlewareConfigOptionDescriptor {
+  path: string;
+  type: 'boolean' | 'integer' | 'number' | 'string[]' | 'enum' | 'string';
+  description: string;
+  enumValues?: string[];
+}
+
+export interface MiddlewareConfigPreset {
+  id: string;
+  label: string;
+  description: string;
+  config: Record<string, unknown>;
+}
+
+export interface MiddlewareConfigDescriptor {
+  schemaVersion: 1;
+  middlewareId: string;
+  title: string;
+  description: string;
+  options: MiddlewareConfigOptionDescriptor[];
+  presets: MiddlewareConfigPreset[];
+}
+
 export interface MiddlewareCatalogEntry {
   id: string;
   packageName: string;
@@ -5,6 +28,7 @@ export interface MiddlewareCatalogEntry {
   lockedCore?: boolean;
   defaultEnabled?: boolean;
   validateConfig?: (config: Record<string, unknown>) => string[];
+  configDescriptor?: MiddlewareConfigDescriptor;
 }
 
 export const CORE_MIDDLEWARE_ORDER = [
@@ -41,7 +65,7 @@ export const MIDDLEWARE_CATALOG: MiddlewareCatalogEntry[] = [
   {
     id: 'tool-calling',
     packageName: '@sisu-ai/mw-tool-calling',
-    description: 'Runs the tool loop over model tool calls.',
+    description: 'Legacy compatibility tool loop middleware. Prefer core execute/executeStream middleware in new code.',
     lockedCore: true,
     defaultEnabled: true,
   },
@@ -94,6 +118,170 @@ export const MIDDLEWARE_CATALOG: MiddlewareCatalogEntry[] = [
   },
 ];
 
+const MIDDLEWARE_CONFIG_DESCRIPTORS: Record<string, MiddlewareConfigDescriptor> = {
+  'tool-calling': {
+    schemaVersion: 1,
+    middlewareId: 'tool-calling',
+    title: 'Legacy tool-calling middleware config',
+    description: 'Controls compatibility-mode tool-call loop behavior.',
+    options: [
+      {
+        path: 'maxRounds',
+        type: 'integer',
+        description: 'Maximum tool-calling rounds before the assistant stops the loop safely.',
+      },
+    ],
+    presets: [
+      {
+        id: 'default',
+        label: 'Default (16 rounds)',
+        description: 'Balanced default with safe upper bound.',
+        config: { maxRounds: 16 },
+      },
+      {
+        id: 'extended',
+        label: 'Extended (24 rounds)',
+        description: 'Allows more agentic tool work before loop cutoff.',
+        config: { maxRounds: 24 },
+      },
+    ],
+  },
+  'conversation-buffer': {
+    schemaVersion: 1,
+    middlewareId: 'conversation-buffer',
+    title: 'Conversation buffer config',
+    description: 'Controls retained conversation history size.',
+    options: [
+      {
+        path: 'maxMessages',
+        type: 'integer',
+        description: 'Maximum number of messages kept in the rolling buffer.',
+      },
+    ],
+    presets: [
+      {
+        id: 'compact',
+        label: 'Compact (24 messages)',
+        description: 'Smaller history for lower token usage.',
+        config: { maxMessages: 24 },
+      },
+      {
+        id: 'balanced',
+        label: 'Balanced (60 messages)',
+        description: 'Default-like balance between context and cost.',
+        config: { maxMessages: 60 },
+      },
+    ],
+  },
+  skills: {
+    schemaVersion: 1,
+    middlewareId: 'skills',
+    title: 'Skills middleware config',
+    description: 'Configures skill discovery directories.',
+    options: [
+      {
+        path: 'directories',
+        type: 'string[]',
+        description: 'Directories searched for skills.',
+      },
+    ],
+    presets: [
+      {
+        id: 'defaults',
+        label: 'Use profile skill directories',
+        description: 'Keeps middleware config empty and uses profile defaults.',
+        config: {},
+      },
+    ],
+  },
+  'trace-viewer': {
+    schemaVersion: 1,
+    middlewareId: 'trace-viewer',
+    title: 'Trace viewer middleware config',
+    description: 'Controls trace output generation and destination.',
+    options: [
+      {
+        path: 'enable',
+        type: 'boolean',
+        description: 'Explicitly enable or disable trace output.',
+      },
+      {
+        path: 'dir',
+        type: 'string',
+        description: 'Directory used for generated traces when path is not set.',
+      },
+      {
+        path: 'path',
+        type: 'string',
+        description: 'Explicit trace output file path.',
+      },
+      {
+        path: 'html',
+        type: 'boolean',
+        description: 'Write HTML output.',
+      },
+      {
+        path: 'json',
+        type: 'boolean',
+        description: 'Write JSON output.',
+      },
+      {
+        path: 'style',
+        type: 'enum',
+        enumValues: ['light', 'dark'],
+        description: 'Trace HTML theme.',
+      },
+    ],
+    presets: [
+      {
+        id: 'html-default',
+        label: 'HTML traces',
+        description: 'Enable trace-viewer with HTML output in default directory.',
+        config: { enable: true, html: true, json: false },
+      },
+      {
+        id: 'html-json',
+        label: 'HTML + JSON',
+        description: 'Enable trace-viewer and write both HTML and JSON traces.',
+        config: { enable: true, html: true, json: true },
+      },
+    ],
+  },
+  rag: {
+    schemaVersion: 1,
+    middlewareId: 'rag',
+    title: 'RAG middleware config',
+    description: 'Selects retrieval backend and vector package.',
+    options: [
+      {
+        path: 'backend',
+        type: 'enum',
+        enumValues: ['vectra', 'chroma', 'custom'],
+        description: 'Vector backend strategy.',
+      },
+      {
+        path: 'vectorPackage',
+        type: 'string',
+        description: 'Explicit vector package when using custom backend.',
+      },
+    ],
+    presets: [
+      {
+        id: 'vectra',
+        label: 'Vectra backend',
+        description: 'Local vectra vector store.',
+        config: { backend: 'vectra' },
+      },
+      {
+        id: 'chroma',
+        label: 'Chroma backend',
+        description: 'Chroma vector store integration.',
+        config: { backend: 'chroma' },
+      },
+    ],
+  },
+};
+
 function validateNoUnknownFields(
   id: string,
   config: Record<string, unknown>,
@@ -120,6 +308,17 @@ function validateConversationBuffer(config: Record<string, unknown>): string[] {
   return issues;
 }
 
+function validateToolCalling(config: Record<string, unknown>): string[] {
+  const issues = validateNoUnknownFields('tool-calling', config, ['maxRounds']);
+  if (config.maxRounds !== undefined) {
+    const value = config.maxRounds;
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+      issues.push("Option 'maxRounds' must be a positive integer.");
+    }
+  }
+  return issues;
+}
+
 function validateSkills(config: Record<string, unknown>): string[] {
   const issues = validateNoUnknownFields('skills', config, ['directories']);
   if (config.directories !== undefined) {
@@ -130,15 +329,67 @@ function validateSkills(config: Record<string, unknown>): string[] {
   return issues;
 }
 
+function validateRag(config: Record<string, unknown>): string[] {
+  const issues = validateNoUnknownFields('rag', config, ['backend', 'vectorPackage']);
+  if (config.backend !== undefined) {
+    if (config.backend !== 'vectra' && config.backend !== 'chroma' && config.backend !== 'custom') {
+      issues.push("Option 'backend' must be one of: vectra, chroma, custom.");
+    }
+  }
+  if (config.vectorPackage !== undefined) {
+    if (typeof config.vectorPackage !== 'string' || config.vectorPackage.trim().length === 0) {
+      issues.push("Option 'vectorPackage' must be a non-empty string.");
+    }
+  }
+  return issues;
+}
+
+function validateTraceViewer(config: Record<string, unknown>): string[] {
+  const issues = validateNoUnknownFields('trace-viewer', config, ['enable', 'dir', 'path', 'html', 'json', 'style']);
+  if (config.enable !== undefined && typeof config.enable !== 'boolean') {
+    issues.push("Option 'enable' must be a boolean.");
+  }
+  if (config.dir !== undefined && (typeof config.dir !== 'string' || config.dir.trim().length === 0)) {
+    issues.push("Option 'dir' must be a non-empty string.");
+  }
+  if (config.path !== undefined && (typeof config.path !== 'string' || config.path.trim().length === 0)) {
+    issues.push("Option 'path' must be a non-empty string.");
+  }
+  if (config.html !== undefined && typeof config.html !== 'boolean') {
+    issues.push("Option 'html' must be a boolean.");
+  }
+  if (config.json !== undefined && typeof config.json !== 'boolean') {
+    issues.push("Option 'json' must be a boolean.");
+  }
+  if (config.style !== undefined && config.style !== 'light' && config.style !== 'dark') {
+    issues.push("Option 'style' must be one of: light, dark.");
+  }
+  return issues;
+}
+
 function withValidators(entries: MiddlewareCatalogEntry[]): MiddlewareCatalogEntry[] {
   return entries.map((entry) => {
+    const descriptor = MIDDLEWARE_CONFIG_DESCRIPTORS[entry.id];
+    if (entry.id === 'tool-calling') {
+      return { ...entry, configDescriptor: descriptor, validateConfig: validateToolCalling };
+    }
     if (entry.id === 'conversation-buffer') {
-      return { ...entry, validateConfig: validateConversationBuffer };
+      return { ...entry, configDescriptor: descriptor, validateConfig: validateConversationBuffer };
     }
     if (entry.id === 'skills') {
-      return { ...entry, validateConfig: validateSkills };
+      return { ...entry, configDescriptor: descriptor, validateConfig: validateSkills };
     }
-    return { ...entry, validateConfig: (config) => validateNoUnknownFields(entry.id, config, []) };
+    if (entry.id === 'trace-viewer') {
+      return { ...entry, configDescriptor: descriptor, validateConfig: validateTraceViewer };
+    }
+    if (entry.id === 'rag') {
+      return { ...entry, configDescriptor: descriptor, validateConfig: validateRag };
+    }
+    return {
+      ...entry,
+      configDescriptor: descriptor,
+      validateConfig: (config) => validateNoUnknownFields(entry.id, config, []),
+    };
   });
 }
 
@@ -154,6 +405,10 @@ export function validateMiddlewareConfig(id: string, config: Record<string, unkn
     return [`Unknown middleware id '${id}'.`];
   }
   return entry.validateConfig ? entry.validateConfig(config) : [];
+}
+
+export function getMiddlewareConfigDescriptor(id: string): MiddlewareConfigDescriptor | undefined {
+  return getMiddlewareCatalogEntry(id)?.configDescriptor;
 }
 
 export function isLockedCoreMiddleware(id: string): boolean {

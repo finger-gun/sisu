@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, parseLogLevel, getExecutionResult } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import { reactToolLoop } from "@sisu-ai/mw-react-parser";
@@ -21,16 +21,11 @@ const echoTool = {
 };
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: 'Use Action: echo with Action Input: {"text":"hello from ReAct"}',
   systemPrompt:
     "Use tools when helpful. For ReAct, reply with\nAction: <tool>\nAction Input: <JSON>",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const app = new Agent()
@@ -56,5 +51,4 @@ const app = new Agent()
   .use(reactToolLoop());
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

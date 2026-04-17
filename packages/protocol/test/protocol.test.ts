@@ -18,12 +18,12 @@ describe("protocol contracts", () => {
     expect(
       chatGenerateRequestSchema.safeParse({
         prompt: "Hello",
-        modelId: "gpt-4o-mini",
+        modelId: "gpt-5.4",
       }).success,
     ).toBe(true);
 
     const missingPrompt = chatGenerateRequestSchema.safeParse({
-      modelId: "gpt-4o-mini",
+      modelId: "gpt-5.4",
     });
     expect(missingPrompt.success).toBe(false);
   });
@@ -32,7 +32,7 @@ describe("protocol contracts", () => {
     const parsed = chatGenerateRequestSchema.safeParse({
       threadId: "t1",
       prompt: "describe image",
-      modelId: "gpt-4o-mini",
+      modelId: "gpt-5.4",
       retryOfMessageId: "m1",
       attachments: [
         {
@@ -66,7 +66,7 @@ describe("protocol contracts", () => {
           models: [
             {
               providerId: "openai",
-              modelId: "gpt-4o-mini",
+              modelId: "gpt-5.4",
               displayName: "GPT-4o mini",
               capabilities: {
                 streaming: true,
@@ -154,7 +154,7 @@ describe("protocol contracts", () => {
           updatedAt: "2026-03-29T00:00:00.000Z",
           messageCount: 1,
           providerId: "openai",
-          modelId: "gpt-4o-mini",
+          modelId: "gpt-5.4",
         },
       ],
       page: { nextCursor: "cursor-1" },

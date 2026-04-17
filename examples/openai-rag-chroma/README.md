@@ -52,7 +52,7 @@ Either option exposes the same REST API consumed by `ChromaClient`.
 
 ```
 export API_KEY=sk-...
-export MODEL=gpt-4o-mini
+export MODEL=gpt-5.4
 export BASE_URL=https://api.openai.com
 # optional overrides
 export CHROMA_URL=http://localhost:8000

@@ -38,7 +38,7 @@ import { registerTools } from '@sisu-ai/mw-register-tools';
 import { inputToMessage } from '@sisu-ai/mw-conversation-buffer';
 import { reactToolLoop } from '@sisu-ai/mw-react-parser';
 
-const model = openAIAdapter({ model: 'gpt-4o-mini' });
+const model = openAIAdapter({ model: 'gpt-5.4' });
 
 // Example tool
 const webSearch = {

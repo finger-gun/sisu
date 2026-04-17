@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define normalized embeddings API requirements shared across first-party adapters.
+
+## Requirements
 ### Requirement: Normalized Adapter Embeddings Contract
 Provider adapters SHALL expose a normalized embeddings API contract that tools and middleware can consume independent of provider-specific request/response shapes.
 

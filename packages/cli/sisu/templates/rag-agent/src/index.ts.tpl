@@ -1,10 +1,9 @@
 import path from 'node:path';
 import 'dotenv/config';
-import { Agent, createCtx } from '@sisu-ai/core';
+import { Agent, createCtx, execute, getExecutionResult } from '@sisu-ai/core';
 import { openAIAdapter, openAIEmbeddings } from '@sisu-ai/adapter-openai';
 import { inputToMessage } from '@sisu-ai/mw-conversation-buffer';
 import { registerTools } from '@sisu-ai/mw-register-tools';
-import { toolCalling } from '@sisu-ai/mw-tool-calling';
 import { storeRagContent } from '@sisu-ai/rag-core';
 import { createRagTools } from '@sisu-ai/tool-rag';
 import { createVectraVectorStore } from '@sisu-ai/vector-vectra';
@@ -21,7 +20,7 @@ const docs = [
 ];
 
 const model = openAIAdapter({
-  model: process.env.MODEL || 'gpt-4o-mini',
+  model: process.env.MODEL || 'gpt-5.4',
   baseUrl: process.env.BASE_URL,
 });
 const embeddings = openAIEmbeddings({
@@ -65,7 +64,7 @@ const ctx = createCtx({
 const app = new Agent()
   .use(registerTools(ragTools))
   .use(inputToMessage)
-  .use(toolCalling);
+  .use(execute);
 
 await app.handler()(ctx);
-console.log(ctx.messages.at(-1)?.content);
+console.log(getExecutionResult(ctx)?.text);

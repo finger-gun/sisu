@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define requirements for the dual-agent RAG example using Chroma storage.
+
+## Requirements
 ### Requirement: Separate Ingestion and Query Agents
 The `examples/openai-rag-chroma` example SHALL define separate agent flows for ingestion and user query handling.
 

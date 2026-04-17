@@ -1,5 +1,26 @@
 # @sisu-ai/mw-orchestration
 
+## 3.0.1
+
+### Patch Changes
+
+- Updated dependencies [2e43e02]
+  - @sisu-ai/core@2.6.1
+
+## 3.0.0
+
+### Patch Changes
+
+- Updated dependencies [3f417c7]
+  - @sisu-ai/core@2.6.0
+
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [aa659d9]
+  - @sisu-ai/core@2.5.0
+
 ## 1.0.0
 
 ### Patch Changes

@@ -8,6 +8,8 @@ CLI for discovering Sisu packages, scaffolding maintained starter projects, and 
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcli)](https://www.npmjs.com/package/@sisu-ai/cli)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
+[sisuai.me](https://sisuai.me/)
+
 ## Usage
 
 ```bash
@@ -31,6 +33,8 @@ sisu chat
 - `sisu info <name>`
 - `sisu create <template> <project-name>`
 - `sisu list-official <middleware|tools|skills>`
+- `sisu install <tool|middleware> <name> [--global|--project]`
+- `sisu install recipe <rag-recommended|rag-advanced> [--global|--project] [--backend vectra|chroma|custom] [--package <name>]`
 - `sisu install-skill <package-or-path> [--global|--project] [--dir <path>] [--official]`
 - `sisu install skill [installer-options]`
 - `sisu chat [--session <session-id>] [--prompt <text>]`
@@ -74,6 +78,8 @@ Legacy explicit tool triggers still work:
 - `/enable <capability-id> [session|project|global]` - enable capability with explicit scope
 - `/disable <capability-id> [session|project|global]` - disable capability with explicit scope
 - `/official <middleware|tools|skills>` - list official `@sisu-ai/*` capability packages
+- `/install <tool|middleware> <name> [project|global]` - install official tool/middleware capability package
+- `/install recipe <rag-recommended|rag-advanced> [project|global] [vectra|chroma|custom[:package]]` - run guided bundle installs
 - `/middleware setup` - guided middleware toggle/reorder/config flow
 - `/allow-command <prefix> [session|project|global]` - persist command allow-list prefix by scope
 - `/open-config [project|global]` - open profile config in your `$EDITOR`/`$VISUAL`
@@ -160,12 +166,19 @@ Capability behavior notes:
 
 ### Official package discovery and install
 
+Official package listing is now discovery-catalog first (`@sisu-ai/discovery`) for deterministic results. If discovery cannot be loaded, CLI falls back to custom package install paths and surfaces a discovery note.
+
 - List official packages by category:
 
 ```bash
 sisu list-official tools
 sisu list-official middleware
 sisu list-official skills
+sisu install tool azure-blob --project
+sisu install middleware context-compressor --global
+sisu install recipe rag-recommended --project
+sisu install recipe rag-advanced --project --backend chroma
+sisu install recipe rag-advanced --project --backend custom --package @sisu-ai/vector-vectra
 ```
 
 - Install skills to standard directories:

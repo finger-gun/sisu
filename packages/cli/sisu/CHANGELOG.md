@@ -1,5 +1,67 @@
 # sisu
 
+## 0.6.2
+
+### Patch Changes
+
+- 2e43e02: Refresh README and skill-install guidance links for improved discoverability.
+
+  This update adds the official website reference and clarifies CLI usage guidance in package docs. No runtime behavior or API contracts changed.
+
+- Updated dependencies [2e43e02]
+  - @sisu-ai/core@2.6.1
+  - @sisu-ai/adapter-anthropic@10.0.0
+  - @sisu-ai/adapter-ollama@12.0.0
+  - @sisu-ai/adapter-openai@12.0.0
+  - @sisu-ai/mw-skills@3.0.0
+  - @sisu-ai/mw-trace-viewer@13.0.0
+
+## 0.6.1
+
+### Patch Changes
+
+- 3f417c7: Adopt the new middleware-first execution flow across core and generated app scaffolds.
+
+  Core now standardizes execution around `execute` and `executeStream` middleware patterns, including configurable streaming sink usage through `executeStream(opts)` and consistent typed execution results/events in context state.
+
+  `@sisu-ai/mw-tool-calling` remains available as legacy compatibility middleware, now explicitly documented as a migration path to core execution middleware.
+
+  CLI templates and installer guidance now scaffold the core execution approach by default so new projects follow the recommended runtime pattern out of the box.
+
+- Updated dependencies [ad040f8]
+- Updated dependencies [3f417c7]
+  - @sisu-ai/discovery@0.2.1
+  - @sisu-ai/core@2.6.0
+  - @sisu-ai/adapter-anthropic@10.0.0
+  - @sisu-ai/adapter-ollama@12.0.0
+  - @sisu-ai/adapter-openai@12.0.0
+  - @sisu-ai/mw-skills@3.0.0
+  - @sisu-ai/mw-trace-viewer@13.0.0
+  - @sisu-ai/tool-terminal@10.0.0
+
+## 0.6.0
+
+### Minor Changes
+
+- 3e8c117: Add catalog-driven capability discovery and installation to the CLI, including improved interactive chat capabilities and configuration flows.
+
+  Publish the new `@sisu-ai/discovery` and `@sisu-ai/tool-web-search-linkup` packages for dynamic package discovery and LinkUp web search support.
+
+  Patch provider adapters and DuckDuckGo web search handling for improved runtime compatibility and safer error handling.
+
+### Patch Changes
+
+- Updated dependencies [aa659d9]
+- Updated dependencies [3e8c117]
+  - @sisu-ai/core@2.5.0
+  - @sisu-ai/discovery@0.2.0
+  - @sisu-ai/adapter-openai@11.0.0
+  - @sisu-ai/adapter-anthropic@9.0.0
+  - @sisu-ai/adapter-ollama@11.0.0
+  - @sisu-ai/mw-skills@2.0.0
+  - @sisu-ai/mw-trace-viewer@12.0.0
+  - @sisu-ai/tool-terminal@9.0.0
+
 ## 0.5.1
 
 ### Patch Changes

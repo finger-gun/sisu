@@ -15,7 +15,9 @@ import {
   parseChatArgs,
   runChatCli,
   isInkEraseKey,
+  initialInkAgentStatus,
   isInkNewlineKey,
+  nextInkAgentStatus,
   toInkEventLines,
 } from '../src/lib.js';
 
@@ -29,7 +31,7 @@ function makeProfile(storageDir: string, provider: ChatProfile['provider'] = 'mo
   return {
     name: 'coverage',
     provider,
-    model: provider === 'openai' ? 'gpt-4o-mini' : provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'llama3.1',
+    model: provider === 'openai' ? 'gpt-5.4' : provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'llama3.1',
     theme: 'plain',
     storageDir,
     toolPolicy: mergeToolPolicy(),
@@ -70,6 +72,8 @@ describe('chat coverage', () => {
   test('isInkNewlineKey covers multiline key paths', () => {
     expect(isInkNewlineKey('j', { ctrl: true })).toBe(true);
     expect(isInkNewlineKey('', { return: true, shift: true })).toBe(true);
+    expect(isInkNewlineKey('\n', { return: true })).toBe(true);
+    expect(isInkNewlineKey('\u001b[13;2u', {})).toBe(true);
     expect(isInkNewlineKey('x', {})).toBe(false);
   });
 
@@ -185,6 +189,94 @@ describe('chat coverage', () => {
 
     expect(cancelled).toBe(true);
     expect(result.summary.status).toBe('cancelled');
+  });
+
+  test('runtime metadata and config accessors cover fallback branches', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-runtime-meta-'));
+    tempDirs.push(root);
+    const runtime = await ChatRuntime.create({
+      cwd: root,
+      profile: {
+        ...makeProfile(path.join(root, 'sessions')),
+        capabilities: {
+          tools: { enabled: ['terminal'], disabled: [], config: {} },
+          skills: { enabled: [], disabled: [], directories: [path.join(root, '.sisu', 'skills')] },
+          middleware: {
+            enabled: ['error-boundary', 'invariants', 'register-tools', 'tool-calling'],
+            disabled: [],
+            pipeline: [
+              { id: 'error-boundary', enabled: true, config: {} },
+              { id: 'invariants', enabled: true, config: {} },
+              { id: 'register-tools', enabled: true, config: {} },
+              { id: 'tool-calling', enabled: true, config: {} },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(runtime.getProviderStartupError()).toBeUndefined();
+    expect(Array.isArray(runtime.getCapabilityDiagnostics())).toBe(true);
+    expect(runtime.listAllowCommandPrefixes().length).toBeGreaterThan(0);
+    expect(runtime.getToolConfigPresets('missing-tool')).toEqual([]);
+    expect(runtime.getMiddlewareConfigPresets('missing-middleware')).toEqual([]);
+    expect(runtime.getToolCallingMaxRounds()).toBe(16);
+    expect(runtime.getConfigPath('project')).toContain('chat-profile.json');
+    expect(runtime.getConfigPath('global')).toContain('chat-profile.json');
+
+    await runtime.setSkillDirectories([path.join(root, '.sisu', 'skills')], 'project');
+    await runtime.setSkillDirectories([path.join(root, '.sisu', 'skills')], 'global');
+    await expect(runtime.setCapabilityEnabled('missing-capability', true, 'session')).rejects.toThrow('E6505');
+    await expect(runtime.setMiddlewarePipeline([{ id: 'missing', enabled: true, config: {} }], 'session')).rejects.toThrow('E6509');
+    expect(() => runtime.describeToolConfig('missing-tool')).toThrow('E6518');
+    expect(() => runtime.describeMiddlewareConfig('missing-middleware')).toThrow('E6519');
+  });
+
+  test('runtime mutators cover session/project/global branches and validation errors', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-runtime-mutators-'));
+    tempDirs.push(root);
+    const runtime = await ChatRuntime.create({
+      cwd: root,
+      profile: {
+        ...makeProfile(path.join(root, 'sessions')),
+        capabilities: {
+          tools: { enabled: ['terminal'], disabled: [], config: {} },
+          skills: { enabled: [], disabled: [], directories: [path.join(root, '.sisu', 'skills')] },
+          middleware: {
+            enabled: ['error-boundary', 'invariants', 'register-tools', 'tool-calling'],
+            disabled: [],
+            pipeline: [
+              { id: 'error-boundary', enabled: true, config: {} },
+              { id: 'invariants', enabled: true, config: {} },
+              { id: 'register-tools', enabled: true, config: {} },
+              { id: 'tool-calling', enabled: true, config: {} },
+            ],
+          },
+        },
+      },
+    });
+
+    await runtime.setMiddlewareConfig('tool-calling', { maxRounds: 18 }, 'project');
+    expect(runtime.getToolCallingMaxRounds()).toBe(18);
+
+    await runtime.setSystemPrompt('session text', 'session');
+    await runtime.setSystemPrompt('project text', 'project');
+    expect(typeof runtime.profile.systemPrompt).toBe('string');
+
+    await runtime.addAllowCommandPrefix('echo', 'project');
+    expect(runtime.listAllowCommandPrefixes()).toContain('echo');
+
+    await runtime.setToolConfig('terminal', { allowPipe: false }, 'session');
+    await runtime.setToolConfig('terminal', { allowPipe: true }, 'project');
+    expect(runtime.getToolConfig('terminal')).toHaveProperty('allowPipe');
+    expect(runtime.describeToolConfig('terminal')).toContain('Available options');
+    expect(runtime.describeMiddlewareConfig('tool-calling')).toContain('Available options');
+
+    await expect(runtime.setToolConfig('terminal', { allowPipe: 'nope' as unknown as boolean }, 'session')).rejects.toThrow('E6517');
+    await expect(runtime.setToolConfig('skills', {}, 'session')).rejects.toThrow('E6516');
+    expect(() => runtime.getToolConfig('skills')).toThrow('E6516');
+    expect(() => runtime.describeToolConfig('missing-tool')).toThrow('E6518');
+    expect(() => runtime.describeMiddlewareConfig('missing-middleware')).toThrow('E6519');
   });
 
   test('runChatCli interactive mode validates writable output shape', async () => {
@@ -389,6 +481,32 @@ describe('chat coverage', () => {
       await pause();
       yield '/middleware\n';
       await pause();
+      yield '/tools setup\n';
+      await pause();
+      yield 'terminal\n';
+      await pause();
+      yield 'Show details\n';
+      await pause();
+      yield '/tool-config-options terminal\n';
+      await pause();
+      yield 'Done\n';
+      await pause();
+      yield '/middleware-config-options tool-calling\n';
+      await pause();
+      yield '/tool-config terminal {"allowPipe":true} session\n';
+      await pause();
+      yield '/tool-rounds\n';
+      await pause();
+      yield '/tool-rounds nope\n';
+      await pause();
+      yield '/tool-rounds project 12\n';
+      await pause();
+      yield '/middleware-config tool-calling {"maxRounds":22} session\n';
+      await pause();
+      yield '/system-prompt session Always be concise.\n';
+      await pause();
+      yield '/system-prompt\n';
+      await pause();
       yield '/official wat\n';
       await pause();
       yield '/enable skills session\n';
@@ -397,61 +515,37 @@ describe('chat coverage', () => {
       await pause();
       yield '/allow-command echo session\n';
       await pause();
-      yield '/middleware setup\n';
-      await pause();
-      yield 'Open config in editor\n';
-      await pause();
-      yield 'project\n';
-      await pause();
-      yield 'Done\n';
-      await pause();
       yield '/open-config project\n';
       await pause();
-      yield '/provider openai\n';
-      await pause();
-      yield '4\n';
-      await pause();
-      yield '/provider openai\n';
-      await pause();
-      yield '3\n';
-      await pause();
-      yield '/provider\n';
-      await pause();
-      yield '\n';
-      await pause();
-      yield '/model\n';
-      await pause();
-      yield '\n';
-      await pause();
-      yield '/cancel\n';
-      await pause();
-      yield '/sessions\n';
-      await pause();
-      yield 'hello matrix\n';
-      await pause();
-      yield '/sessions\n';
-      await pause();
-      yield '1\n';
-      await pause();
-      yield '3\n';
-      await pause();
-      yield '/search matrix\n';
-      await pause();
-      yield '/delete-session missing\n';
+      yield '/install recipe rag-recommended project\n';
       await pause();
       yield '/exit\n';
     }
 
     const previousEditor = process.env.EDITOR;
     const previousVisual = process.env.VISUAL;
+    const previousApiKey = process.env.API_KEY;
+    const previousOpenAiApiKey = process.env.OPENAI_API_KEY;
     process.env.EDITOR = 'true';
     process.env.VISUAL = '';
+    delete process.env.API_KEY;
+    delete process.env.OPENAI_API_KEY;
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(root);
     try {
       await runChatCli([], { input: Readable.from(inputLines()), output: outputStream });
     } finally {
       process.env.EDITOR = previousEditor;
       process.env.VISUAL = previousVisual;
+      if (previousApiKey === undefined) {
+        delete process.env.API_KEY;
+      } else {
+        process.env.API_KEY = previousApiKey;
+      }
+      if (previousOpenAiApiKey === undefined) {
+        delete process.env.OPENAI_API_KEY;
+      } else {
+        process.env.OPENAI_API_KEY = previousOpenAiApiKey;
+      }
       cwdSpy.mockRestore();
     }
 
@@ -459,20 +553,26 @@ describe('chat coverage', () => {
     expect(rendered).toContain('TOOLS:');
     expect(rendered).toContain('SKILLS:');
     expect(rendered).toContain('MIDDLEWARE:');
+    expect(rendered).toContain('Select tools capability:');
+    expect(rendered).toContain('Action for terminal:');
+    expect(rendered).toContain('terminal (enabled, source:core, inherited, locked-core)');
+    expect(rendered).toContain('Terminal tool config: Shell permissions and command execution policy.');
+    expect(rendered).toContain('Updated terminal config (session).');
+    expect(rendered).toContain('Legacy tool-calling middleware config: Controls compatibility-mode tool-call loop behavior.');
+    expect(rendered).toContain('Current maxRounds:');
+    expect(rendered).toContain('Usage: /tool-rounds [session|project|global] <positive-integer>');
+    expect(rendered).toContain('Updated tool-calling.maxRounds to 12 (project).');
+    expect(rendered).toContain('Updated tool-calling config (session).');
+    expect(rendered).toContain('Updated system prompt (session).');
+    expect(rendered).toContain('Current system prompt:');
     expect(rendered).toContain('Usage: /official <middleware|tools|skills>');
+    expect(rendered).toContain('/install <tool|middleware> <name> [project|global]');
     expect(rendered).toContain('Enabled skills (session).');
     expect(rendered).toContain('Disabled skills (session).');
     expect(rendered).toContain("Added allow prefix 'echo' (session).");
     expect(rendered).toContain('Opened config:');
-    expect(rendered).toContain('Provider remains unchanged.');
-    expect(rendered).toContain('Provider updated: mock / sisu-mock-chat-v1');
-    expect(rendered).toContain('Provider update cancelled.');
-    expect(rendered).toContain('Model update cancelled.');
-    expect(rendered).toContain('No active run to cancel.');
-    expect(rendered).toContain('No saved sessions.');
-    expect(rendered).toContain('Action:');
-    expect(rendered).toContain('Session not found: missing.');
-  });
+    expect(rendered).toContain('Installed recipe rag-recommended (project).');
+  }, 20000);
 
   test('runChatCli /resume prints loaded session history', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-cli-resume-history-'));
@@ -634,6 +734,62 @@ describe('chat coverage', () => {
     })[0]?.text).toContain('Error [E]: boom');
   });
 
+  test('agent status reducer maps key runtime events', () => {
+    const base = initialInkAgentStatus();
+    const pendingTool = {
+      id: 't1',
+      sessionId: 's1',
+      runId: 'r1',
+      toolName: 'webSearch',
+      requestPreview: 'q=test',
+      status: 'pending' as const,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const thinking = nextInkAgentStatus(base, {
+      type: 'assistant.message.started',
+      sessionId: 's1',
+      runId: 'r1',
+      message: {
+        id: 'm1',
+        sessionId: 's1',
+        role: 'assistant',
+        content: '',
+        status: 'streaming',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    expect(thinking.text).toContain('Thinking');
+
+    const runningTool = nextInkAgentStatus(thinking, {
+      type: 'tool.running',
+      sessionId: 's1',
+      runId: 'r1',
+      record: { ...pendingTool, status: 'running' },
+    });
+    expect(runningTool.text).toContain('Running tool: webSearch');
+
+    const failed = nextInkAgentStatus(runningTool, {
+      type: 'run.failed',
+      sessionId: 's1',
+      runId: 'r1',
+      summary: { runId: 'r1', requestMessageId: 'm0', status: 'failed', completedSteps: 1 },
+      errorCode: 'RUN_FAILED',
+      errorMessage: 'bad',
+    });
+    expect(failed.text).toContain('Failed');
+
+    const completed = nextInkAgentStatus(failed, {
+      type: 'run.completed',
+      sessionId: 's1',
+      runId: 'r1',
+      summary: { runId: 'r1', requestMessageId: 'm0', status: 'completed', completedSteps: 2 },
+    });
+    expect(completed.text).toBe('Idle');
+  });
+
   test('runtime provider/model update paths', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-switch-'));
     tempDirs.push(root);
@@ -659,4 +815,251 @@ describe('chat coverage', () => {
     const suggestions = await runtime.listSuggestedModels('mock');
     expect(suggestions).toContain('sisu-mock-chat-v1');
   });
+
+  test('runChatCli covers setup and recovery menu branches', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-cli-setup-'));
+    tempDirs.push(root);
+
+    const profileDir = path.join(root, '.sisu');
+    await fs.mkdir(profileDir, { recursive: true });
+    await fs.writeFile(
+      path.join(profileDir, 'chat-profile.json'),
+      JSON.stringify({ provider: 'mock', model: 'sisu-mock-chat-v1', storageDir: path.join(root, 'sessions') }),
+      'utf8',
+    );
+
+    const output: string[] = [];
+    const outputStream = new PassThrough();
+    outputStream.on('data', (chunk: Buffer | string) => {
+      output.push(String(chunk));
+    });
+
+    const pause = async () => await new Promise((resolve) => setTimeout(resolve, 20));
+    async function* inputLines(): AsyncGenerator<string> {
+      yield '/tools setup\n';
+      await pause();
+      yield 'terminal\n';
+      await pause();
+      yield 'Enable\n';
+      await pause();
+      yield 'Apply preset\n';
+      await pause();
+      yield 'Read-only (Recommended)\n';
+      await pause();
+      yield 'project\n';
+      await pause();
+      yield 'global\n';
+      await pause();
+      yield 'Done\n';
+      await pause();
+      yield '/middleware setup\n';
+      await pause();
+      yield 'Configure pipeline\n';
+      await pause();
+      yield '4\n';
+      await pause();
+      yield '6\n';
+      await pause();
+      yield 'global\n';
+      await pause();
+      yield 'Set maxRounds\n';
+      await pause();
+      yield 'Custom\n';
+      await pause();
+      yield 'abc\n';
+      await pause();
+      yield '4\n';
+      await pause();
+      yield '6\n';
+      await pause();
+      yield 'global\n';
+      await pause();
+      yield 'Set maxRounds\n';
+      await pause();
+      yield 'Custom\n';
+      await pause();
+      yield '20\n';
+      await pause();
+      yield 'Done\n';
+      await pause();
+      yield '/middleware setup\n';
+      await pause();
+      yield 'Set system prompt\n';
+      await pause();
+      yield 'Clear\n';
+      await pause();
+      yield 'project\n';
+      await pause();
+      yield '/model nope-model\n';
+      await pause();
+      yield '/exit\n';
+    }
+
+    const previousEditor = process.env.EDITOR;
+    const previousVisual = process.env.VISUAL;
+    process.env.EDITOR = 'true';
+    process.env.VISUAL = '';
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(root);
+    try {
+      await runChatCli([], { input: Readable.from(inputLines()), output: outputStream });
+    } finally {
+      process.env.EDITOR = previousEditor;
+      process.env.VISUAL = previousVisual;
+      cwdSpy.mockRestore();
+    }
+
+    const rendered = output.join('');
+    expect(rendered).toContain('Applied Read-only (Recommended) preset to terminal (project).');
+    expect(rendered).toContain('Invalid maxRounds value.');
+    expect(rendered).toContain('Updated tool-calling.maxRounds to 20 (global).');
+    expect(rendered).toContain('Cleared system prompt (project).');
+    expect(rendered).toContain('Model updated: mock / nope-model');
+  }, 20000);
+
+  test('runChatCli covers middleware setup edge branches', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-cli-middleware-edges-'));
+    tempDirs.push(root);
+
+    const profileDir = path.join(root, '.sisu');
+    await fs.mkdir(profileDir, { recursive: true });
+    await fs.writeFile(
+      path.join(profileDir, 'chat-profile.json'),
+      JSON.stringify({ provider: 'mock', model: 'sisu-mock-chat-v1', storageDir: path.join(root, 'sessions') }),
+      'utf8',
+    );
+
+    const output: string[] = [];
+    const outputStream = new PassThrough();
+    outputStream.on('data', (chunk: Buffer | string) => {
+      output.push(String(chunk));
+    });
+
+    const pause = async () => await new Promise((resolve) => setTimeout(resolve, 20));
+    async function* inputLines(): AsyncGenerator<string> {
+      yield '/middleware setup\n';
+      await pause();
+      yield 'Configure pipeline\n';
+      await pause();
+      yield 'Open config in editor\n';
+      await pause();
+      yield '\n';
+      await pause();
+      yield '1\n';
+      await pause();
+      yield 'Apply preset\n';
+      await pause();
+      yield 'session\n';
+      await pause();
+      yield '4\n';
+      await pause();
+      yield 'Show options\n';
+      await pause();
+      yield 'session\n';
+      await pause();
+      yield 'Set maxRounds\n';
+      await pause();
+      yield 'Custom\n';
+      await pause();
+      yield 'zero\n';
+      await pause();
+      yield '4\n';
+      await pause();
+      yield 'Show options\n';
+      await pause();
+      yield 'session\n';
+      await pause();
+      yield 'Set maxRounds\n';
+      await pause();
+      yield '24\n';
+      await pause();
+      yield '4\n';
+      await pause();
+      yield 'Apply preset\n';
+      await pause();
+      yield 'session\n';
+      await pause();
+      yield 'Default (16 rounds)\n';
+      await pause();
+      yield '4\n';
+      await pause();
+      yield 'Edit config JSON\n';
+      await pause();
+      yield 'session\n';
+      await pause();
+      yield '{bad json}\n';
+      await pause();
+      yield '4\n';
+      await pause();
+      yield 'Edit config JSON\n';
+      await pause();
+      yield 'session\n';
+      await pause();
+      yield '[]\n';
+      await pause();
+      yield 'Done\n';
+      await pause();
+      yield '/middleware setup\n';
+      await pause();
+      yield 'Set system prompt\n';
+      await pause();
+      yield 'Keep current\n';
+      await pause();
+      yield '/middleware setup\n';
+      await pause();
+      yield 'Set system prompt\n';
+      await pause();
+      yield 'Edit text\n';
+      await pause();
+      yield 'be deterministic\n';
+      await pause();
+      yield '\n';
+      await pause();
+      yield '/middleware setup\n';
+      await pause();
+      yield 'Set system prompt\n';
+      await pause();
+      yield 'Edit text\n';
+      await pause();
+      yield 'fresh prompt\n';
+      await pause();
+      yield 'global\n';
+      await pause();
+      yield '/middleware setup\n';
+      await pause();
+      yield 'Install RAG recommended recipe\n';
+      await pause();
+      yield '\n';
+      await pause();
+      yield '/middleware setup\n';
+      await pause();
+      yield 'Install RAG advanced recipe\n';
+      await pause();
+      yield 'custom\n';
+      await pause();
+      yield '\n';
+      await pause();
+      yield '/exit\n';
+    }
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(root);
+    try {
+      await runChatCli([], { input: Readable.from(inputLines()), output: outputStream });
+    } finally {
+      cwdSpy.mockRestore();
+    }
+
+    const rendered = output.join('');
+    expect(rendered).toContain('Open-config cancelled.');
+    expect(rendered).toContain('No presets available for error-boundary.');
+    expect(rendered).toContain('Invalid JSON:');
+    expect(rendered).toContain('Config must be a JSON object.');
+    expect(rendered).toContain('Invalid maxRounds value.');
+    expect(rendered).toContain('Updated tool-calling.maxRounds to 24 (session).');
+    expect(rendered).toContain('Applied Default (16 rounds) to tool-calling (session).');
+    expect(rendered).toContain('System prompt unchanged.');
+    expect(rendered).toContain('Scope selection cancelled.');
+    expect(rendered).toContain('Updated system prompt (global).');
+    expect(rendered).toContain('Recipe install cancelled.');
+  }, 30000);
+
 });

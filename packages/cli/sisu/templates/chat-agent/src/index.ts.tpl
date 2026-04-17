@@ -6,7 +6,7 @@ import { inputToMessage, conversationBuffer } from '@sisu-ai/mw-conversation-buf
 import { traceViewer } from '@sisu-ai/mw-trace-viewer';
 
 const model = openAIAdapter({
-  model: process.env.MODEL || 'gpt-4o-mini',
+  model: process.env.MODEL || 'gpt-5.4',
   baseUrl: process.env.BASE_URL,
 });
 

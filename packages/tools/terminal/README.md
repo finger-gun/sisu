@@ -35,7 +35,7 @@ import { createTerminalTool } from '@sisu-ai/tool-terminal';
 
 const terminal = createTerminalTool({ roots: [process.cwd()] });
 
-const model = openAIAdapter({ model: process.env.MODEL || 'gpt-4o-mini' });
+const model = openAIAdapter({ model: process.env.MODEL || 'gpt-5.4' });
 const ctx: Ctx = {
   input: 'List files in the project root and show the first 10 lines of README.md.',
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],

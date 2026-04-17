@@ -72,6 +72,68 @@ describe('skill install helpers', () => {
     await expect(fs.access(path.join(result.targetDir, 'SKILL.md'))).resolves.toBeUndefined();
   });
 
+  test('falls back to package name when frontmatter exists without name', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-skill-fallback-frontmatter-'));
+    tempDirs.push(root);
+    const source = path.join(root, 'skill-beta');
+    await fs.mkdir(source, { recursive: true });
+    await fs.writeFile(path.join(source, 'SKILL.md'), [
+      '---',
+      'description: no name key',
+      '---',
+      '',
+      '# Skill',
+    ].join('\n'));
+
+    const result = await installSkill({
+      packageOrPath: source,
+      scope: 'project',
+      cwd: root,
+    });
+    expect(result.skillId).toBe('beta');
+    expect(result.sourceType).toBe('local');
+  });
+
+  test('installs from npm file: spec via pack+extract flow', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-skill-npm-file-'));
+    tempDirs.push(root);
+
+    const pkgDir = path.join(root, 'npm-skill');
+    await fs.mkdir(pkgDir, { recursive: true });
+    await fs.writeFile(path.join(pkgDir, 'package.json'), JSON.stringify({
+      name: '@sisu-ai/skill-local-npm',
+      version: '1.0.0',
+      private: true,
+    }, null, 2));
+    await fs.writeFile(path.join(pkgDir, 'SKILL.md'), [
+      '---',
+      'name: npm-file-skill',
+      'description: packed local skill',
+      '---',
+      '',
+      '# NPM file skill',
+    ].join('\n'));
+
+    const result = await installSkill({
+      packageOrPath: `file:${pkgDir}`,
+      scope: 'project',
+      cwd: root,
+    });
+    expect(result.sourceType).toBe('npm');
+    expect(result.skillId).toBe('npm-file-skill');
+    await expect(fs.access(path.join(result.targetDir, 'SKILL.md'))).resolves.toBeUndefined();
+  });
+
+  test('surfaces npm pack failure for invalid file: source', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-skill-npm-fail-'));
+    tempDirs.push(root);
+    await expect(installSkill({
+      packageOrPath: `file:${path.join(root, 'missing')}`,
+      scope: 'project',
+      cwd: root,
+    })).rejects.toThrow('npm pack');
+  });
+
   test('fails with E6702 when local skill is missing SKILL.md', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-skill-missing-md-'));
     tempDirs.push(root);

@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define requirements for the Vectra vector-store adapter integration.
+
+## Requirements
 ### Requirement: Vectra Adapter Implements Vector Store Contract
 `@sisu-ai/vector-vectra` SHALL provide a Vectra-backed implementation of the shared vector-store contract.
 

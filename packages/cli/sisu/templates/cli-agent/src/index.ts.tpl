@@ -10,7 +10,7 @@ if (!prompt) {
 }
 
 const model = openAIAdapter({
-  model: process.env.MODEL || 'gpt-4o-mini',
+  model: process.env.MODEL || 'gpt-5.4',
   baseUrl: process.env.BASE_URL,
 });
 

@@ -72,3 +72,11 @@ traces/
 
 # Misc
 *.local
+
+# Sisu
+.sisu/**/
+.sisu-vectra/**/
+.sisu
+.sisu-vectra
+benchmark-results/
+markdown

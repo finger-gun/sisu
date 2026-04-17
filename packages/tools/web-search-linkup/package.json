@@ -1,0 +1,43 @@
+{
+  "name": "@sisu-ai/tool-web-search-linkup",
+  "version": "3.0.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "linkup-sdk": "^2.7.0",
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@sisu-ai/core": "^2.6.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/tools/web-search-linkup"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  },
+  "keywords": [
+    "sisu",
+    "ai",
+    "ai-agent",
+    "agentic",
+    "tool",
+    "web-search-linkup",
+    "linkup"
+  ]
+}

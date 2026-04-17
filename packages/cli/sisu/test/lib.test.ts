@@ -1,8 +1,40 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { formatInfo, listCategory, renderTemplate, resolveEntry, scaffoldTemplate } from '../src/lib.js';
+
+vi.mock('../src/chat/discovery-package.js', () => ({
+  loadDiscoveryCatalog: () => ({
+    schemaVersion: 1,
+    generatedAt: 'now',
+    entries: [
+      {
+        id: 'vector-vectra',
+        category: 'vector',
+        title: '@sisu-ai/vector-vectra',
+        packageName: '@sisu-ai/vector-vectra',
+        version: '1.0.0',
+        summary: 'Vectra vector store',
+        aliases: ['vectra'],
+      },
+      {
+        id: 'tool-rag',
+        category: 'tools',
+        title: '@sisu-ai/tool-rag',
+        packageName: '@sisu-ai/tool-rag',
+        version: '1.0.0',
+        summary: 'RAG tool',
+      },
+      {
+        id: 'cli-agent',
+        category: 'templates',
+        title: 'cli-agent',
+        summary: 'CLI template',
+      },
+    ],
+  }),
+}));
 
 const tempDirs: string[] = [];
 

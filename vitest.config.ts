@@ -31,6 +31,8 @@ export default defineConfig({
         "**/node_modules/**",
         "**/dist/**",
         "**/examples/**",
+        "traces/**",
+        "packages/discovery/scripts/**",
         // exclude static viewer assets (not unit-tested JS/HTML/CSS)
         "packages/middleware/trace-viewer/assets/**",
         // exclude build/test config and generated JS

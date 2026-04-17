@@ -29,6 +29,17 @@ import {
   validateAndNormalizeProfile,
 } from '../src/lib.js';
 
+vi.mock('@sisu-ai/tool-rag', () => ({
+  default: [
+    {
+      name: 'retrieveContext',
+      description: 'mock rag tool',
+      schema: {},
+      handler: async () => ({ ok: true }),
+    },
+  ],
+}));
+
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -89,6 +100,9 @@ describe('chat cli', () => {
     expect(isInkNewlineKey('j', { ctrl: true })).toBe(true);
     expect(isInkNewlineKey('', { return: true, shift: true })).toBe(true);
     expect(isInkNewlineKey('', { return: true, meta: true })).toBe(true);
+    expect(isInkNewlineKey('\n', { return: true })).toBe(true);
+    expect(isInkNewlineKey('\u001b[13;2u', {})).toBe(true);
+    expect(isInkNewlineKey('\u001b[27;2;13~', {})).toBe(true);
     expect(isInkNewlineKey('', { return: true })).toBe(false);
   });
 
@@ -153,7 +167,7 @@ describe('chat cli', () => {
     const baseProfile: ChatProfile = {
       name: 'p',
       provider: 'openai',
-      model: 'gpt-4o-mini',
+      model: 'gpt-5.4',
       theme: 'auto',
       storageDir: '/tmp/sisu',
       toolPolicy: mergeToolPolicy(),
@@ -260,7 +274,110 @@ describe('chat cli', () => {
     expect(result.assistantMessage?.content).toContain('Tool output seen:');
   });
 
-  test('runtime auto tool-call loop fails after max rounds', async () => {
+  test('runtime can auto-call installed non-terminal tools', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-auto-installed-tool-'));
+    tempDirs.push(root);
+
+    const installDir = path.join(root, '.sisu', 'capabilities', 'tools', 'rag');
+    await fs.mkdir(path.join(installDir, 'node_modules', '@sisu-ai', 'tool-rag'), { recursive: true });
+    await fs.writeFile(
+      path.join(installDir, 'node_modules', '@sisu-ai', 'tool-rag', 'package.json'),
+      JSON.stringify({ name: '@sisu-ai/tool-rag', type: 'module', exports: './index.js' }),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(installDir, 'node_modules', '@sisu-ai', 'tool-rag', 'index.js'),
+      'export { default } from "../../../../../../../../packages/tools/rag/src/index.ts";',
+      'utf8',
+    );
+    await fs.mkdir(path.join(root, '.sisu', 'capabilities'), { recursive: true });
+    await fs.writeFile(
+      path.join(root, '.sisu', 'capabilities', 'manifest.json'),
+      JSON.stringify({
+        version: 1,
+        entries: [{
+          id: 'tool-rag',
+          type: 'tool',
+          packageName: '@sisu-ai/tool-rag',
+          installDir,
+          installedAt: new Date().toISOString(),
+        }],
+      }, null, 2),
+      'utf8',
+    );
+
+    const runtime = await ChatRuntime.create({
+      cwd: root,
+      sessionStore: new FileSessionStore(root),
+      profile: {
+        name: 'test',
+        provider: 'mock',
+        model: 'model-x',
+        theme: 'plain',
+        storageDir: root,
+        toolPolicy: mergeToolPolicy(),
+        capabilities: {
+          tools: {
+            enabled: ['tool-rag'],
+            disabled: [],
+            config: {},
+          },
+          skills: {
+            enabled: [],
+            disabled: [],
+            directories: [path.join(root, '.sisu', 'skills')],
+          },
+          middleware: {
+            enabled: ['error-boundary', 'invariants', 'register-tools', 'tool-calling', 'conversation-buffer', 'skills'],
+            disabled: [],
+            pipeline: [
+              { id: 'error-boundary', enabled: true, config: {} },
+              { id: 'invariants', enabled: true, config: {} },
+              { id: 'register-tools', enabled: true, config: {} },
+              { id: 'tool-calling', enabled: true, config: {} },
+              { id: 'conversation-buffer', enabled: true, config: {} },
+              { id: 'skills', enabled: true, config: {} },
+            ],
+          },
+        },
+      },
+      provider: {
+        id: 'auto-installed-tool-provider',
+        async *streamResponse() {
+          yield { type: 'done' };
+        },
+        async generateResponse(input) {
+          const hasToolMessage = input.messages.some((m) => m.role === 'tool');
+          if (!hasToolMessage) {
+            return {
+              message: {
+                role: 'assistant',
+                content: '',
+                tool_calls: [{
+                  id: 'call-1',
+                  name: 'retrieveContext',
+                  arguments: { queryText: 'hello' },
+                }],
+              },
+            };
+          }
+          return {
+            message: {
+              role: 'assistant',
+              content: 'used installed tool',
+            },
+          };
+        },
+      },
+    });
+
+    const result = await runtime.runPrompt('use rag tool');
+    expect(result.summary.status).toBe('completed');
+    expect(runtime.getState().toolExecutions.some((record) => record.toolName === 'retrieveContext')).toBe(true);
+    expect(result.assistantMessage?.content).toContain('used installed tool');
+  });
+
+  test('runtime auto tool-call loop returns graceful message after max rounds', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-auto-tool-loop-'));
     tempDirs.push(root);
 
@@ -296,8 +413,209 @@ describe('chat cli', () => {
     });
 
     const result = await runtime.runPrompt('keep using tools forever');
-    expect(result.summary.status).toBe('failed');
-    expect(result.assistantMessage?.status).toBe('failed');
+    expect(result.summary.status).toBe('completed');
+    expect(result.assistantMessage?.status).toBe('completed');
+    expect(result.assistantMessage?.content).toContain('maximum tool-calling rounds');
+  });
+
+  test('runtime executes trace-viewer middleware when enabled and installed', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-trace-viewer-'));
+    tempDirs.push(root);
+    const traceDir = path.join(root, 'traces');
+    const installDir = path.join(root, '.sisu', 'capabilities', 'middleware', 'trace-viewer');
+    await fs.mkdir(path.join(installDir, 'node_modules', '@sisu-ai', 'mw-trace-viewer'), { recursive: true });
+    await fs.writeFile(
+      path.join(installDir, 'node_modules', '@sisu-ai', 'mw-trace-viewer', 'package.json'),
+      JSON.stringify({ name: '@sisu-ai/mw-trace-viewer', type: 'module', exports: './index.js' }),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(installDir, 'node_modules', '@sisu-ai', 'mw-trace-viewer', 'index.js'),
+      'export { traceViewer } from "../../../../../../../../packages/middleware/trace-viewer/src/index.ts";',
+      'utf8',
+    );
+    await fs.mkdir(path.join(root, '.sisu', 'capabilities'), { recursive: true });
+    await fs.writeFile(
+      path.join(root, '.sisu', 'capabilities', 'manifest.json'),
+      JSON.stringify({
+        version: 1,
+        entries: [{
+          id: 'trace-viewer',
+          type: 'middleware',
+          packageName: '@sisu-ai/mw-trace-viewer',
+          installDir,
+          installedAt: new Date().toISOString(),
+        }],
+      }, null, 2),
+      'utf8',
+    );
+
+    const previousTraceHtml = process.env.TRACE_HTML;
+    const previousTraceJson = process.env.TRACE_JSON;
+    process.env.TRACE_HTML = '1';
+    process.env.TRACE_JSON = '0';
+    try {
+      const runtime = await ChatRuntime.create({
+        cwd: root,
+        sessionStore: new FileSessionStore(root),
+        profile: {
+          name: 'test',
+          provider: 'mock',
+          model: 'model-x',
+          theme: 'plain',
+          storageDir: root,
+          toolPolicy: mergeToolPolicy(),
+          capabilities: {
+            tools: { enabled: ['terminal'], disabled: [], config: {} },
+            skills: { enabled: [], disabled: [], directories: [path.join(root, '.sisu', 'skills')] },
+            middleware: {
+              enabled: ['error-boundary', 'invariants', 'register-tools', 'tool-calling', 'trace-viewer'],
+              disabled: [],
+              pipeline: [
+                { id: 'error-boundary', enabled: true, config: {} },
+                { id: 'invariants', enabled: true, config: {} },
+                { id: 'register-tools', enabled: true, config: {} },
+                { id: 'tool-calling', enabled: true, config: {} },
+                { id: 'trace-viewer', enabled: true, config: { enable: true, dir: traceDir } },
+              ],
+            },
+          },
+        },
+        provider: {
+          id: 'trace-provider',
+          async *streamResponse() {
+            yield { type: 'done' };
+          },
+          async generateResponse() {
+            return {
+              message: {
+                role: 'assistant',
+                content: 'trace enabled',
+              },
+            };
+          },
+        },
+      });
+
+      const result = await runtime.runPrompt('hello trace');
+      expect(result.summary.status).toBe('completed');
+      expect(result.assistantMessage?.content).toContain('trace enabled');
+    } finally {
+      process.env.TRACE_HTML = previousTraceHtml;
+      process.env.TRACE_JSON = previousTraceJson;
+    }
+  });
+
+  test('runtime skips optional middleware that is enabled but not installed', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-mw-skip-missing-'));
+    tempDirs.push(root);
+
+    const runtime = await ChatRuntime.create({
+      cwd: root,
+      sessionStore: new FileSessionStore(root),
+      profile: {
+        name: 'test',
+        provider: 'mock',
+        model: 'model-x',
+        theme: 'plain',
+        storageDir: root,
+        toolPolicy: mergeToolPolicy(),
+        capabilities: {
+          tools: { enabled: ['terminal'], disabled: [], config: {} },
+          skills: { enabled: [], disabled: [], directories: [path.join(root, '.sisu', 'skills')] },
+          middleware: {
+            enabled: ['error-boundary', 'invariants', 'register-tools', 'tool-calling', 'trace-viewer'],
+            disabled: [],
+              pipeline: [
+                { id: 'error-boundary', enabled: true, config: {} },
+                { id: 'invariants', enabled: true, config: {} },
+                { id: 'register-tools', enabled: true, config: {} },
+                { id: 'tool-calling', enabled: true, config: {} },
+                { id: 'trace-viewer', enabled: true, config: {} },
+              ],
+            },
+          },
+        },
+      provider: {
+        id: 'missing-mw-provider',
+        async *streamResponse() {
+          yield { type: 'done' };
+        },
+        async generateResponse() {
+          return {
+            message: {
+              role: 'assistant',
+              content: 'ok even when optional middleware missing',
+            },
+          };
+        },
+      },
+    });
+
+    const result = await runtime.runPrompt('hello');
+    expect(result.summary.status).toBe('completed');
+    expect(result.assistantMessage?.content).toContain('ok even when optional middleware missing');
+  });
+
+  test('runtime can load trace-viewer from cli package dependencies', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-trace-viewer-cli-deps-'));
+    tempDirs.push(root);
+    const traceDir = path.join(root, 'traces');
+    const previousTraceHtml = process.env.TRACE_HTML;
+    const previousTraceJson = process.env.TRACE_JSON;
+    process.env.TRACE_HTML = '1';
+    process.env.TRACE_JSON = '0';
+
+    try {
+      const runtime = await ChatRuntime.create({
+        cwd: root,
+        sessionStore: new FileSessionStore(root),
+        profile: {
+          name: 'test',
+          provider: 'mock',
+          model: 'model-x',
+          theme: 'plain',
+          storageDir: root,
+          toolPolicy: mergeToolPolicy(),
+          capabilities: {
+            tools: { enabled: ['terminal'], disabled: [], config: {} },
+            skills: { enabled: [], disabled: [], directories: [path.join(root, '.sisu', 'skills')] },
+            middleware: {
+              enabled: ['error-boundary', 'invariants', 'register-tools', 'tool-calling', 'trace-viewer'],
+              disabled: [],
+              pipeline: [
+                { id: 'error-boundary', enabled: true, config: {} },
+                { id: 'invariants', enabled: true, config: {} },
+                { id: 'register-tools', enabled: true, config: {} },
+                { id: 'tool-calling', enabled: true, config: {} },
+                { id: 'trace-viewer', enabled: true, config: {} },
+              ],
+            },
+          },
+        },
+        provider: {
+          id: 'trace-provider',
+          async *streamResponse() {
+            yield { type: 'done' };
+          },
+          async generateResponse() {
+            return {
+              message: {
+                role: 'assistant',
+                content: 'trace loaded from cli deps',
+              },
+            };
+          },
+        },
+      });
+
+      const result = await runtime.runPrompt('hello trace');
+      expect(result.summary.status).toBe('completed');
+      expect(result.assistantMessage?.content).toContain('trace loaded from cli deps');
+    } finally {
+      process.env.TRACE_HTML = previousTraceHtml;
+      process.env.TRACE_JSON = previousTraceJson;
+    }
   });
 
   test('runtime does not double-append streamed assistant tokens', async () => {
@@ -371,6 +689,78 @@ describe('chat cli', () => {
     expect(newSessionId).not.toBe(sessionId);
     expect(runtime.getState().sessionId).toBe(newSessionId);
     expect(runtime.getState().messages.length).toBe(0);
+  });
+
+  test('runtime create resumes explicit session id when snapshot exists', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-session-arg-'));
+    tempDirs.push(root);
+    const store = new FileSessionStore(root);
+
+    const first = await ChatRuntime.create({
+      sessionStore: store,
+      provider: createMockProvider('assistant response'),
+      profile: {
+        name: 'test',
+        provider: 'mock',
+        model: 'model-x',
+        theme: 'plain',
+        storageDir: root,
+        toolPolicy: mergeToolPolicy(),
+      },
+    });
+    await first.runPrompt('remember me');
+    const savedId = first.getState().sessionId;
+
+    const resumed = await ChatRuntime.create({
+      sessionStore: store,
+      sessionId: savedId,
+      provider: createMockProvider('assistant response'),
+      profile: {
+        name: 'test',
+        provider: 'mock',
+        model: 'model-x',
+        theme: 'plain',
+        storageDir: root,
+        toolPolicy: mergeToolPolicy(),
+      },
+    });
+    expect(resumed.getState().sessionId).toBe(savedId);
+    expect(resumed.getState().messages.some((message) => message.content.includes('remember me'))).toBe(true);
+  });
+
+  test('runtime injects configured system prompt into provider messages', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-system-prompt-'));
+    tempDirs.push(root);
+    let sawSystemPrompt = false;
+    const runtime = await ChatRuntime.create({
+      sessionStore: new FileSessionStore(root),
+      profile: {
+        name: 'test',
+        provider: 'mock',
+        model: 'model-x',
+        theme: 'plain',
+        storageDir: root,
+        toolPolicy: mergeToolPolicy(),
+        systemPrompt: 'You are concise.',
+      },
+      provider: {
+        id: 'sys-provider',
+        async *streamResponse() {
+          yield { type: 'done' };
+        },
+        async generateResponse(input) {
+          sawSystemPrompt = input.messages.some((message) => message.role === 'system' && message.content === 'You are concise.');
+          return {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+          };
+        },
+      },
+    });
+    await runtime.runPrompt('hello');
+    expect(sawSystemPrompt).toBe(true);
   });
 
   test('runtime deleteSession removes snapshots and rotates active session when needed', async () => {
@@ -526,6 +916,22 @@ llama3.1                 def             4.7 GB    now
     });
     const next = await runtime.setModel('sisu-mock-chat-v1');
     expect(next.model).toBe('sisu-mock-chat-v1');
+  });
+
+  test('updateProjectProfile persists systemPrompt', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sisu-chat-profile-system-prompt-'));
+    tempDirs.push(root);
+    const profilePath = path.join(root, '.sisu', 'chat-profile.json');
+    const updated = await updateProjectProfile(
+      { provider: 'mock', model: 'sisu-mock-chat-v1', systemPrompt: 'Be direct and brief.' },
+      {
+        cwd: root,
+        homeDir: root,
+        projectPath: profilePath,
+        globalPath: path.join(root, 'global-profile.json'),
+      },
+    );
+    expect(updated.systemPrompt).toBe('Be direct and brief.');
   });
 
   test('ollama model suggestions only include installed models', async () => {

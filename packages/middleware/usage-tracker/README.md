@@ -19,7 +19,7 @@ import { usageTracker } from '@sisu-ai/mw-usage-tracker';
 
 const app = new Agent()
   .use(usageTracker({
-    'openai:gpt-4o-mini': {
+    'openai:gpt-5.4': {
       // Preferred: prices per 1M tokens (matches provider docs)
       inputPer1M: 0.15,
       outputPer1M: 0.60,

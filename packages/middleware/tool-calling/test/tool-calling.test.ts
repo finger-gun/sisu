@@ -1,6 +1,7 @@
 import { test, expect } from "vitest";
 import type { Ctx, Tool, Message, GenerateOptions } from "@sisu-ai/core";
 import { InMemoryKV, NullStream, SimpleTools, compose } from "@sisu-ai/core";
+import { registerTools } from "@sisu-ai/mw-register-tools";
 import { toolCalling, iterativeToolCalling } from "../src/index.js";
 
 function makeCtx(partial: Partial<Ctx> = {}): Ctx {
@@ -541,4 +542,46 @@ test("tool-calling supports partial aliasing (some tools aliased, some not)", as
   await compose([toolCalling])(ctx);
   const toolMsgs = ctx.messages.filter((m: any) => m.role === "tool");
   expect(toolMsgs.length).toBe(2);
+});
+
+test("tool-calling interoperates with registerTools alias mappings", async () => {
+  const run: Tool<{ cmd: string }> = {
+    name: "terminalRun",
+    schema: { parse: (x: any) => x },
+    handler: async ({ cmd }: { cmd: string }) => ({ output: `ran:${cmd}` }),
+  } as any;
+
+  const ctx = makeCtx({
+    model: {
+      name: "dummy",
+      capabilities: { functionCall: true },
+      generate: async (_messages: any[], opts: any) => {
+        if (opts.toolChoice !== "none" && opts.tools) {
+          const toolNames = opts.tools.map((t: any) => t.name);
+          expect(toolNames).toContain("bash");
+          expect(toolNames).not.toContain("terminalRun");
+          return {
+            message: {
+              role: "assistant",
+              content: "",
+              tool_calls: [{ id: "1", name: "bash", arguments: { cmd: "pwd" } }],
+            },
+          } as any;
+        }
+        return { message: { role: "assistant", content: "done" } } as any;
+      },
+    } as any,
+  });
+
+  await compose([
+    registerTools([run], { aliases: { terminalRun: "bash" } }),
+    toolCalling,
+  ])(ctx);
+
+  expect(ctx.messages.at(-1)).toEqual({ role: "assistant", content: "done" });
+  expect(
+    ctx.messages.some(
+      (m: any) => m.role === "tool" && String(m.content).includes("ran:pwd"),
+    ),
+  ).toBe(true);
 });

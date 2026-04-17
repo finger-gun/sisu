@@ -1,5 +1,8 @@
-## MODIFIED Requirements
+## Purpose
 
+Define storage tooling requirements for persisting vectorized agent knowledge.
+
+## Requirements
 ### Requirement: Communication-Aware Storage Tool
 The `@sisu-ai/tool-rag` package SHALL expose a separate high-level storage tool that allows agents to persist communication-derived content for future semantic retrieval.
 

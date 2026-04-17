@@ -7,7 +7,7 @@ Usage
 - Alternate (full command): `TRACE_HTML=1 npm run dev -w examples/ollama-vision -- --trace --trace-style=dark`
 
 Notes
-- Requires a vision-capable Ollama model (e.g. `llava:latest` or a Qwen VL model). Make sure it’s pulled locally: `ollama pull llava:latest`.
+- Requires a vision-capable Ollama model (e.g. `gemma4:e4b` or `llava:latest`).
 - You can pass your own image URL as the first CLI arg. The adapter will download it and inline as base64 automatically.
 
 Config Flags (CLI overrides env)

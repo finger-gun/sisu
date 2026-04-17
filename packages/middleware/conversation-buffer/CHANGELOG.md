@@ -1,5 +1,27 @@
 # @sisu-ai/mw-conversation-buffer
 
+## 12.0.0
+
+### Patch Changes
+
+- 3f417c7: Adopt the new middleware-first execution flow across core and generated app scaffolds.
+
+  Core now standardizes execution around `execute` and `executeStream` middleware patterns, including configurable streaming sink usage through `executeStream(opts)` and consistent typed execution results/events in context state.
+
+  `@sisu-ai/mw-tool-calling` remains available as legacy compatibility middleware, now explicitly documented as a migration path to core execution middleware.
+
+  CLI templates and installer guidance now scaffold the core execution approach by default so new projects follow the recommended runtime pattern out of the box.
+
+- Updated dependencies [3f417c7]
+  - @sisu-ai/core@2.6.0
+
+## 11.0.0
+
+### Patch Changes
+
+- Updated dependencies [aa659d9]
+  - @sisu-ai/core@2.5.0
+
 ## 10.0.0
 
 ### Patch Changes

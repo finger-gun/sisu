@@ -5,6 +5,7 @@ import {
   type Ctx,
   type ModelResponse,
   type AssistantMessage,
+  inputToMessage,
 } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
@@ -42,14 +43,6 @@ const ctx = createCtx({
   systemPrompt:
     "You are a helpful assistant that thinks carefully and shows your reasoning process.",
 });
-
-// Middleware to convert input to user message
-const inputToMessage = async (c: Ctx, next: () => Promise<void>) => {
-  if (c.input) {
-    c.messages.push({ role: "user", content: c.input });
-  }
-  await next();
-};
 
 // Helper to display reasoning details in a user-friendly way
 const displayReasoningInfo = (
@@ -230,6 +223,9 @@ const reasoningTurns = ctx.messages.filter(
   (m) => m.role === "assistant" && (m as AssistantMessage).reasoning_details,
 ).length;
 console.log(`\n🧠 Reasoning turns: ${reasoningTurns}`);
+const finalMessage = ctx.messages
+  .filter((m) => m.role === "assistant")
+  .pop() as AssistantMessage | undefined;
 
 if (reasoningTurns > 0) {
   console.log("✅ Reasoning details successfully captured and preserved");
@@ -239,7 +235,6 @@ if (reasoningTurns > 0) {
   console.log("💡 This model may not support extended reasoning");
 }
 
-const finalMessage = ctx.messages.filter((m) => m.role === "assistant").pop();
 if (finalMessage) {
   console.log("\n✨ FINAL ANSWER:");
   console.log("─".repeat(50));

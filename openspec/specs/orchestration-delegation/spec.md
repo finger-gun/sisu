@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define delegation requirements for orchestration-driven multi-agent execution.
+
+## Requirements
 ### Requirement: Orchestrator control surface is delegation-first
 The orchestration middleware SHALL constrain orchestrator control actions to `delegateTask` and `finish` so delegated execution remains explicit and auditable.
 

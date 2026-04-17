@@ -13,7 +13,6 @@
     "@sisu-ai/adapter-openai": "latest",
     "@sisu-ai/mw-conversation-buffer": "latest",
     "@sisu-ai/mw-register-tools": "latest",
-    "@sisu-ai/mw-tool-calling": "latest",
     "@sisu-ai/rag-core": "latest",
     "@sisu-ai/tool-rag": "latest",
     "@sisu-ai/vector-vectra": "latest",

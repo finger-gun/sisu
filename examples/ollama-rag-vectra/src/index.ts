@@ -1,10 +1,9 @@
 import path from "node:path";
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, execute, getExecutionResult } from "@sisu-ai/core";
 import { ollamaAdapter, ollamaEmbeddings } from "@sisu-ai/adapter-ollama";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { registerTools } from "@sisu-ai/mw-register-tools";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { inputToMessage } from "@sisu-ai/mw-conversation-buffer";
 import { storeRagContent } from "@sisu-ai/rag-core";
 import { createRagTools } from "@sisu-ai/tool-rag";
@@ -12,7 +11,7 @@ import { createVectraVectorStore } from "@sisu-ai/vector-vectra";
 import { docs } from "./docs";
 
 const model = ollamaAdapter({
-  model: process.env.MODEL || "llama3.1",
+  model: process.env.MODEL || "gemma4:e4b",
   baseUrl: process.env.BASE_URL,
 });
 const embeddings = ollamaEmbeddings({
@@ -78,16 +77,12 @@ const queryAgent = new Agent()
   .use(traceViewer())
   .use(registerTools(ragTools))
   .use(inputToMessage)
-  .use(toolCalling);
+  .use(execute);
 
 try {
   await runIngestion();
   await queryAgent.handler()(queryCtx);
-
-  const final = queryCtx.messages
-    .filter((message) => message.role === "assistant")
-    .pop();
-  console.log("\nAssistant:\n", final?.content);
+  console.log("\nAssistant:\n", getExecutionResult(queryCtx)?.text);
 } catch (error) {
   if (
     error instanceof Error &&
@@ -99,7 +94,7 @@ try {
       "embeddinggemma";
     console.error("\n❌ Ollama model not found:", missingModel);
     console.error("💡 Pull the required models first:");
-    console.error(`   ollama pull ${process.env.MODEL || "llama3.1"}`);
+    console.error(`   ollama pull ${process.env.MODEL || "gemma4:e4b"}`);
     console.error(`   ollama pull ${missingModel}`);
     console.error(
       "   Or set EMBEDDING_MODEL to a local embedding model you already have.",

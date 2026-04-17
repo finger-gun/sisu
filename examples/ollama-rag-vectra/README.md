@@ -22,7 +22,7 @@ Start Ollama and pull both a chat model and an embedding model:
 
 ```bash
 ollama serve
-ollama pull llama3.1
+ollama pull gemma4:e4b
 ollama pull embeddinggemma
 ```
 
@@ -33,7 +33,7 @@ If you already use a different local embedding model, set `EMBEDDING_MODEL` inst
 Set environment:
 
 ```bash
-export MODEL=llama3.1
+export MODEL=gemma4:e4b
 export EMBEDDING_MODEL=embeddinggemma
 export BASE_URL=http://localhost:11434
 

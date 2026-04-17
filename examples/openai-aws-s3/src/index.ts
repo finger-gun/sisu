@@ -1,12 +1,11 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import { Agent, createCtx, parseLogLevel, execute, getExecutionResult } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
   inputToMessage,
   conversationBuffer,
 } from "@sisu-ai/mw-conversation-buffer";
-import { iterativeToolCalling } from "@sisu-ai/mw-tool-calling";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import {
@@ -20,15 +19,10 @@ const bucket = process.env.AWS_S3_BUCKET || "my-bucket";
 const prefix = process.env.AWS_S3_PREFIX || "";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: `List 3 largest files in s3://${bucket}/${prefix}.`,
   systemPrompt: "You are a helpful assistant.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
   state: {
     s3: {
       allowWrite: /^(1|true|yes)$/i.test(
@@ -51,7 +45,7 @@ const app = new Agent()
   .use(
     usageTracker(
       {
-        "openai:gpt-4o-mini": {
+        "openai:gpt-5.4": {
           // Preferred: prices per 1M tokens (matches provider docs)
           inputPer1M: 0.15,
           outputPer1M: 0.6,
@@ -72,8 +66,7 @@ const app = new Agent()
   .use(registerTools([s3ListObjectsDetailed, s3GetObject, s3DeleteObject]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 6 }))
-  .use(iterativeToolCalling);
+  .use(execute);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

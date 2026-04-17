@@ -1,12 +1,11 @@
 import "dotenv/config";
-import { Agent, createCtx, type Tool } from "@sisu-ai/core";
+import { Agent, createCtx, type Tool, parseLogLevel, execute, getExecutionResult } from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import {
   inputToMessage,
   conversationBuffer,
 } from "@sisu-ai/mw-conversation-buffer";
-import { iterativeToolCalling } from "@sisu-ai/mw-tool-calling";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
@@ -42,15 +41,10 @@ const userInput =
   "Please list the files in the current directory using the 'bash' command, then read the package.json file using 'read_file'.";
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: process.env.MODEL || "gpt-4o-mini" }),
+  model: openAIAdapter({ model: process.env.MODEL || "gpt-5.4" }),
   input: userInput,
   systemPrompt: "You are a helpful assistant with access to terminal commands.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
 });
 
 const app = new Agent()
@@ -84,7 +78,7 @@ const app = new Agent()
   )
   .use(inputToMessage)
   .use(conversationBuffer({ window: 6 }))
-  .use(iterativeToolCalling);
+  .use(execute);
 
 console.log("🚀 Running agent with aliased terminal tools...");
 console.log("📝 Prompt:", userInput);
@@ -96,8 +90,7 @@ console.log("");
 
 await app.handler()(ctx);
 
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\n✅ Assistant response:\n", final?.content);
+console.log("\n✅ Assistant response:\n", getExecutionResult(ctx)?.text);
 console.log("\n💡 Check the generated trace file (trace-*.html) to see:");
 console.log("   - Tools sent to API with alias names (bash, read_file, cd)");
 console.log("   - Model calling tools using alias names");

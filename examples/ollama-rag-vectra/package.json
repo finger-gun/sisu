@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "@types/node": "^24.12.2"
   },
   "dependencies": {
     "@sisu-ai/core": "workspace:*",
@@ -21,7 +22,6 @@
     "@sisu-ai/mw-conversation-buffer": "workspace:*",
     "@sisu-ai/mw-trace-viewer": "workspace:*",
     "@sisu-ai/mw-register-tools": "workspace:*",
-    "@sisu-ai/mw-tool-calling": "workspace:*",
     "@sisu-ai/rag-core": "workspace:*",
     "@sisu-ai/tool-rag": "workspace:*",
     "@sisu-ai/vector-vectra": "workspace:*",

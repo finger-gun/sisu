@@ -19,10 +19,10 @@ afterEach(() => {
 });
 
 describe('cli copy-assets script', () => {
-  test('copies templates into dist', async () => {
+  test('copies templates, skill assets, and discovery metadata into dist', async () => {
     await import('../scripts/copy-assets.mjs');
-    expect(rm).toHaveBeenCalledTimes(1);
-    expect(mkdir).toHaveBeenCalledTimes(1);
-    expect(cp).toHaveBeenCalledTimes(1);
+    expect(rm).toHaveBeenCalledTimes(3);
+    expect(mkdir).toHaveBeenCalledTimes(3);
+    expect(cp).toHaveBeenCalledTimes(3);
   });
 });

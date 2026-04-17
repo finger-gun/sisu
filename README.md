@@ -21,6 +21,8 @@ Inspired by the Finnish concept of <i>sisu</i> calm determination under pressure
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcore)](https://www.npmjs.com/package/@sisu-ai/core)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
+[sisuai.me](https://sisuai.me/)
+
 </div>
 
 ---
@@ -31,7 +33,7 @@ Inspired by the Finnish concept of <i>sisu</i> calm determination under pressure
 
 ```bash
 pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
-         @sisu-ai/mw-register-tools @sisu-ai/mw-tool-calling \
+         @sisu-ai/mw-register-tools \
          @sisu-ai/mw-conversation-buffer @sisu-ai/mw-trace-viewer \
          @sisu-ai/mw-error-boundary zod dotenv
 ```
@@ -40,11 +42,10 @@ pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
 
 ```ts
 import "dotenv/config";
-import { Agent, createCtx, type Tool } from "@sisu-ai/core";
+import { Agent, createCtx, execute, getExecutionResult, type Tool } from "@sisu-ai/core";
 import { registerTools } from "@sisu-ai/mw-register-tools";
 import { inputToMessage, conversationBuffer } from "@sisu-ai/mw-conversation-buffer";
 import { errorBoundary } from "@sisu-ai/mw-error-boundary";
-import { toolCalling } from "@sisu-ai/mw-tool-calling";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { z } from "zod";
@@ -57,7 +58,7 @@ const weather: Tool<{ city: string }> = {
 };
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: "gpt-4o-mini" }),
+  model: openAIAdapter({ model: "gpt-5.4" }),
   input: "What is the weather in Stockholm?",
   systemPrompt: "You are a helpful assistant.",
 });
@@ -68,9 +69,10 @@ const app = new Agent()
   .use(registerTools([weather]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling);
+  .use(execute);
 
 await app.handler()(ctx);
+console.log(getExecutionResult(ctx)?.text);
 ```
 
 Open `traces/viewer.html` to see exactly what happened.
@@ -116,7 +118,8 @@ const app = new Agent()
   .use(errorBoundary())
   .use(traceViewer())
   .use(registerTools([...]))
-  .use(toolCalling);
+  .use(inputToMessage)
+  .use(execute);
 ```
 
 ### One Context, Zero Magic
@@ -162,16 +165,16 @@ import { sequence, branch, parallel, graph } from '@sisu-ai/mw-control-flow';
 ### Swap Providers in One Line
 
 ```ts
-const model = openAIAdapter({ model: "gpt-4o-mini" });
+const model = openAIAdapter({ model: "gpt-5.4" });
 // const model = anthropicAdapter({ model: 'claude-sonnet-4' });
-// const model = ollamaAdapter({ model: 'llama3.1' });
+// const model = ollamaAdapter({ model: 'gemma4:e4b' });
 ```
 
 The OpenAI adapter works with any compatible API (LM Studio, vLLM, OpenRouter):
 
 ```ts
 const model = openAIAdapter({
-  model: "gpt-4o-mini",
+  model: "gpt-5.4",
   baseUrl: "http://localhost:1234/v1",
 });
 ```
@@ -193,7 +196,7 @@ const model = openAIAdapter({
 | Category       | Packages |
 | -------------- | -------- |
 | Control Flow   | [`sequence`](packages/middleware/control-flow/) · [`branch`](packages/middleware/control-flow/) · [`parallel`](packages/middleware/control-flow/) · [`graph`](packages/middleware/control-flow/) |
-| Tool Management | [`registerTools`](packages/middleware/register-tools/) · [`toolCalling`](packages/middleware/tool-calling/) |
+| Tool Management | [`registerTools`](packages/middleware/register-tools/) · core `execute` / `executeStream` |
 | Conversation   | [`conversationBuffer`](packages/middleware/conversation-buffer/) · [`contextCompressor`](packages/middleware/context-compressor/) |
 | Safety         | [`errorBoundary`](packages/middleware/error-boundary/) · [`guardrails`](packages/middleware/guardrails/) · [`invariants`](packages/middleware/invariants/) |
 | Observability  | [`traceViewer`](packages/middleware/trace-viewer/) · [`usageTracker`](packages/middleware/usage-tracker/) |
@@ -240,9 +243,11 @@ open examples/openai-hello/traces/trace.html
 # OpenAI orchestration
 pnpm run ex:openai:orchestration
 pnpm run ex:openai:orchestration-adaptive
+pnpm run ex:openai:orchestration-custom
+pnpm run ex:openai:orchestration-remote
 
 # Ollama (local, no API key needed)
-ollama serve && ollama pull llama3.1
+ollama serve && ollama pull gemma4:e4b
 pnpm run ex:ollama:hello
 
 # Desktop macOS app (starts local runtime + SwiftUI app)
@@ -274,7 +279,7 @@ npx @sisu-ai/cli install skill
 # LLM Providers
 API_KEY=sk-...
 BASE_URL=http://localhost:11434           # optional, when overriding provider defaults
-MODEL=gpt-4o-mini                         # optional, example/provider dependent
+MODEL=gpt-5.4                         # optional, example/provider dependent
 
 # Logging
 LOG_LEVEL=info        # debug | info | warn | error
@@ -325,7 +330,7 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 - [@sisu-ai/mw-rag](packages/middleware/rag/README.md)
 - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md)
 - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md)
-- [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md)
+- [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md) *(legacy compatibility)*
 - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md)
 - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
 </details>
@@ -343,6 +348,7 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 - [@sisu-ai/tool-web-fetch](packages/tools/web-fetch/README.md)
 - [@sisu-ai/tool-web-search-duckduckgo](packages/tools/web-search-duckduckgo/README.md)
 - [@sisu-ai/tool-web-search-google](packages/tools/web-search-google/README.md)
+- [@sisu-ai/tool-web-search-linkup](packages/tools/web-search-linkup/README.md)
 - [@sisu-ai/tool-web-search-openai](packages/tools/web-search-openai/README.md)
 - [@sisu-ai/tool-wikipedia](packages/tools/wikipedia/README.md)
 </details>
@@ -382,11 +388,11 @@ Built with [Turbo](https://turbo.build/), [pnpm workspaces](https://pnpm.io/), [
 <details>
 <summary>All examples</summary>
 
-**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [vision](examples/anthropic-vision/README.md) · [weather](examples/anthropic-weather/README.md)
+**Anthropic** — [hello](examples/anthropic-hello/README.md) · [control-flow](examples/anthropic-control-flow/README.md) · [stream](examples/anthropic-stream/README.md) · [vision](examples/anthropic-vision/README.md) · [weather](examples/anthropic-weather/README.md) · [linkup-web-search](examples/anthropic-linkup-web-search/README.md)
 
-**Ollama** — [hello](examples/ollama-hello/README.md) · [stream](examples/ollama-stream/README.md) · [vision](examples/ollama-vision/README.md) · [weather](examples/ollama-weather/README.md) · [web-search](examples/ollama-web-search/README.md)
+**Ollama** — [hello](examples/ollama-hello/README.md) · [stream](examples/ollama-stream/README.md) · [vision](examples/ollama-vision/README.md) · [weather](examples/ollama-weather/README.md) · [web-search](examples/ollama-web-search/README.md) · [linkup-web-search](examples/ollama-linkup-web-search/README.md)
 
-**OpenAI** — [hello](examples/openai-hello/README.md) · [weather](examples/openai-weather/README.md) · [stream](examples/openai-stream/README.md) · [vision](examples/openai-vision/README.md) · [reasoning](examples/openai-reasoning/README.md) · [react](examples/openai-react/README.md) · [control-flow](examples/openai-control-flow/README.md) · [branch](examples/openai-branch/README.md) · [parallel](examples/openai-parallel/README.md) · [graph](examples/openai-graph/README.md) · [orchestration](examples/openai-orchestration/README.md) · [orchestration-adaptive](examples/openai-orchestration-adaptive/README.md) · [guardrails](examples/openai-guardrails/README.md) · [error-handling](examples/openai-error-handling/README.md) · [rag-chroma](examples/openai-rag-chroma/README.md) · [rag-vectra](examples/openai-rag-vectra/README.md) · [web-search](examples/openai-web-search/README.md) · [web-fetch](examples/openai-web-fetch/README.md) · [wikipedia](examples/openai-wikipedia/README.md) · [terminal](examples/openai-terminal/README.md) · [github-projects](examples/openai-github-projects/README.md) · [server](examples/openai-server/README.md) · [aws-s3](examples/openai-aws-s3/README.md) · [azure-blob](examples/openai-azure-blob/README.md)
+**OpenAI** — [hello](examples/openai-hello/README.md) · [weather](examples/openai-weather/README.md) · [stream](examples/openai-stream/README.md) · [vision](examples/openai-vision/README.md) · [reasoning](examples/openai-reasoning/README.md) · [react](examples/openai-react/README.md) · [control-flow](examples/openai-control-flow/README.md) · [branch](examples/openai-branch/README.md) · [parallel](examples/openai-parallel/README.md) · [graph](examples/openai-graph/README.md) · [orchestration](examples/openai-orchestration/README.md) · [orchestration-adaptive](examples/openai-orchestration-adaptive/README.md) · [orchestration-custom-executor](examples/openai-orchestration-custom-executor/README.md) · [orchestration-remote-executor](examples/openai-orchestration-remote-executor/README.md) · [guardrails](examples/openai-guardrails/README.md) · [error-handling](examples/openai-error-handling/README.md) · [rag-chroma](examples/openai-rag-chroma/README.md) · [rag-vectra](examples/openai-rag-vectra/README.md) · [web-search](examples/openai-web-search/README.md) · [linkup-web-search](examples/openai-linkup-web-search/README.md) · [web-fetch](examples/openai-web-fetch/README.md) · [wikipedia](examples/openai-wikipedia/README.md) · [terminal](examples/openai-terminal/README.md) · [github-projects](examples/openai-github-projects/README.md) · [server](examples/openai-server/README.md) · [aws-s3](examples/openai-aws-s3/README.md) · [azure-blob](examples/openai-azure-blob/README.md)
 </details>
 
 ---

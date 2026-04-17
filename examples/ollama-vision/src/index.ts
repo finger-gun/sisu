@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Agent, createCtx, type Ctx, type ModelResponse } from "@sisu-ai/core";
+import { Agent, createCtx, type Ctx, type ModelResponse, parseLogLevel, execute, getExecutionResult } from "@sisu-ai/core";
 import { usageTracker } from "@sisu-ai/mw-usage-tracker";
 import { traceViewer } from "@sisu-ai/mw-trace-viewer";
 import { ollamaAdapter } from "@sisu-ai/adapter-ollama";
@@ -8,7 +8,6 @@ import { ollamaAdapter } from "@sisu-ai/adapter-ollama";
 const imageUrl =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Wall_climbing_place_v%C3%A4stra_kullaberg.jpg/1920px-Wall_climbing_place_v%C3%A4stra_kullaberg.jpg";
 
-// Use content parts to include text + image (adapter maps to images[] and auto-fetches URL → base64)
 const userMessage = {
   role: "user",
   content: [
@@ -18,14 +17,9 @@ const userMessage = {
 } as unknown as Ctx["messages"][number];
 
 const ctx = createCtx({
-  model: ollamaAdapter({ model: process.env.MODEL || "llava:latest" }),
+  model: ollamaAdapter({ model: process.env.MODEL || "gemma4:e4b" }),
   systemPrompt: "You are a concise, helpful assistant.",
-  logLevel: process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined,
+  logLevel: parseLogLevel(process.env.LOG_LEVEL),
   tools: {
     list: () => [],
     get: () => undefined,
@@ -37,14 +31,6 @@ const ctx = createCtx({
 
 // Add the user message with image after context creation
 ctx.messages.push(userMessage);
-
-const generateOnce = async (c: Ctx) => {
-  const res = (await c.model.generate(c.messages, {
-    toolChoice: "none",
-    signal: c.signal,
-  })) as ModelResponse;
-  if (res?.message) c.messages.push(res.message);
-};
 
 const app = new Agent()
   .use(async (c, next) => {
@@ -66,8 +52,7 @@ const app = new Agent()
       { logPerCall: true },
     ),
   )
-  .use(generateOnce);
+  .use(execute);
 
 await app.handler()(ctx);
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

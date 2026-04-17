@@ -10,15 +10,17 @@ Lightweight core contracts and utilities that give you full control over your AI
 [![Downloads](https://img.shields.io/npm/dm/%40sisu-ai%2Fcore)](https://www.npmjs.com/package/@sisu-ai/core)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/finger-gun/sisu/blob/main/CONTRIBUTING.md)
 
+[sisuai.me](https://sisuai.me/)
+
 ---
 
 ## Why @sisu-ai/core?
 
-🎯 **Minimal & Focused** - Just the essentials. No bloat, no opinions.  
-🔧 **Fully Typed** - TypeScript-first with strict mode support.  
-🎨 **Composable** - Build complex agents from simple, testable pieces.  
-🔍 **Transparent** - Everything flows through one typed context—what you see is what runs.  
-🛡️ **Production-Ready** - Built-in error handling, logging, and secret redaction.
+**Minimal & Focused** - Just the essentials. No bloat, no opinions.  
+**Fully Typed** - TypeScript-first with strict mode support.  
+**Composable** - Build complex agents from simple, testable pieces.  
+**Transparent** - Everything flows through one typed context—what you see is what runs.  
+**Production-Ready** - Built-in error handling, logging, and secret redaction.
 
 ---
 
@@ -26,44 +28,54 @@ Lightweight core contracts and utilities that give you full control over your AI
 
 ### Install
 ```bash
-npm i @sisu-ai/core
+pnpm add @sisu-ai/core @sisu-ai/adapter-openai \
+         @sisu-ai/mw-register-tools \
+         @sisu-ai/mw-trace-viewer \
+         @sisu-ai/mw-error-boundary zod dotenv
 ```
 
-### 60-Second Example
+### Your First Agent
 ```ts
 import 'dotenv/config';
-import { Agent, createCtx } from '@sisu-ai/core';
+import {
+  Agent,
+  createCtx,
+  execute,
+  getExecutionResult,
+  inputToMessage,
+  type Tool,
+} from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
+import { registerTools } from '@sisu-ai/mw-register-tools';
+import { errorBoundary } from '@sisu-ai/mw-error-boundary';
+import { traceViewer } from '@sisu-ai/mw-trace-viewer';
+import { z } from 'zod';
 
-// 1. Create your context
+const weather: Tool<{ city: string }> = {
+  name: 'getWeather',
+  description: 'Get weather for a city',
+  schema: z.object({ city: z.string() }),
+  handler: async ({ city }) => ({ city, tempC: 21, summary: 'Sunny' }),
+};
+
 const ctx = createCtx({
-  model: openAIAdapter({ model: 'gpt-4o-mini' }),
-  input: 'Say hello in one short sentence.',
+  model: openAIAdapter({ model: 'gpt-5.4' }),
+  input: 'What is the weather in Stockholm?',
   systemPrompt: 'You are a helpful assistant.',
-  logLevel: 'info'
 });
 
-// 2. Build your pipeline (middleware style)
-const inputToMessage = async (c, next) => { 
-  if (c.input) c.messages.push({ role: 'user', content: c.input }); 
-  await next(); 
-};
-
-const generateOnce = async (c) => { 
-  const res = await c.model.generate(c.messages, { toolChoice: 'none', signal: c.signal });
-  if (res?.message) c.messages.push(res.message);
-};
-
 const app = new Agent()
+  .use(errorBoundary())
+  .use(traceViewer())
+  .use(registerTools([weather]))
   .use(inputToMessage)
-  .use(generateOnce);
+  .use(execute);
 
-// 3. Run it!
 await app.handler()(ctx);
-console.log('✅', ctx.messages.filter(m => m.role === 'assistant').pop()?.content);
+console.log(getExecutionResult(ctx)?.text);
 ```
 
-**Want more?** Check out the [examples](https://github.com/finger-gun/sisu/tree/main/examples) or the [full documentation](https://github.com/finger-gun/sisu).
+Open `traces/viewer.html` to inspect the run.
 
 ---
 
@@ -79,19 +91,22 @@ Build on solid TypeScript foundations:
 - **`Message`** - Chat message shape (system/user/assistant/tool)
 - **`Tool<TArgs, TResult>`** - Tool handler with schema validation
 
-### 🔧 Composition Utilities
+### Composition Utilities
 Compose complex behavior from simple pieces:
 
 - **`compose(middlewares)`** - Function composition for pipelines
 - **`Agent`** - Convenient class with `.use(mw).handler()`
 
-### 🛠️ Context & Helpers
+### Context & Helpers
 Everything you need to get started:
 
-- **`createCtx(options)`** - Factory with sensible defaults (⭐ **Recommended**)
+- **`createCtx(options)`** - Factory with sensible defaults (**Recommended**)
+- **`execute`** / **`executeWith(opts)`** - Non-streaming execution middleware
+- **`executeStream`** - Streaming execution middleware (`.use(executeStream)` or `.use(executeStream(opts))`)
+- **`getExecutionResult(ctx)`** / **`getExecutionEvents(ctx)`** - Read typed execution outputs from context state
 - **`createConsoleLogger({ level, timestamps })`** - Leveled logging
 - **`createTracingLogger(base?)`** - Captures events for trace viewers
-- **`createRedactingLogger(base, opts)`** - Auto-redacts secrets 🔒
+- **`createRedactingLogger(base, opts)`** - Auto-redacts secrets
 - **`InMemoryKV`** - Basic key-value store with toy retrieval
 - **`NullStream`** / **`stdoutStream`** - Token stream implementations
 - **`SimpleTools`** - In-memory tool registry
@@ -117,7 +132,7 @@ import { createCtx } from '@sisu-ai/core';
 import { openAIAdapter } from '@sisu-ai/adapter-openai';
 
 const ctx = createCtx({
-  model: openAIAdapter({ model: 'gpt-4o-mini' }),  // Required
+  model: openAIAdapter({ model: 'gpt-5.4' }),  // Required
   input: 'Say hello in one short sentence.',       // Optional
   systemPrompt: 'You are a helpful assistant.',    // Optional
   logLevel: 'info'                                  // Optional
@@ -154,7 +169,7 @@ import {
 const ctx: Ctx = {
   input: 'Say hello in one short sentence.',
   messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-  model: openAIAdapter({ model: 'gpt-4o-mini' }),
+  model: openAIAdapter({ model: 'gpt-5.4' }),
   tools: new SimpleTools(),
   memory: new InMemoryKV(),
   stream: new NullStream(),
@@ -178,6 +193,77 @@ Use any provider by implementing `LLM.generate(messages, opts)`:
 **Return types:**
 - `Promise<ModelResponse>` for non-streaming calls
 - `AsyncIterable<ModelEvent>` for token streaming
+
+---
+
+## Execution APIs (Recommended)
+
+Use core execution APIs as the primary runtime path.
+
+### Non-streaming
+
+```ts
+import {
+  Agent,
+  createCtx,
+  execute,
+  getExecutionResult,
+  inputToMessage,
+} from '@sisu-ai/core';
+
+const ctx = createCtx({ model, input: 'What is the weather in Malmö?' });
+const app = new Agent().use(inputToMessage).use(execute);
+
+await app.handler()(ctx);
+const result = getExecutionResult(ctx);
+
+console.log(result?.text);
+console.log(result?.toolExecutions.length ?? 0);
+```
+
+### Streaming
+
+```ts
+import {
+  Agent,
+  createCtx,
+  executeStream,
+  getExecutionResult,
+  inputToMessage,
+  teeStream,
+  stdoutStream,
+  bufferStream,
+} from '@sisu-ai/core';
+
+const buf = bufferStream();
+const ctx = createCtx({
+  model,
+  input: 'Explain stars simply.',
+});
+const app = new Agent()
+  .use(inputToMessage)
+  .use(executeStream({ sink: teeStream(stdoutStream, buf.stream) }));
+
+await app.handler()(ctx);
+console.log('\nFinal:', getExecutionResult(ctx)?.text);
+```
+
+`executeStream` can be used either as `.use(executeStream)` (uses `ctx.stream`, defaulting to `NullStream`) or as `.use(executeStream({ sink }))` for a fixed sink.
+
+### Migration from legacy `mw-tool-calling`
+
+```ts
+// Before
+app.use(registerTools([weather])).use(inputToMessage).use(toolCalling);
+await app.handler()(ctx);
+const final = ctx.messages.filter(m => m.role === 'assistant').pop();
+
+// After
+import { execute, getExecutionResult } from '@sisu-ai/core';
+app.use(registerTools([weather])).use(inputToMessage).use(execute);
+await app.handler()(ctx);
+console.log(getExecutionResult(ctx)?.text);
+```
 
 ---
 
@@ -215,13 +301,13 @@ const events = getTrace();
 console.log(events); // Array of { level, ts, args }
 ```
 
-### 🔒 Redacting Secrets
+### Redacting Secrets
 **Never log sensitive data accidentally.**
 
 The redacting logger auto-detects and masks:
-- 🔑 API keys (OpenAI `sk-...`, Google `AIza...`, AWS `AKIA...`)
-- 🎫 Auth tokens (JWT, GitHub PAT, OAuth)
-- 🔒 Common secret key names (`apiKey`, `password`, `token`, etc.)
+- API keys (OpenAI `sk-...`, Google `AIza...`, AWS `AKIA...`)
+- Auth tokens (JWT, GitHub PAT, OAuth)
+- Common secret key names (`apiKey`, `password`, `token`, etc.)
 
 ```ts
 import { createRedactingLogger, createConsoleLogger } from '@sisu-ai/core';
@@ -251,7 +337,7 @@ const customLogger = createRedactingLogger(createConsoleLogger(), {
 
 ---
 
-## 🔧 Tools & Memory
+## Tools & Memory
 
 ### SimpleTools Registry
 Basic in-memory tool storage (perfect for demos and tests):
@@ -283,17 +369,17 @@ const retrieval = memory.retrieval('docs-index');
 const results = await retrieval.search('query', 4);
 ```
 
-### 🛡️ Tool Context Sandboxing
+### Tool Context Sandboxing
 Tools receive **restricted context** for safety and clarity:
 
-**✅ Available in ToolContext:**
+**Available in ToolContext:**
 - `memory` - Persistent storage access
 - `signal` - AbortSignal for cancellation
 - `log` - Logger for debugging
 - `model` - LLM interface (for meta-tools)
 - `deps` - Optional dependency injection
 
-**❌ Not available (sandboxed):**
+**Not available (sandboxed):**
 - `tools` - Prevents recursive tool calls
 - `messages` - Prevents conversation manipulation
 - `state` - Prevents middleware state access
@@ -309,7 +395,7 @@ export const myTool: Tool<{ input: string }> = {
   description: 'Example with restricted context',
   schema: z.object({ input: z.string() }),
   handler: async ({ input }, ctx: ToolContext) => {
-    // ✅ Can use: memory, signal, log, model, deps
+    // Can use: memory, signal, log, model, deps
     ctx.log.info('Processing', { input });
     
     // Access storage
@@ -338,7 +424,7 @@ ctx.state = {
 
 ---
 
-## 🚨 Error Handling
+## Error Handling
 
 Sisu provides **structured errors** with codes, context, and stack traces.
 
@@ -488,11 +574,11 @@ Sisu's core stays intentionally minimal. Everything else—tools, control flow, 
 
 <div align="center">
 
-**Built with ❤️ and sisu.**
+**Built with care and sisu.**
 
 *Quiet, determined, relentlessly useful.*
 
-[⭐ Star on GitHub](https://github.com/finger-gun/sisu) • [📦 View on npm](https://www.npmjs.com/package/@sisu-ai/core)
+[Star on GitHub](https://github.com/finger-gun/sisu) • [View on npm](https://www.npmjs.com/package/@sisu-ai/core)
 
 </div>
 
@@ -519,7 +605,7 @@ Sisu's core stays intentionally minimal. Everything else—tools, control flow, 
 - [@sisu-ai/mw-rag](packages/middleware/rag/README.md)
 - [@sisu-ai/mw-react-parser](packages/middleware/react-parser/README.md)
 - [@sisu-ai/mw-register-tools](packages/middleware/register-tools/README.md)
-- [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md)
+- [@sisu-ai/mw-tool-calling](packages/middleware/tool-calling/README.md) *(legacy compatibility)*
 - [@sisu-ai/mw-trace-viewer](packages/middleware/trace-viewer/README.md)
 - [@sisu-ai/mw-usage-tracker](packages/middleware/usage-tracker/README.md)
 </details>

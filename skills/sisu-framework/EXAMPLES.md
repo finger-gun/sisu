@@ -17,6 +17,9 @@ pnpm ex:ollama:hello        # Local Ollama version
 # Tool usage
 pnpm ex:openai:weather      # Weather tool
 pnpm ex:openai:web-search   # Web search
+pnpm ex:openai:linkup-web-search # LinkUp web search
+pnpm ex:ollama:linkup-web-search # LinkUp web search (Ollama)
+pnpm ex:anthropic:linkup-web-search # LinkUp web search (Anthropic)
 pnpm ex:openai:terminal     # Terminal commands
 pnpm ex:openai:wikipedia    # Wikipedia search
 
@@ -75,6 +78,7 @@ pnpm ex:anthropic:skills    # Anthropic + skills
 ### Tools and integrations
 
 - **[openai-web-search](https://github.com/finger-gun/sisu/tree/main/examples/openai-web-search)** - Web search integration
+- **[openai-linkup-web-search](https://github.com/finger-gun/sisu/tree/main/examples/openai-linkup-web-search)** - LinkUp web search integration
 - **[openai-web-fetch](https://github.com/finger-gun/sisu/tree/main/examples/openai-web-fetch)** - Fetch URL contents
 - **[openai-wikipedia](https://github.com/finger-gun/sisu/tree/main/examples/openai-wikipedia)** - Wikipedia search
 - **[openai-terminal](https://github.com/finger-gun/sisu/tree/main/examples/openai-terminal)** - Execute shell commands
@@ -108,6 +112,7 @@ pnpm ex:anthropic:skills    # Anthropic + skills
 - **[anthropic-stream](https://github.com/finger-gun/sisu/tree/main/examples/anthropic-stream)** - Streaming responses
 - **[anthropic-control-flow](https://github.com/finger-gun/sisu/tree/main/examples/anthropic-control-flow)** - Control flow patterns
 - **[anthropic-skills](https://github.com/finger-gun/sisu/tree/main/examples/anthropic-skills)** - Skills with Claude
+- **[anthropic-linkup-web-search](https://github.com/finger-gun/sisu/tree/main/examples/anthropic-linkup-web-search)** - LinkUp web search with Claude
 
 ## Ollama examples
 
@@ -116,6 +121,7 @@ pnpm ex:anthropic:skills    # Anthropic + skills
 - **[ollama-stream](https://github.com/finger-gun/sisu/tree/main/examples/ollama-stream)** - Local streaming
 - **[ollama-vision](https://github.com/finger-gun/sisu/tree/main/examples/ollama-vision)** - Image understanding locally
 - **[ollama-web-search](https://github.com/finger-gun/sisu/tree/main/examples/ollama-web-search)** - Web search with local LLM
+- **[ollama-linkup-web-search](https://github.com/finger-gun/sisu/tree/main/examples/ollama-linkup-web-search)** - LinkUp web search with local LLM
 
 ## Example structure
 
@@ -168,6 +174,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 # Web search examples
 GOOGLE_API_KEY=...
 GOOGLE_SEARCH_ENGINE_ID=...
+LINKUP_API_KEY=...
 
 # Cloud storage examples
 AWS_ACCESS_KEY_ID=...
@@ -236,7 +243,7 @@ const app = new Agent()
   .use(registerTools([weatherTool]))
   .use(inputToMessage)
   .use(conversationBuffer({ window: 8 }))
-  .use(toolCalling);
+  .use(execute);
 ```
 
 ### Control flow agent
@@ -255,14 +262,7 @@ const app = new Agent()
 See: `openai-stream`, `anthropic-stream`, `ollama-stream`
 
 ```typescript
-const app = new Agent().use(inputToMessage).use(async (ctx) => {
-  const stream = await ctx.model.generate(ctx.messages, { stream: true });
-  for await (const event of stream) {
-    if (event.type === "token" && event.delta) {
-      await ctx.stream.write(event.delta);
-    }
-  }
-});
+const app = new Agent().use(inputToMessage).use(executeStream);
 ```
 
 ### RAG agent
@@ -279,7 +279,7 @@ const app = new Agent()
     }),
   )
   .use(inputToMessage)
-  .use(toolCalling);
+  .use(execute);
 ```
 
 ## Tips for using examples

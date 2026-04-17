@@ -1,0 +1,36 @@
+{
+  "name": "@sisu-ai/discovery",
+  "version": "0.2.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/generated/catalog.json",
+    "src/generated/recipes.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "generate": "node ./scripts/generate.mjs",
+    "build": "pnpm run generate && tsc -b && cp src/generated/*.json dist/",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.js",
+    "lint:fix": "eslint src --ext .ts,.js --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finger-gun/sisu",
+    "directory": "packages/discovery"
+  },
+  "homepage": "https://github.com/finger-gun/sisu#readme",
+  "bugs": {
+    "url": "https://github.com/finger-gun/sisu/issues"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.0"
+  }
+}

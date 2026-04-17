@@ -1,5 +1,8 @@
-## ADDED Requirements
+## Purpose
 
+Define backend-agnostic requirements for RAG tools across vector providers.
+
+## Requirements
 ### Requirement: Generic RAG Tools Use Vector Store Contract
 Agent-facing store/retrieve tools MUST consume a backend-agnostic vector store contract and MUST NOT directly call backend-specific SDK APIs.
 

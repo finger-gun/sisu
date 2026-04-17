@@ -1,5 +1,11 @@
 import "dotenv/config";
-import { Agent, createCtx } from "@sisu-ai/core";
+import {
+  Agent,
+  createCtx,
+  execute,
+  getExecutionResult,
+  parseLogLevel,
+} from "@sisu-ai/core";
 import { openAIAdapter } from "@sisu-ai/adapter-openai";
 import {
   inputToMessage,
@@ -104,19 +110,14 @@ const argvPrompt = process.argv
 const userPrompt =
   argvPrompt || "Plan a weather-aware day in Malmö and keep it concise.";
 
-const modelName = process.env.MODEL || "gpt-4o-mini";
+const modelName = process.env.MODEL || "gpt-5.4";
 
 const ctx = createCtx({
   model: openAIAdapter({ model: modelName }),
   input: userPrompt,
   systemPrompt:
     `You are an orchestration controller.\nAlways use delegateTask for specialized work and finish with finish(answer).\nComplete 3 delegation phases before finish:\n1) research using tools [getWeather, getCityEvents]\n2) risk review using [assessOutdoorRisk]\n3) synthesis using [summarizePlan]\nIf delegation feedback reports validation errors, fix and retry.\nFinal answer must include: plan, risk note, and one backup option.`,
-  logLevel: (process.env.LOG_LEVEL as
-    | "debug"
-    | "info"
-    | "warn"
-    | "error"
-    | undefined) ?? "info",
+  logLevel: parseLogLevel(process.env.LOG_LEVEL) ?? "info",
 });
 
 const app = new Agent()
@@ -142,9 +143,9 @@ const app = new Agent()
       maxChildTurns: 6,
       modelResolver: (_requestedModel, parentCtx) => parentCtx.model,
     }),
-  );
+  )
+  .use(execute);
 
 await app.handler()(ctx);
 
-const final = ctx.messages.filter((m) => m.role === "assistant").pop();
-console.log("\nAssistant:\n", final?.content);
+console.log("\nAssistant:\n", getExecutionResult(ctx)?.text);

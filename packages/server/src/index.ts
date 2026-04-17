@@ -1,6 +1,6 @@
 import http, { type IncomingMessage, type ServerResponse } from "http";
 import https from "https";
-import type { Agent, Logger, Ctx } from "@sisu-ai/core";
+import type { Logger, Ctx } from "@sisu-ai/core";
 import { createConsoleLogger, createRedactingLogger } from "@sisu-ai/core";
 import { EventEmitter } from "events";
 import type { AddressInfo } from "net";
@@ -22,10 +22,14 @@ export interface ListenOptions<Ctx> {
   redactLogKeys?: string[]; // additional keys to redact in logs
 }
 
+export interface AgentRunner<CtxT extends Ctx> {
+  handler(): (ctx: CtxT, next?: () => Promise<void>) => Promise<void> | void;
+}
+
 type HttpEnvelope<CtxT extends Ctx> = {
   req?: IncomingMessage;
   res?: ServerResponse;
-  agent?: Agent<CtxT>;
+  agent?: AgentRunner<CtxT>;
 };
 
 type EmitterHandlerArgs = Parameters<EventEmitter["on"]>[1] extends (
@@ -45,7 +49,7 @@ export class Server<CtxT extends Ctx & HttpEnvelope<CtxT>> {
   private emitter = new EventEmitter();
 
   constructor(
-    private agent: Agent<CtxT>,
+    private agent: AgentRunner<CtxT>,
     private opts: ListenOptions<CtxT> = {},
   ) {
     this.basePath = opts.basePath ?? "/api";

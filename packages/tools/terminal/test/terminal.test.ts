@@ -66,6 +66,20 @@ test("run_command allows https args without path rejection", async () => {
   expect(res.policy.allowed).toBe(true);
 });
 
+test("run_command validates quoting in pipeline segments", async () => {
+  const t = createTerminalTool({ roots: [root], allowPipe: true });
+  const res = await t.run_command({ command: "echo 'oops | wc -l" });
+  expect(res.policy.allowed).toBe(false);
+  expect(res.policy.reason).toContain("invalid quoting");
+});
+
+test("run_command blocks pipeline path outside roots", async () => {
+  const t = createTerminalTool({ roots: [root], allowPipe: true });
+  const res = await t.run_command({ command: "cat /etc/passwd | wc -l" });
+  expect(res.policy.allowed).toBe(false);
+  expect(res.policy.reason).toContain("path outside roots");
+});
+
 test("read_file refuses outside roots", async () => {
   const res = await tool.read_file({ path: "/etc/passwd" });
   expect((res as any).policy.allowed).toBe(false);
@@ -83,6 +97,23 @@ test("start_session fails when sessions disabled", () => {
     sessions: { enabled: false, ttlMs: 1, maxPerAgent: 1 },
   });
   expect(() => t.start_session({ cwd: root })).toThrow(/sessions disabled/);
+});
+
+test("start_session rejects cwd outside roots", () => {
+  const t = createTerminalTool({ roots: [root] });
+  expect(() => t.start_session({ cwd: "/" })).toThrow(/cwd outside allowed roots/);
+});
+
+test("expired sessions are ignored when used", async () => {
+  const t = createTerminalTool({
+    roots: [root],
+    sessions: { enabled: true, ttlMs: 1, maxPerAgent: 3 },
+  });
+  const { sessionId } = t.start_session({ cwd: root });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const res = await t.run_command({ command: "pwd", sessionId });
+  expect(res.policy.allowed).toBe(true);
+  expect(res.stdout.trim()).toBe(root);
 });
 
 test("read_file throws when read capability disabled", async () => {
@@ -103,6 +134,16 @@ test("run_command returns error on spawn failure", async () => {
   const res = await t.run_command({ command: "__nope__" });
   expect(res.exitCode).toBe(-1);
   expect(res.stderr.length).toBeGreaterThan(0);
+});
+
+test("run_command rejects disallowed env key and keeps PATH constrained", async () => {
+  const t = createTerminalTool({ roots: [root] });
+  const res = await t.run_command({
+    command: "pwd",
+    env: { PATH: "/tmp", USER: "ignored", HOME: process.env.HOME || root },
+  });
+  expect(res.policy.allowed).toBe(true);
+  expect(res.stdout.trim()).toBe(root);
 });
 
 test("read_file returns base64 contents", async () => {

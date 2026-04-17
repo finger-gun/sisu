@@ -4,8 +4,11 @@ import {
   parseFlags,
   configFromFlagsAndEnv,
   firstConfigValue,
+  parseLogLevel,
+  inputToMessage,
   bufferStream,
   teeStream,
+  InMemoryKV,
   SimpleTools,
   NullStream,
 } from '../src/util.js';
@@ -31,6 +34,15 @@ test('configFromFlagsAndEnv maps multiple names with precedence', () => {
   const conf = configFromFlagsAndEnv(['OPENAI_API_KEY','BASE_URL'], flags, env);
   expect(conf.OPENAI_API_KEY).toBe('cli');
   expect(conf.BASE_URL).toBe('http://cli.example');
+});
+
+test('parseLogLevel accepts valid values and rejects unknown ones', () => {
+  expect(parseLogLevel('debug')).toBe('debug');
+  expect(parseLogLevel('INFO')).toBe('info');
+  expect(parseLogLevel('warn')).toBe('warn');
+  expect(parseLogLevel('error')).toBe('error');
+  expect(parseLogLevel('trace')).toBeUndefined();
+  expect(parseLogLevel(undefined)).toBeUndefined();
 });
 
 test('bufferStream captures writes and teeStream fans out', () => {
@@ -61,6 +73,25 @@ test('NullStream is a safe no-op', () => {
   s.end();
 });
 
+test('inputToMessage appends user input when present', async () => {
+  const ac = new AbortController();
+  const ctx = {
+    input: 'hello',
+    messages: [],
+    model: { name: 'dummy', capabilities: {}, async generate() { return { message: { role: 'assistant', content: '' } }; } },
+    tools: new SimpleTools(),
+    memory: new InMemoryKV(),
+    stream: new NullStream(),
+    state: {},
+    signal: ac.signal,
+    log: { debug() {}, info() {}, warn() {}, error() {}, span() {} },
+  } as unknown as Ctx;
+
+  await inputToMessage(ctx, async () => {});
+
+  expect(ctx.messages).toEqual([{ role: 'user', content: 'hello' }]);
+});
+
 test('createTracingLogger records events and forwards', () => {
   const { logger, getTrace, reset } = createTracingLogger();
   logger.debug('a');
@@ -75,4 +106,3 @@ test('createTracingLogger records events and forwards', () => {
   reset();
   expect(getTrace().length).toBe(0);
 });
-
